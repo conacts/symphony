@@ -1,10 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
-  buildSymphonyTrackerIssue,
-  buildSymphonyGitHubIssueCommentPayload,
-  buildSymphonyGitHubPullRequestReviewCommentPayload,
-  buildSymphonyGitHubPullRequestReviewPayload,
-  signSymphonyGitHubWebhook
+  buildSymphonyTrackerIssue
 } from "@symphony/test-support";
 import {
   createSymphonyIssueStore,
@@ -934,7 +930,7 @@ describe("@symphony/api app", () => {
     expect(payload.data.entries).toEqual([]);
   });
 
-  it("fails closed on invalid params and ingests GitHub review events", async () => {
+  it("fails closed on invalid params", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review"
@@ -943,36 +939,15 @@ describe("@symphony/api app", () => {
     harnesses.push(harness);
 
     const app = createSymphonyRuntimeApp(harness.services);
-    const rawBody = JSON.stringify(buildSymphonyGitHubPullRequestReviewPayload());
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
     const invalidResponse = await app.request("/api/v1/issues?limit=0");
-    const ingressResponse = await app.request("/api/v1/github/review-events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-github-delivery": "delivery-1",
-        "x-github-event": "pull_request_review",
-        "x-hub-signature-256": signature
-      },
-      body: rawBody
-    });
     const invalidPayload = await responseJson<{
       error: {
         code: string;
       };
     }>(invalidResponse);
-    const ingressPayload = await responseJson<{
-      data: {
-        accepted: boolean;
-      };
-    }>(ingressResponse);
 
     expect(invalidResponse.status).toBe(400);
     expect(invalidPayload.error.code).toBe("VALIDATION_FAILED");
-
-    expect(ingressResponse.status).toBe(202);
-    expect(ingressPayload.data.accepted).toBe(true);
   });
 
   it("fails closed on invalid agent analytics query params", async () => {
@@ -995,161 +970,6 @@ describe("@symphony/api app", () => {
 
     expect(invalidItemsResponse.status).toBe(400);
     expect(invalidItemsPayload.error.code).toBe("VALIDATION_FAILED");
-  });
-
-  it("accepts raw GitHub issue_comment webhooks", async () => {
-    const harness = await createSymphonyRuntimeTestHarness({
-      issue: {
-        state: "In Review"
-      }
-    });
-    harnesses.push(harness);
-
-    const app = createSymphonyRuntimeApp(harness.services);
-    const rawBody = JSON.stringify(buildSymphonyGitHubIssueCommentPayload());
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-    const ingressResponse = await app.request("/api/v1/github/review-events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-github-delivery": "delivery-issue-comment-1",
-        "x-github-event": "issue_comment",
-        "x-hub-signature-256": signature
-      },
-      body: rawBody
-    });
-    const ingressPayload = await responseJson<{
-      data: {
-        accepted: boolean;
-        event: string;
-      };
-    }>(ingressResponse);
-
-    expect(ingressResponse.status).toBe(202);
-    expect(ingressPayload.data.accepted).toBe(true);
-    expect(ingressPayload.data.event).toBe("issue_comment");
-  });
-
-  it(
-    "accepts GitHub review ingress and leaves intelligent-flow issues in review",
-    async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness();
-      harnesses.push(harness);
-
-      const tracker = harness.services.tracker as MemorySymphonyTracker;
-      tracker.setIssues([
-        buildSymphonyTrackerIssue({
-          identifier: "COL-123",
-          state: "In Review",
-          branchName: "symphony/COL-123"
-        })
-      ]);
-      const routedDispatches: Array<{
-        workflowId: string;
-        commandId: string;
-        issueIdentifier: string;
-        runMode: string;
-      }> = [];
-      harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
-        routedDispatches.push({
-          workflowId: input.workflowId,
-          commandId: input.commandId,
-          issueIdentifier: input.trackerIssue.identifier,
-          runMode: input.runMode
-        });
-      };
-
-      const app = createSymphonyRuntimeApp(harness.services);
-      const rawBody = JSON.stringify(buildSymphonyGitHubPullRequestReviewPayload());
-      const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-      const ingressResponse = await app.request("/api/v1/github/review-events", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-github-delivery": "delivery-review-structured-handoff",
-          "x-github-event": "pull_request_review",
-          "x-hub-signature-256": signature
-        },
-        body: rawBody
-      });
-      const trackedIssue = await harness.services.tracker.fetchIssueByIdentifier(
-        harness.runtimePolicy.tracker,
-        "COL-123"
-      );
-      const issueTimeline = await harness.services.issueTimeline.list({
-        issueIdentifier: "COL-123"
-      });
-      const runtimeLogs = await harness.services.runtimeLogs.list({
-        issueIdentifier: "COL-123"
-      });
-
-      expect(ingressResponse.status).toBe(202);
-      expect(trackedIssue?.state).toBe("In Review");
-      expect(routedDispatches).toEqual([]);
-      expect(
-        issueTimeline?.entries.some(
-          (entry) =>
-            entry.message === "Recorded GitHub review feedback for a future run."
-        ) ?? false
-      ).toBe(false);
-      expect(
-        issueTimeline?.entries.some(
-          (entry) => entry.eventType === "github_review_ingress_processed"
-        ) ?? false
-      ).toBe(false);
-      expect(runtimeLogs.logs).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            issueIdentifier: "COL-123",
-            source: "github_review_ingress",
-            eventType: "github_review_ingress_processed",
-            message: "Processed GitHub review ingress event.",
-            payload: expect.objectContaining({
-              status: "matched"
-            })
-          })
-        ])
-      );
-    },
-    runtimeHttpIntegrationTestTimeoutMs
-  );
-
-  it("accepts raw GitHub pull_request_review_comment webhooks", async () => {
-    const harness = await createSymphonyRuntimeTestHarness({
-      issue: {
-        state: "In Review"
-      }
-    });
-    harnesses.push(harness);
-
-    const app = createSymphonyRuntimeApp(harness.services);
-    const rawBody = JSON.stringify(
-      buildSymphonyGitHubPullRequestReviewCommentPayload()
-    );
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-    const ingressResponse = await app.request("/api/v1/github/review-events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-github-delivery": "delivery-pr-review-comment-1",
-        "x-github-event": "pull_request_review_comment",
-        "x-hub-signature-256": signature
-      },
-      body: rawBody
-    });
-    const ingressPayload = await responseJson<{
-      data: {
-        accepted: boolean;
-        event: string;
-      };
-    }>(ingressResponse);
-
-    expect(ingressResponse.status).toBe(202);
-    expect(ingressPayload.data.accepted).toBe(true);
-    expect(ingressPayload.data.event).toBe("pull_request_review_comment");
   });
 
   it("allows local dashboard origins to read the runtime api", async () => {

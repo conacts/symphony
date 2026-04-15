@@ -1,6 +1,4 @@
 export {
-  buildSymphonyGithubIssueCommentEvent,
-  buildSymphonyGithubReviewEvent,
   buildSymphonyOrchestratorSnapshot,
   buildSymphonyRunFinishAttrs,
   buildSymphonyRunStartAttrs,
@@ -11,19 +9,6 @@ export {
   buildSymphonyRuntimePolicy
 } from "./core-builders.js";
 export { createTestWorkspaceBackend } from "@symphony/workspace/test-support";
-export {
-  buildSymphonyGitHubIssueCommentPayload,
-  buildSymphonyGitHubPullRequestReviewCommentPayload,
-  buildSymphonyGitHubPullRequestReviewPayload,
-  buildSymphonyGitHubReviewIngressResult,
-  buildSymphonyGitHubWebhookHeaders,
-  signSymphonyGitHubWebhook
-} from "./github-builders.js";
-export type {
-  SymphonyGitHubIngressRequestFixture,
-  SymphonyGitHubIssueCommentIngressFixture
-} from "./github-review-flow-builders.js";
-export { buildSymphonyGitHubIssueCommentIngressFixture } from "./github-review-flow-builders.js";
 export {
   buildSymphonyForensicsIssueDetailResult,
   buildSymphonyForensicsIssueListResult,

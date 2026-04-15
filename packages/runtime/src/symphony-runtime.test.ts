@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildSymphonyRuntimePolicy,
   createTestWorkspaceBackend
@@ -61,23 +61,7 @@ const inertLifecycleRouting: {
 };
 
 describe("symphony runtime review seam", () => {
-  it("runs reviews through the explicit provider and publisher contracts", async () => {
-    const provider = {
-      review: vi.fn(async (request: { issueId: string }) => ({
-        summary: `Review for ${request.issueId}`,
-        findings: [
-          {
-            title: "Missing check",
-            body: "Add a guard before dispatch."
-          }
-        ]
-      }))
-    };
-    const publisher = {
-      publishReview: vi.fn(async (review) => ({
-        deliveredFindings: review.findings.length
-      }))
-    };
+  it("constructs the runtime without optional review surfaces", async () => {
     const runtime = createSymphonyRuntime({
       runtimePolicy: buildSymphonyRuntimePolicy(),
       tracker: inertTracker,
@@ -92,57 +76,11 @@ describe("symphony runtime review seam", () => {
         },
         async stopRun() {}
       }),
-      ...inertLifecycleRouting,
-      reviewProvider: provider,
-      reviewPublisher: publisher
+      ...inertLifecycleRouting
     });
 
-    await expect(runtime.runReview({ issueId: "COL-123" })).resolves.toEqual({
-      deliveredFindings: 1
-    });
-    expect(provider.review).toHaveBeenCalledWith({
-      issueId: "COL-123"
-    });
-    expect(publisher.publishReview).toHaveBeenCalledWith({
-      summary: "Review for COL-123",
-      findings: [
-        {
-          title: "Missing check",
-          body: "Add a guard before dispatch."
-        }
-      ]
-    });
-  });
-
-  it("returns null when the explicit review provider skips publication", async () => {
-    const runtime = createSymphonyRuntime({
-      runtimePolicy: buildSymphonyRuntimePolicy(),
-      tracker: inertTracker,
-      workspaceBackend: createTestWorkspaceBackend(),
-      agentRuntime: createAgentRuntime({
-        async startRun() {
-          return {
-            threadId: null,
-            workerHost: null,
-            launchTarget: null
-          };
-        },
-        async stopRun() {}
-      }),
-      ...inertLifecycleRouting,
-      reviewProvider: {
-        review: vi.fn(async () => null)
-      },
-      reviewPublisher: {
-        async publishReview(review) {
-          return {
-            delivered: review.findings.length
-          };
-        }
-      }
-    });
-
-    await expect(runtime.runReview("skip")).resolves.toBeNull();
+    expect(runtime.runtimePolicy.agent.harness).toBe("pi");
+    expect(runtime.workspaceBackend).toBeDefined();
   });
 
   it("fails fast when lifecycle routing adapters are omitted", () => {

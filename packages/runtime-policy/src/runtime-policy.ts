@@ -124,11 +124,6 @@ export type SymphonyWorkflowServerConfig = SymphonyServerRuntimePolicy;
 
 export type SymphonyGitHubRuntimePolicy = {
   repo: string | null;
-  webhookSecret: string | null;
-  apiToken: string | null;
-  statePath: string | null;
-  allowedReviewLogins: string[];
-  allowedReviewCommentLogins: string[];
 };
 export type SymphonyWorkflowGitHubConfig = SymphonyGitHubRuntimePolicy;
 
@@ -215,11 +210,7 @@ export function resolveRuntimePolicy(
     effectiveRawConfig.observability
   );
   const server = normalizeServerConfig(effectiveRawConfig.server);
-  const github = normalizeGitHubConfig(
-    effectiveRawConfig.github,
-    env,
-    workspace.root
-  );
+  const github = normalizeGitHubConfig(effectiveRawConfig.github, env);
 
   validateSemanticConfig({
     tracker,
@@ -552,28 +543,11 @@ function normalizeServerConfig(value: unknown): SymphonyServerRuntimePolicy {
 
 function normalizeGitHubConfig(
   value: unknown,
-  env: SymphonyRuntimePolicyEnv,
-  workspaceRoot: string
+  env: SymphonyRuntimePolicyEnv
 ): SymphonyGitHubRuntimePolicy {
   const github = getNestedRecord(value);
   return {
-    repo: normalizeOptionalString(resolveEnvToken(github.repo, env)),
-    webhookSecret:
-      normalizeOptionalString(resolveEnvToken(github.webhookSecret, env)) ??
-      normalizeOptionalString(env.GITHUB_WEBHOOK_SECRET) ??
-      null,
-    apiToken:
-      normalizeOptionalString(resolveEnvToken(github.apiToken, env)) ??
-      normalizeOptionalString(env.GITHUB_TOKEN) ??
-      null,
-    statePath:
-      normalizeOptionalString(resolveEnvToken(github.statePath, env)) ??
-      path.join(workspaceRoot, ".symphony", "github-state.json"),
-    allowedReviewLogins: normalizeStringArray(github.allowedReviewLogins, []),
-    allowedReviewCommentLogins: normalizeStringArray(
-      github.allowedReviewCommentLogins,
-      []
-    )
+    repo: normalizeOptionalString(resolveEnvToken(github.repo, env))
   };
 }
 

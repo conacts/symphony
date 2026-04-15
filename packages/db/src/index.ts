@@ -107,13 +107,6 @@ export type {
   RouteWorkflowStore
 } from "./route-workflow-store.js";
 export {
-  createSymphonyGitHubIngressJournal
-} from "./github-ingress-journal.js";
-export type {
-  SymphonyGitHubIngressJournal,
-  SymphonyGitHubIngressRecordStatus
-} from "./github-ingress-journal.js";
-export {
   createSymphonyRepositoryBindingStore
 } from "./repository-bindings.js";
 export type {

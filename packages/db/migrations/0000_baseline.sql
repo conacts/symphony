@@ -312,21 +312,6 @@ CREATE INDEX IF NOT EXISTS symphony_runtime_logs_recorded_at_idx
 CREATE INDEX IF NOT EXISTS symphony_runtime_logs_repository_issue_identifier_idx
   ON symphony_runtime_logs (repository_key, issue_identifier);
 
-CREATE TABLE IF NOT EXISTS symphony_github_ingress (
-  delivery_id TEXT PRIMARY KEY NOT NULL,
-  event TEXT NOT NULL,
-  repository TEXT NOT NULL,
-  action TEXT,
-  semantic_key TEXT,
-  recorded_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS symphony_github_ingress_semantic_key_idx
-  ON symphony_github_ingress (semantic_key);
-
-CREATE INDEX IF NOT EXISTS symphony_github_ingress_recorded_at_idx
-  ON symphony_github_ingress (recorded_at);
-
 CREATE TABLE IF NOT EXISTS symphony_agent_event_log (
   id TEXT PRIMARY KEY NOT NULL,
   run_id TEXT NOT NULL,

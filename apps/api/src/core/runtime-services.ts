@@ -6,7 +6,6 @@ import {
   type SymphonyDockerWorkspacePreflightResult
 } from "@symphony/workspace";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
-import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
@@ -14,7 +13,6 @@ import {
   createSqliteRuntimeForensicsReadStore,
   createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
-  createSymphonyGitHubIngressJournal,
   initializeSymphonyDb
 } from "@symphony/db";
 import type {
@@ -34,7 +32,6 @@ import {
   type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
-import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
@@ -48,10 +45,6 @@ import {
   createRuntimeHealthPort,
   createRuntimeLogsPort
 } from "./runtime-observability-ports.js";
-import {
-  createGitHubIssueComment,
-  fetchGitHubPullRequestMetadata
-} from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
@@ -661,91 +654,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     capabilityOperator,
     bindingScope: bootstrapBinding.bindingScope
   });
-  const githubReviewIngress = createSymphonyGitHubReviewIngressService({
-    githubPolicy: runtimePolicy.github,
-    admittedRepositories: admittedRepositories.map((entry) => entry.repositoryKey),
-    resolveWebhookSecret: createRepositoryWebhookSecretResolver(
-      environmentSource,
-      runtimePolicy.github.webhookSecret
-    ),
-    reviewProcessor: new SymphonyGithubReviewProcessor({
-      policyConfig: {
-        tracker: runtimePolicy.tracker,
-        github: runtimePolicy.github
-      },
-      tracker,
-      pullRequestResolver: {
-        async fetchPullRequest(pullRequestUrl) {
-          return fetchGitHubPullRequestMetadata(
-            pullRequestUrl,
-            runtimePolicy.github.apiToken,
-            logger
-          );
-        },
-        async createIssueComment(repository, issueNumber, body) {
-          await createGitHubIssueComment({
-            repository,
-            issueNumber,
-            body,
-            apiToken: runtimePolicy.github.apiToken,
-            logger
-          });
-        }
-      }
-    }),
-    eventJournal: createSymphonyGitHubIngressJournal(database.db),
-    logger: logger.child({
-      component: "github_review_ingress"
-    }),
-    async onProcessed(result) {
-      logger.info("Publishing realtime invalidation after GitHub review ingress", {
-        result
-      });
-      const issueIdentifier =
-        "issueIdentifier" in result ? result.issueIdentifier : null;
-      const seededTrackedIssue =
-        issueIdentifier
-          ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
-          : null;
-
-      if (seededTrackedIssue) {
-        await seedTrackedIssueIdentity(seededTrackedIssue);
-      }
-
-      if (
-        result.status !== "ignored" &&
-        result.status !== "skipped" &&
-        issueIdentifier
-      ) {
-        logger.info(
-          "Recorded GitHub review ingress feedback for an intelligent-flow issue.",
-          {
-            issueIdentifier
-          }
-        );
-      }
-
-      const trackedIssue =
-        issueIdentifier
-          ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
-          : null;
-
-      await runtimeLogStore.record({
-        level: "info",
-        source: "github_review_ingress",
-        eventType: "github_review_ingress_processed",
-        message: "Processed GitHub review ingress event.",
-        issueIdentifier: trackedIssue?.identifier ?? null,
-        payload: result
-      });
-      realtime.publishSnapshotUpdated();
-      realtime.publishProblemRunsUpdated();
-
-      if (result.status !== "ignored" && issueIdentifier) {
-        realtime.publishIssueUpdated(issueIdentifier);
-      }
-    }
-  });
 
   pollScheduler = new SymphonyRuntimePollScheduler({
     intervalMs: runtimePolicy.polling.intervalMs,
@@ -798,7 +706,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     capabilityOperator,
     workflowObservability,
     routeWorkflows,
-    githubReviewIngress,
     realtime,
     async shutdown() {
       if (shutdownPromise) {
@@ -938,43 +845,6 @@ export function buildDockerWorkspaceContainerEnv(input: {
     ...dockerPiAuth.launchEnv,
     ...dockerLinearLaunchEnv
   };
-}
-
-function createRepositoryWebhookSecretResolver(
-  environmentSource: Record<string, string | undefined>,
-  fallbackSecret: string | null
-): (repository: string) => string | null {
-  const configuredSecrets =
-    typeof environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRETS === "string"
-      ? parseRepositorySecretMap(environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRETS)
-      : new Map<string, string>();
-
-  return (repository) => configuredSecrets.get(repository) ?? fallbackSecret;
-}
-
-function parseRepositorySecretMap(value: string): Map<string, string> {
-  const secrets = new Map<string, string>();
-
-  for (const entry of value.split(",")) {
-    const normalized = entry.trim();
-    if (normalized.length === 0) {
-      continue;
-    }
-
-    const separatorIndex = normalized.indexOf("=");
-    if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) {
-      continue;
-    }
-
-    const repositoryKey = normalized.slice(0, separatorIndex).trim();
-    const secret = normalized.slice(separatorIndex + 1).trim();
-
-    if (repositoryKey.length > 0 && secret.length > 0) {
-      secrets.set(repositoryKey, secret);
-    }
-  }
-
-  return secrets;
 }
 
 async function preflightDockerWorkspaceBackendSelection(input: {

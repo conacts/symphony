@@ -14,33 +14,16 @@ import {
 } from "@symphony/runtime-policy";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
-  PublishReviewInput,
-  PublishReviewResult,
-  ReviewProvider,
-  ReviewRequest,
-  ReviewPublisher,
-  ReviewResult
-} from "@symphony/review";
-import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { WorkspaceBackend } from "@symphony/workspace";
 
-export interface SymphonyRuntime<
-  Request = ReviewRequest,
-  Reviewed extends ReviewResult = ReviewResult,
-  Published = PublishReviewResult
-> {
+export interface SymphonyRuntime {
   readonly runtimePolicy: SymphonyResolvedRuntimePolicy;
   readonly tracker: SymphonyTracker;
   readonly workspaceBackend: WorkspaceBackend;
   readonly agentRuntime: AgentRuntime;
-  readonly reviewProvider: ReviewProvider<Request, Reviewed> | null;
-  readonly reviewPublisher: ReviewPublisher<
-    PublishReviewInput<Reviewed>,
-    Published
-  > | null;
   snapshot(): SymphonyOrchestratorSnapshot;
   runPollCycle(): Promise<SymphonyOrchestratorSnapshot>;
   shouldDispatchIssue(issue: SymphonyTrackerIssue): boolean;
@@ -56,30 +39,18 @@ export interface SymphonyRuntime<
     completion: SymphonyAgentRuntimeCompletion
   ): Promise<void>;
   shutdownActiveRuns(reason: string): Promise<number>;
-  publishReview(
-    review: PublishReviewInput<Reviewed>
-  ): Promise<PublishReviewResult<Published>>;
-  runReview(input: Request): Promise<PublishReviewResult<Published> | null>;
 }
 
-export function createSymphonyRuntime<
-  Request = ReviewRequest,
-  Reviewed extends ReviewResult = ReviewResult,
-  Published = PublishReviewResult
->(input: {
+export function createSymphonyRuntime(input: {
   runtimePolicy: SymphonyResolvedRuntimePolicy;
   tracker: SymphonyTracker;
   workspaceBackend: WorkspaceBackend;
   agentRuntime: AgentRuntime;
-  reviewProvider?: ReviewProvider<Request, Reviewed> | null;
-  reviewPublisher?: ReviewPublisher<PublishReviewInput<Reviewed>, Published> | null;
   observer?: SymphonyOrchestratorObserver;
   clock?: SymphonyClock;
   runnerEnv?: Record<string, string | undefined>;
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
-}): SymphonyRuntime<Request, Reviewed, Published> {
-  const reviewProvider = input.reviewProvider ?? null;
-  const reviewPublisher = input.reviewPublisher ?? null;
+}): SymphonyRuntime {
   assertLifecycleRoutingConfigured(input);
   const orchestrator = new SymphonyOrchestrator({
     config: toSymphonyOrchestratorConfig(input.runtimePolicy),
@@ -91,29 +62,12 @@ export function createSymphonyRuntime<
     runnerEnv: input.runnerEnv,
     workflowRoutingAdapter: input.workflowRoutingAdapter
   });
-  const publishReview = async (
-    review: PublishReviewInput<Reviewed>
-  ): Promise<PublishReviewResult<Published>> =>
-    await requireReviewPublisher(reviewPublisher).publishReview(review);
-  const runReview = async (
-    reviewRequest: Request
-  ): Promise<PublishReviewResult<Published> | null> => {
-    const resolvedReviewProvider = requireReviewProvider(reviewProvider);
-    const review = await resolvedReviewProvider.review(reviewRequest);
-    if (review === null) {
-      return null;
-    }
-
-    return await publishReview(review);
-  };
 
   return {
     runtimePolicy: input.runtimePolicy,
     tracker: input.tracker,
     workspaceBackend: input.workspaceBackend,
     agentRuntime: input.agentRuntime,
-    reviewProvider,
-    reviewPublisher,
     snapshot() {
       return orchestrator.snapshot();
     },
@@ -139,38 +93,8 @@ export function createSymphonyRuntime<
     },
     async shutdownActiveRuns(reason) {
       return await orchestrator.shutdownActiveRuns(reason);
-    },
-    async publishReview(review) {
-      return await publishReview(review);
-    },
-    async runReview(reviewInput) {
-      return await runReview(reviewInput);
     }
   };
-}
-
-function requireReviewProvider<Request, Reviewed extends ReviewResult>(
-  reviewProvider: ReviewProvider<Request, Reviewed> | null
-): ReviewProvider<Request, Reviewed> {
-  if (reviewProvider) {
-    return reviewProvider;
-  }
-
-  throw new TypeError(
-    "Symphony runtime is not configured with a ReviewProvider."
-  );
-}
-
-function requireReviewPublisher<Input extends ReviewResult, Published>(
-  reviewPublisher: ReviewPublisher<Input, Published> | null
-): ReviewPublisher<Input, Published> {
-  if (reviewPublisher) {
-    return reviewPublisher;
-  }
-
-  throw new TypeError(
-    "Symphony runtime is not configured with a ReviewPublisher."
-  );
 }
 
 function assertLifecycleRoutingConfigured(input: {

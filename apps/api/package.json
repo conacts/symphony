@@ -23,7 +23,6 @@
     "@symphony/env": "workspace:*",
     "@symphony/errors": "workspace:*",
     "@symphony/forensics": "workspace:*",
-    "@symphony/github-review": "workspace:*",
     "@symphony/logger": "workspace:*",
     "@symphony/orchestrator": "workspace:*",
     "@symphony/router": "workspace:*",

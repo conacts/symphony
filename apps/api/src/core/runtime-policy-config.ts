@@ -41,9 +41,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
   const workspaceRoot =
     readOptionalString(environmentSource.SYMPHONY_WORKSPACE_ROOT) ??
     path.join(cwd, ".symphony", "workspaces");
-  const githubStatePath =
-    readOptionalString(environmentSource.SYMPHONY_GITHUB_STATE_PATH) ??
-    path.join(workspaceRoot, ".symphony", "github-state.json");
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
   const requestedPiProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
   const matchedPiProfileDefaults = findSymphonyPiProfileDefaults(requestedPiProfile);
@@ -153,20 +150,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     github: {
       repo:
         readOptionalString(environmentSource.SYMPHONY_GITHUB_REPOSITORY) ??
-        readOptionalString(environmentSource.GITHUB_REPOSITORY),
-      webhookSecret: readOptionalString(environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRET),
-      apiToken:
-        readOptionalString(environmentSource.SYMPHONY_GITHUB_API_TOKEN) ??
-        readOptionalString(environmentSource.GITHUB_TOKEN),
-      statePath: githubStatePath,
-      allowedReviewLogins:
-        readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS) ?? [],
-      ...(readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS)
-        ? {
-            allowedReviewCommentLogins:
-              readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS) ?? []
-          }
-        : {})
+        readOptionalString(environmentSource.GITHUB_REPOSITORY)
     } as SymphonyResolvedRuntimePolicy["github"]
   };
 }

@@ -32,9 +32,6 @@
       "path": "../../packages/forensics/tsconfig.build.json"
     },
     {
-      "path": "../../packages/github-review/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/orchestrator/tsconfig.build.json"
     },
     {

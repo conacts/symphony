@@ -614,9 +614,6 @@ function createRuntimeServicesStub(
       loadByIssueIdentifier: vi.fn().mockResolvedValue(null)
     },
     routeWorkflows: {} as SymphonyRuntimeAppServices["routeWorkflows"],
-    githubReviewIngress: {
-      ingest: vi.fn()
-    } as SymphonyRuntimeAppServices["githubReviewIngress"],
     realtime: {
       openConnection: vi.fn(),
       closeConnection: vi.fn(),

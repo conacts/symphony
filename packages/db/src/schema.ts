@@ -2249,26 +2249,6 @@ export const routeWorkflowCapabilityPlannerCommandsTable = sqliteTable(
   })
 );
 
-export const symphonyGitHubIngressTable = sqliteTable(
-  "symphony_github_ingress",
-  {
-    deliveryId: text("delivery_id").primaryKey(),
-    event: text("event").notNull(),
-    repository: text("repository").notNull(),
-    action: text("action"),
-    semanticKey: text("semantic_key"),
-    recordedAt: text("recorded_at").notNull()
-  },
-  (table) => ({
-    semanticKeyIdx: index("symphony_github_ingress_semantic_key_idx").on(
-      table.semanticKey
-    ),
-    recordedAtIdx: index("symphony_github_ingress_recorded_at_idx").on(
-      table.recordedAt
-    )
-  })
-);
-
 export const symphonyMigrationStateTable = sqliteTable(
   "symphony_migrations",
   {
@@ -2383,6 +2363,5 @@ export const symphonySchema = {
   routeWorkflowExecutionContractsTable,
   routeWorkflowCapabilityPlannerDecisionsTable,
   routeWorkflowCapabilityPlannerCommandsTable,
-  symphonyGitHubIngressTable,
   symphonyMigrationStateTable
 };

@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@symphony/orchestrator": "workspace:*",
-    "@symphony/review": "workspace:*",
     "@symphony/runtime-policy": "workspace:*",
     "@symphony/tracker": "workspace:*",
     "@symphony/workspace": "workspace:*"

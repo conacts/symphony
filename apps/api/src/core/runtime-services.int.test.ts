@@ -1406,10 +1406,6 @@ async function createRuntimeBootstrapFixture(input: {
     SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
     SYMPHONY_POLL_INTERVAL_MS: "50",
     SYMPHONY_GITHUB_REPOSITORY: "openai/symphony",
-    SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
-    SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
     ...input.environmentSource
   };
 
@@ -1497,11 +1493,7 @@ async function createMultiRepoRuntimeBootstrapFixture(): Promise<{
     SYMPHONY_LINEAR_TEAM_KEY: "COL",
     SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
     SYMPHONY_POLL_INTERVAL_MS: "50",
-    SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2",
-    SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
-    SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer"
+    SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2"
   };
 
   return {

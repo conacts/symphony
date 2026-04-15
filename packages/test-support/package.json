@@ -14,7 +14,6 @@
   "dependencies": {
     "@symphony/contracts": "workspace:*",
     "@symphony/db": "workspace:*",
-    "@symphony/github-review": "workspace:*",
     "@symphony/orchestrator": "workspace:*",
     "@symphony/runtime-contract": "workspace:*",
     "@symphony/runtime-policy": "workspace:*",

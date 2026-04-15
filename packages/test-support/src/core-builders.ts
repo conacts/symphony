@@ -6,9 +6,6 @@ import type {
   SymphonyRuntimeTurnFinishAttrs,
   SymphonyRuntimeTurnStartAttrs
 } from "@symphony/db";
-import type {
-  SymphonyGitHubReviewEvent
-} from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import {
   buildSymphonyTrackerIssue
@@ -39,10 +36,6 @@ export function buildSymphonyRuntimePolicy(
   const defaultPiProfileDefaults = defaultSymphonyPiProfileDefaults();
   const workspaceRoot =
     overrides.workspace?.root ?? path.join(tmpdir(), "symphony-test-workspaces");
-  const githubStatePath =
-    overrides.github?.statePath === undefined
-      ? path.join(workspaceRoot, ".symphony", "github-state.json")
-      : overrides.github.statePath;
   const {
     toolTimeoutMs: overriddenPiToolTimeoutMs,
     ...remainingPiOverrides
@@ -147,63 +140,8 @@ export function buildSymphonyRuntimePolicy(
     },
     github: {
       repo: "openai/symphony",
-      webhookSecret: null,
-      apiToken: null,
-      statePath: githubStatePath,
-      allowedReviewLogins: [],
-      allowedReviewCommentLogins: [],
       ...overrides.github
     }
-  };
-}
-
-export function buildSymphonyGithubReviewEvent(
-  overrides: Partial<
-    Extract<SymphonyGitHubReviewEvent, { event: "pull_request_review" }>
-  > = {}
-): SymphonyGitHubReviewEvent {
-  const payload =
-    "payload" in overrides && overrides.payload
-      ? overrides.payload
-      : {
-          reviewState: "changes_requested",
-          reviewBody: "The current implementation needs one more pass.",
-          authorLogin: "reviewer",
-          headRef: "symphony/COL-123",
-          headSha: "abc123",
-          reviewId: 1,
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
-          pullRequestHtmlUrl: "https://github.com/openai/symphony/pull/123"
-        };
-
-  return {
-    event: "pull_request_review",
-    repository: "openai/symphony",
-    ...overrides,
-    payload
-  };
-}
-
-export function buildSymphonyGithubIssueCommentEvent(
-  overrides: Partial<Extract<SymphonyGitHubReviewEvent, { event: "issue_comment" }>> = {}
-): SymphonyGitHubReviewEvent {
-  const payload =
-    "payload" in overrides && overrides.payload
-      ? overrides.payload
-      : {
-          issueNumber: 123,
-          commentId: 456,
-          commentBody: "Please address the feedback before the next run.",
-          authorLogin: "reviewer",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
-          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-456"
-        };
-
-  return {
-    event: "issue_comment",
-    repository: "openai/symphony",
-    ...overrides,
-    payload
   };
 }
 

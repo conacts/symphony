@@ -36,12 +36,6 @@
       "path": "./packages/forensics"
     },
     {
-      "path": "./packages/review"
-    },
-    {
-      "path": "./packages/github-review"
-    },
-    {
       "path": "./packages/workspace"
     },
     {

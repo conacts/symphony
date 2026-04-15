@@ -12,9 +12,6 @@ import type {
   SymphonyAgentRunTurnQuery,
   SymphonyAgentToolCallListResult,
   SymphonyAgentTurnListResult,
-  SymphonyGitHubReviewIngressResult,
-  SymphonyGitHubWebhookBody,
-  SymphonyGitHubWebhookHeaders,
   SymphonyForensicsIssueTimelineResult,
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeMachineLoadSnapshot,
@@ -57,14 +54,6 @@ export type SymphonyRuntimeOrchestratorPort = {
     runMode: SymphonyRunMode;
     recordedAt: string;
   }): Promise<void>;
-};
-
-export type SymphonyGitHubReviewIngressPort = {
-  ingest(input: {
-    headers: SymphonyGitHubWebhookHeaders;
-    body: SymphonyGitHubWebhookBody;
-    rawBody: string;
-  }): Promise<SymphonyGitHubReviewIngressResult>;
 };
 
 export type SymphonyIssueTimelinePort = {
@@ -188,7 +177,6 @@ export type SymphonyRuntimeAppServices = {
   capabilityOperator: SymphonyRuntimeCapabilityOperatorPort;
   workflowObservability: SymphonyRuntimeWorkflowObservabilityPort;
   routeWorkflows: SymphonyRouteWorkflowPort;
-  githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;
   shutdown(): Promise<void>;
 };
