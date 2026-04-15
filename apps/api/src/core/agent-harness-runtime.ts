@@ -75,6 +75,11 @@ type RunCallbacks = {
 type ActiveRun = {
   stopped: boolean;
   client: HarnessSessionClient | null;
+  completionOverride: Extract<
+    SymphonyAgentRuntimeCompletion,
+    { kind: "delivered" | "awaiting_input" | "blocked" }
+  > | null;
+  completionReported: boolean;
 };
 
 type WorkflowLifecycleReaders = {
@@ -157,7 +162,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
       });
       const activeRun: ActiveRun = {
         stopped: false,
-        client: null
+        client: null,
+        completionOverride: null,
+        completionReported: false
       };
       activeRuns.set(runInput.issue.id, activeRun);
       const launchTarget = resolveRuntimeLaunchTarget(
@@ -629,6 +636,42 @@ async function executeRun(input: {
               }
             }
           }
+
+          if (
+            explicitCompletionRequirement === "none" &&
+            threadEvent?.type === "item.completed" &&
+            threadEvent.item.type === "agent_message" &&
+            input.activeRun.completionOverride === null
+          ) {
+            const terminalCompletion =
+              detectCapabilityManagedTerminalCompletion(threadEvent.item.text);
+            if (terminalCompletion) {
+              // Capability-managed runs should stop as soon as a valid terminal
+              // module result is visible, even if the runtime never emits a
+              // clean session shutdown afterward.
+              input.activeRun.completionOverride = terminalCompletion;
+              input.activeRun.stopped = true;
+              await input.runtimeLogs.record({
+                level: "info",
+                source: "agent_runtime",
+                eventType: "runtime_terminal_result_detected",
+                message:
+                  "Capability-managed terminal module result detected before the runtime session closed.",
+                issueIdentifier: input.issue.identifier,
+                runId: input.runId,
+                recordedAt: timestamp,
+                payload: {
+                  completionKind: terminalCompletion.kind,
+                  moduleId: terminalCompletion.moduleResult?.moduleId ?? null,
+                  outcome:
+                    terminalCompletion.moduleResult?.outcome ?? null,
+                  requestedState:
+                    terminalCompletion.moduleResult?.requestedState ?? null
+                }
+              });
+              input.activeRun.client?.close();
+            }
+          }
         }
       });
 
@@ -665,6 +708,23 @@ async function executeRun(input: {
       }
 
       currentIssue = refreshedIssue;
+    }
+
+    if (input.activeRun.completionOverride) {
+      await reportCompletionOverride({
+        activeRun: input.activeRun,
+        workerSessionContract: input.workerSessionContract,
+        sessionId: workerSessionId,
+        issue: input.issue,
+        runId: input.runId,
+        attempt: input.attempt,
+        runMode: input.runMode,
+        callbacks: input.callbacks,
+        launchTarget: input.launchTarget,
+        runtimePolicy: input.runtimePolicy,
+        runStore: input.runStore
+      });
+      return;
     }
 
     if (!input.activeRun.stopped) {
@@ -736,6 +796,28 @@ async function executeRun(input: {
       }
     }
   } catch (error) {
+    if (input.activeRun.completionOverride) {
+      await finalizeTurnForDetectedCompletion(
+        input.runStore,
+        input.runId,
+        persistedTurnId
+      );
+      await reportCompletionOverride({
+        activeRun: input.activeRun,
+        workerSessionContract: input.workerSessionContract,
+        sessionId: workerSessionId,
+        issue: input.issue,
+        runId: input.runId,
+        attempt: input.attempt,
+        runMode: input.runMode,
+        callbacks: input.callbacks,
+        launchTarget: input.launchTarget,
+        runtimePolicy: input.runtimePolicy,
+        runStore: input.runStore
+      });
+      return;
+    }
+
     if (input.activeRun.stopped) {
       await finalizeStoppedTurn(
         input.runStore,
@@ -1064,6 +1146,68 @@ function capabilityManagedRunCompletion(input: {
 
 function missingExplicitCompletion(): SymphonyAgentRuntimeCompletion {
   return missingTerminalResultCompletion();
+}
+
+function detectCapabilityManagedTerminalCompletion(
+  messageText: string
+): Extract<
+  SymphonyAgentRuntimeCompletion,
+  { kind: "delivered" | "awaiting_input" | "blocked" }
+> | null {
+  const completion = capabilityManagedRunCompletion({
+    latestCompletedAgentMessageText: messageText
+  });
+
+  return completion.kind === "delivered" ||
+    completion.kind === "awaiting_input" ||
+    completion.kind === "blocked"
+    ? completion
+    : null;
+}
+
+async function reportCompletionOverride(input: {
+  activeRun: ActiveRun;
+  workerSessionContract: SymphonyWorkerSessionContract;
+  sessionId: string | null;
+  issue: SymphonyTrackerIssue;
+  runId: string | null;
+  attempt: number;
+  runMode: SymphonyRunMode;
+  callbacks: RunCallbacks;
+  launchTarget: SymphonyRuntimeLaunchTarget;
+  runtimePolicy: SymphonyAgentRuntimeConfig;
+  runStore: SymphonyRuntimeRunStore;
+}): Promise<void> {
+  if (!input.activeRun.completionOverride || input.activeRun.completionReported) {
+    return;
+  }
+
+  if (input.runId) {
+    const repoEnd = await captureRepoSnapshot(
+      input.launchTarget,
+      input.runtimePolicy.hooks.timeoutMs
+    );
+    await input.runStore.updateRun(input.runId, {
+      commitHashEnd: repoEnd.commitHash,
+      repoEnd: repoEnd.snapshot
+    });
+  }
+
+  await recordWorkerSessionCompletion({
+    workerSessionContract: input.workerSessionContract,
+    sessionId: input.sessionId,
+    issueId: input.issue.id,
+    runId: input.runId,
+    attempt: input.attempt,
+    runMode: input.runMode,
+    completion: input.activeRun.completionOverride,
+    recordedAt: new Date().toISOString()
+  });
+  await input.callbacks.onComplete(
+    input.issue.id,
+    input.activeRun.completionOverride
+  );
+  input.activeRun.completionReported = true;
 }
 
 async function observeActiveIssueStateThroughWorkflow(input: {
@@ -1414,6 +1558,24 @@ async function finalizeStoppedTurn(
     endedAt: new Date().toISOString(),
     metadata: {
       stopReason: "runtime_stopped"
+    }
+  });
+}
+
+async function finalizeTurnForDetectedCompletion(
+  runStore: SymphonyRuntimeRunStore,
+  runId: string | null,
+  persistedTurnId: string | null
+): Promise<void> {
+  if (!runId || !persistedTurnId) {
+    return;
+  }
+
+  await runStore.finalizeTurn(persistedTurnId, {
+    status: "completed",
+    endedAt: new Date().toISOString(),
+    metadata: {
+      stopReason: "terminal_result_detected"
     }
   });
 }

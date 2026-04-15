@@ -692,6 +692,35 @@ export class SymphonyOrchestrator {
       return;
     }
 
+    await this.#observer?.recordLifecycleEvent({
+      issue: runningEntry.issue,
+      runId: runningEntry.runId,
+      source: "runtime",
+      eventType: "runtime_completion_received",
+      message: describeRuntimeCompletion(completion),
+      payload: {
+        completionKind: completion.kind,
+        completionReason: "reason" in completion ? completion.reason : null,
+        moduleId:
+          "moduleResult" in completion
+            ? completion.moduleResult?.moduleId ?? null
+            : null,
+        moduleOutcome:
+          "moduleResult" in completion
+            ? completion.moduleResult?.outcome ?? null
+            : null,
+        requestedState:
+          "moduleResult" in completion
+            ? completion.moduleResult?.requestedState ?? null
+            : null,
+        lastAgentEvent: runningEntry.lastAgentEvent,
+        lastAgentTimestamp: runningEntry.lastAgentTimestamp,
+        turnCount: runningEntry.turnCount,
+        retryAttempt: runningEntry.retryAttempt,
+        runMode: runningEntry.runMode
+      }
+    });
+
     this.#state = accumulateAgentTotals(this.#state, runningEntry, this.#clock);
     delete this.#state.running[issueId];
     this.#state.claimed.delete(issueId);
@@ -1699,6 +1728,33 @@ function assertStartupFailureCompletion(
 
 function normalizeStateName(state: string | null | undefined): string {
   return state?.trim().toLowerCase() ?? "";
+}
+
+function describeRuntimeCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): string {
+  switch (completion.kind) {
+    case "delivered":
+      return "Runtime reported a delivered terminal completion.";
+    case "awaiting_input":
+      return "Runtime reported that the run is awaiting explicit user input.";
+    case "blocked":
+      return "Runtime reported that the run is blocked.";
+    case "max_turns_reached":
+      return "Runtime reported that the run exhausted its turn budget.";
+    case "startup_failure":
+      return "Runtime reported a startup failure before the run became active.";
+    case "rate_limited":
+      return "Runtime reported a rate-limited failure.";
+    case "provider_transient":
+      return "Runtime reported a transient provider failure.";
+    case "stalled":
+      return "Runtime reported that the run stalled without visible activity.";
+    case "terminal_result_failure":
+      return "Runtime reported that the run ended without a valid terminal module result.";
+    case "failure":
+      return "Runtime reported a terminal execution failure.";
+  }
 }
 
 function assertPiRuntimeHarness(

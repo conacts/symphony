@@ -1300,6 +1300,82 @@ describe("symphony orchestrator", () => {
     expectNoTrackerTransitionLifecycleEvents(lifecycleEvents);
   });
 
+  it("records the raw runtime completion with the last observed agent activity", async () => {
+    const config = buildSymphonyOrchestratorConfig({
+      tracker: {
+        ...buildSymphonyOrchestratorConfig().tracker,
+        claimTransitionToState: null,
+        claimTransitionFromStates: []
+      }
+    });
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const lifecycleEvents: Array<{
+      eventType: string;
+      payload: unknown;
+    }> = [];
+
+    const orchestrator = new SymphonyOrchestrator({
+      config,
+      tracker,
+      workspaceBackend: createTestWorkspaceBackend({
+        commandRunner: async () => ({
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        })
+      }),
+      agentRuntime: createAgentRuntime(),
+      observer: {
+        startRun() {
+          return "run-1";
+        },
+        recordLifecycleEvent(input) {
+          lifecycleEvents.push({
+            eventType: input.eventType,
+            payload: input.payload
+          });
+          return;
+        },
+        finalizeRun() {
+          return;
+        }
+      },
+      clock: {
+        now: () => new Date("2026-03-31T00:00:03.000Z"),
+        nowMs: () => Date.parse("2026-03-31T00:00:03.000Z")
+      }
+    });
+
+    await orchestrator.dispatchIssue(issue, 1);
+    orchestrator.applyAgentUpdate(issue.id, {
+      event: "item.completed",
+      timestamp: "2026-03-31T00:00:02.000Z"
+    });
+
+    await orchestrator.handleRunCompletion(issue.id, {
+      kind: "stalled",
+      reason: "stalled for 1000ms without agent activity"
+    });
+
+    const completionEvent = lifecycleEvents.find(
+      (event) => event.eventType === "runtime_completion_received"
+    );
+
+    expect(completionEvent).toEqual({
+      eventType: "runtime_completion_received",
+      payload: expect.objectContaining({
+        completionKind: "stalled",
+        completionReason: "stalled for 1000ms without agent activity",
+        lastAgentEvent: "item.completed",
+        lastAgentTimestamp: "2026-03-31T00:00:02.000Z",
+        turnCount: 0
+      })
+    });
+  });
+
   it("preserves the workspace after delivery moves the issue into In Review", async () => {
     const config = buildSymphonyOrchestratorConfig({
       tracker: {
