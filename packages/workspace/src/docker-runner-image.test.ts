@@ -141,7 +141,8 @@ describe("docker runner image", () => {
         ],
         result: {
           exitCode: 1,
-          stdout: "pi\npnpm\npsql\n",
+          stdout:
+            "tool:pi\ntool:pnpm\ntool:psql\ntool:symphony-pi-runner\n",
           stderr: ""
         }
       },
@@ -164,7 +165,87 @@ describe("docker runner image", () => {
         image: defaultSymphonyDockerWorkspaceImage,
         commandRunner: runner
       })
-    ).rejects.toThrowError(/missing required tools: pi, pnpm, psql/i);
+    ).rejects.toThrowError(
+      /missing required runner contract entries: tool:pi, tool:pnpm, tool:psql, tool:symphony-pi-runner/i
+    );
+  });
+
+  it("fails clearly when the image is missing packaged Pi runner assets", async () => {
+    const runner = createCommandRunner([
+      {
+        args: ["version", "--format", "{{.Server.Version}}"],
+        result: {
+          exitCode: 0,
+          stdout: "27.0.1\n",
+          stderr: ""
+        }
+      },
+      {
+        args: [
+          "image",
+          "inspect",
+          "--format",
+          "{{.Id}}",
+          defaultSymphonyDockerWorkspaceImage
+        ],
+        result: {
+          exitCode: 0,
+          stdout: "sha256:runner\n",
+          stderr: ""
+        }
+      },
+      {
+        args: managedPreflightPsArgs,
+        result: {
+          exitCode: 0,
+          stdout: "",
+          stderr: ""
+        }
+      },
+      {
+        argsPrefix: [
+          "run",
+          "--rm",
+          "--name",
+          expect.stringMatching(/^symphony-workspace-preflight-\d+-[a-z0-9]+$/),
+          "--label",
+          "dev.symphony.workspace-backend=docker",
+          "--label",
+          "dev.symphony.managed-kind=workspace_preflight",
+          "--entrypoint",
+          "bash",
+          defaultSymphonyDockerWorkspaceImage,
+          "-lc"
+        ],
+        result: {
+          exitCode: 1,
+          stdout:
+            "file:/opt/symphony/pi-sdk-runner/node_modules/tsx/dist/loader.mjs\nfile:/opt/symphony/pi-sdk-runner/src/pi/sdk-runner-entrypoint.ts\n",
+          stderr: ""
+        }
+      },
+      {
+        argsPrefix: [
+          "rm",
+          "-f",
+          expect.stringMatching(/^symphony-workspace-preflight-\d+-[a-z0-9]+$/)
+        ],
+        result: {
+          exitCode: 1,
+          stdout: "",
+          stderr: "Error response from daemon: No such container"
+        }
+      }
+    ]);
+
+    await expect(
+      preflightSymphonyDockerWorkspaceImage({
+        image: defaultSymphonyDockerWorkspaceImage,
+        commandRunner: runner
+      })
+    ).rejects.toThrowError(
+      /missing required runner contract entries: file:\/opt\/symphony\/pi-sdk-runner\/node_modules\/tsx\/dist\/loader\.mjs, file:\/opt\/symphony\/pi-sdk-runner\/src\/pi\/sdk-runner-entrypoint\.ts/i
+    );
   });
 
   it("fails clearly when the configured shell does not exist in the image", async () => {
@@ -331,7 +412,8 @@ describe("docker runner image", () => {
         "pnpm",
         "python3",
         "psql",
-        "rg"
+        "rg",
+        "symphony-pi-runner"
       ],
       cleanup: {
         staleContainersDetected: 0,

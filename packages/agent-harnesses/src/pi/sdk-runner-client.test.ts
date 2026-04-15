@@ -6,8 +6,7 @@ import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError } from "../shared/session-types.js";
 import {
   buildPiSdkRunnerSpawnSpec,
-  defaultPiSdkRunnerEntrypointPath,
-  defaultPiSdkRunnerTsxLoaderPath
+  defaultPiSdkRunnerExecutablePath
 } from "./launch.js";
 import { PiSdkRunnerClient } from "./sdk-runner-client.js";
 
@@ -155,7 +154,7 @@ describe("pi sdk runner client", () => {
 
     expect(spec.runtimeWorkspaceRoot).toBe("/workspace");
     expect(spec.args.at(-1)).toContain(
-      `exec node --import '${defaultPiSdkRunnerTsxLoaderPath}' '${defaultPiSdkRunnerEntrypointPath}'`
+      `exec '${defaultPiSdkRunnerExecutablePath}'`
     );
   });
 

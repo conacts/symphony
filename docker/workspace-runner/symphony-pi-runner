@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly DEFAULT_SYMPHONY_PI_SDK_RUNNER_ROOT="/opt/symphony/pi-sdk-runner"
+readonly SYMPHONY_PI_SDK_RUNNER_ROOT="${SYMPHONY_PI_SDK_RUNNER_ROOT:-${DEFAULT_SYMPHONY_PI_SDK_RUNNER_ROOT}}"
+readonly SYMPHONY_PI_SDK_TSX_LOADER="${SYMPHONY_PI_SDK_RUNNER_ROOT}/node_modules/tsx/dist/loader.mjs"
+readonly SYMPHONY_PI_SDK_ENTRYPOINT="${SYMPHONY_PI_SDK_RUNNER_ROOT}/src/pi/sdk-runner-entrypoint.ts"
+
+if [[ ! -f "${SYMPHONY_PI_SDK_TSX_LOADER}" ]]; then
+  printf 'Symphony Pi SDK runner packaging is invalid: missing tsx loader at %s\n' "${SYMPHONY_PI_SDK_TSX_LOADER}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${SYMPHONY_PI_SDK_ENTRYPOINT}" ]]; then
+  printf 'Symphony Pi SDK runner packaging is invalid: missing entrypoint at %s\n' "${SYMPHONY_PI_SDK_ENTRYPOINT}" >&2
+  exit 1
+fi
+
+exec node --import "${SYMPHONY_PI_SDK_TSX_LOADER}" "${SYMPHONY_PI_SDK_ENTRYPOINT}" "$@"

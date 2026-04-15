@@ -33,9 +33,25 @@ pnpm docker:workspace-image:build
 The Docker build uses normal layer caching. Re-running it after no relevant changes is usually much
 faster than a cold rebuild.
 
-The workspace image now ships the Symphony Pi SDK runner under `/opt/symphony/pi-sdk-runner`, so
-runtime execution no longer depends on the platform repo being mounted into the admitted workspace
+The workspace image now exposes a stable Symphony Pi SDK runner executable at
+`/usr/local/bin/symphony-pi-runner`. That wrapper owns the in-image loader and
+entrypoint paths under `/opt/symphony/pi-sdk-runner`, so runtime execution no
+longer depends on the platform repo being mounted into the admitted workspace
 container just to find the harness entrypoint.
+
+Docker preflight now validates both the stable executable and the packaged Pi
+SDK runner assets behind it, so broken image packaging fails before dispatch
+instead of during the first live run.
+
+To prove the real bootstrap path locally after rebuilding the image:
+
+```bash
+SYMPHONY_LIVE_DOCKER_VERIFY=1 pnpm --filter @symphony/agent-harnesses test -- src/pi/sdk-runner-client.int.test.ts
+```
+
+That test starts a real `symphony/workspace-runner:local` container, launches
+the harness through `symphony-pi-runner`, and expects a real `session_started`
+event from the Pi SDK bridge.
 
 You only need `SYMPHONY_DOCKER_WORKSPACE_IMAGE` when overriding the default image.
 

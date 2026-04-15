@@ -15,12 +15,8 @@ export {
   resolvePiIssueModel
 };
 
-export const defaultPiSdkRunnerRoot =
-  "/opt/symphony/pi-sdk-runner";
-export const defaultPiSdkRunnerTsxLoaderPath =
-  `${defaultPiSdkRunnerRoot}/node_modules/tsx/dist/loader.mjs`;
-export const defaultPiSdkRunnerEntrypointPath =
-  `${defaultPiSdkRunnerRoot}/src/pi/sdk-runner-entrypoint.ts`;
+export const defaultPiSdkRunnerExecutablePath =
+  "/usr/local/bin/symphony-pi-runner";
 
 export function resolvePiSdkLaunchSettings(
   baseCommand: string,
@@ -109,7 +105,7 @@ export function buildPiSdkRunnerSpawnSpec(input: {
       [
         `mkdir -p ${shellQuote(piAgentDir)}`,
         `if [ -f ${shellQuote(mountedPiAuthPath)} ] && [ ! -f ${shellQuote(`${piAgentDir}/auth.json`)} ]; then cp ${shellQuote(mountedPiAuthPath)} ${shellQuote(`${piAgentDir}/auth.json`)}; fi`,
-        `exec node --import ${shellQuote(defaultPiSdkRunnerTsxLoaderPath)} ${shellQuote(defaultPiSdkRunnerEntrypointPath)}`
+        `exec ${shellQuote(defaultPiSdkRunnerExecutablePath)}`
       ].join(" && ")
     ],
     cwd: input.launchTarget.hostLaunchPath,

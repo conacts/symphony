@@ -30,7 +30,13 @@ export const symphonyDockerWorkspaceRequiredTools = [
   "pnpm",
   "python3",
   "psql",
-  "rg"
+  "rg",
+  "symphony-pi-runner"
+] as const;
+const defaultSymphonyPiSdkRunnerRoot = "/opt/symphony/pi-sdk-runner";
+const symphonyDockerWorkspaceRequiredFiles = [
+  `${defaultSymphonyPiSdkRunnerRoot}/node_modules/tsx/dist/loader.mjs`,
+  `${defaultSymphonyPiSdkRunnerRoot}/src/pi/sdk-runner-entrypoint.ts`
 ] as const;
 // Docker image inspection and in-container tool checks can exceed 15s when the
 // host is already running multiple build/test workers. Keep the default budget
@@ -229,7 +235,10 @@ async function assertDockerImageToolContract(input: {
     input.shell,
     input.image,
     "-lc",
-    renderRequiredToolsCheckScript(symphonyDockerWorkspaceRequiredTools)
+    renderRunnerContractCheckScript({
+      tools: symphonyDockerWorkspaceRequiredTools,
+      files: symphonyDockerWorkspaceRequiredFiles
+    })
   ];
   const result = await input.commandRunner({
     args,
@@ -240,17 +249,18 @@ async function assertDockerImageToolContract(input: {
     return;
   }
 
-  const missingTools = result.stdout
+  const missingEntries = result.stdout
     .split("\n")
-    .map((tool) => tool.trim())
-    .filter((tool) => tool.length > 0);
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 
-  if (missingTools.length > 0) {
+  if (missingEntries.length > 0) {
     throw new SymphonyWorkspaceError(
       "workspace_docker_image_invalid",
       [
-        `Docker workspace image ${input.image} is missing required tools: ${missingTools.join(", ")}.`,
-        `Supported runner contract: ${symphonyDockerWorkspaceRequiredTools.join(", ")}.`,
+        `Docker workspace image ${input.image} is missing required runner contract entries: ${missingEntries.join(", ")}.`,
+        `Required tools: ${symphonyDockerWorkspaceRequiredTools.join(", ")}.`,
+        `Required files: ${symphonyDockerWorkspaceRequiredFiles.join(", ")}.`,
         input.image === defaultSymphonyDockerWorkspaceImage
           ? `Rebuild the supported local runner image with \`${symphonyDockerWorkspaceBuildCommand}\`.`
           : `Build a compatible image or unset SYMPHONY_DOCKER_WORKSPACE_IMAGE to use ${defaultSymphonyDockerWorkspaceImage}.`
@@ -537,12 +547,19 @@ function resolvePreflightCleanupTimeoutMs(timeoutMs: number): number {
   return Math.max(5_000, Math.min(timeoutMs, 15_000));
 }
 
-function renderRequiredToolsCheckScript(tools: readonly string[]): string {
+function renderRunnerContractCheckScript(input: {
+  tools: readonly string[];
+  files: readonly string[];
+}): string {
   return [
     "missing=0",
-    ...tools.map(
+    ...input.tools.map(
       (tool) =>
-        `if ! command -v ${escapeShellWord(tool)} >/dev/null 2>&1; then echo ${escapeShellWord(tool)}; missing=1; fi`
+        `if ! command -v ${escapeShellWord(tool)} >/dev/null 2>&1; then echo ${escapeShellWord(`tool:${tool}`)}; missing=1; fi`
+    ),
+    ...input.files.map(
+      (filePath) =>
+        `if [ ! -f ${escapeShellWord(filePath)} ]; then echo ${escapeShellWord(`file:${filePath}`)}; missing=1; fi`
     ),
     "exit \"$missing\""
   ].join("; ");

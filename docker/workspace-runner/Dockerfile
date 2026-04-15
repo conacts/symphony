@@ -38,6 +38,8 @@ RUN npm install --omit=dev \
   && npm cache clean --force
 
 COPY packages/agent-harnesses/src ./src
+COPY docker/workspace-runner/symphony-pi-runner /usr/local/bin/symphony-pi-runner
+RUN chmod 0755 /usr/local/bin/symphony-pi-runner
 
 ENV SYMPHONY_CONTAINER=1
 WORKDIR /home/agent/workspace

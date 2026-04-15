@@ -11,8 +11,7 @@ export * from "./pi/sdk-runner-client.js";
 export * from "./pi/sdk-runner-entrypoint.js";
 export {
   buildPiSdkRunnerSpawnSpec,
-  defaultPiSdkRunnerEntrypointPath,
-  defaultPiSdkRunnerTsxLoaderPath,
+  defaultPiSdkRunnerExecutablePath,
   listSupportedPiModels,
   piModelLabelPrefix,
   resolvePiIssueModel,
