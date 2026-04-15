@@ -974,3 +974,490 @@ CREATE TABLE IF NOT EXISTS route_projection_snapshots (
 
 CREATE INDEX IF NOT EXISTS route_projection_snapshots_event_sequence_idx
   ON route_projection_snapshots (event_sequence);
+
+CREATE TABLE IF NOT EXISTS symphony_users (
+  user_id TEXT PRIMARY KEY NOT NULL,
+  handle TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(user_id)) > 0),
+  CHECK (length(trim(handle)) > 0),
+  CHECK (length(trim(display_name)) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_users_handle_idx
+  ON symphony_users (handle);
+
+CREATE TABLE IF NOT EXISTS symphony_organizations (
+  organization_id TEXT PRIMARY KEY NOT NULL,
+  organization_slug TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(organization_slug)) > 0),
+  CHECK (length(trim(display_name)) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_organizations_slug_idx
+  ON symphony_organizations (organization_slug);
+
+CREATE TABLE IF NOT EXISTS symphony_organization_memberships (
+  organization_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (organization_id, user_id),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES symphony_users(user_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS symphony_organization_memberships_organization_id_idx
+  ON symphony_organization_memberships (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_organization_memberships_user_id_idx
+  ON symphony_organization_memberships (user_id);
+
+CREATE TABLE IF NOT EXISTS symphony_external_auth_bindings (
+  binding_id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('github', 'linear', 'vercel')),
+  provider_account_id TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(binding_id)) > 0),
+  CHECK (length(trim(provider_account_id)) > 0),
+  FOREIGN KEY (user_id) REFERENCES symphony_users(user_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_external_auth_bindings_user_provider_idx
+  ON symphony_external_auth_bindings (user_id, provider);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_external_auth_bindings_provider_account_idx
+  ON symphony_external_auth_bindings (provider, provider_account_id);
+
+CREATE INDEX IF NOT EXISTS symphony_external_auth_bindings_provider_idx
+  ON symphony_external_auth_bindings (provider);
+
+CREATE TABLE IF NOT EXISTS symphony_github_installation_identities (
+  github_installation_identity_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('github')),
+  github_installation_id TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(github_installation_identity_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(github_installation_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_github_installation_identities_organization_installation_idx
+  ON symphony_github_installation_identities (organization_id, github_installation_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_github_installation_identities_organization_identity_idx
+  ON symphony_github_installation_identities (organization_id, github_installation_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_github_installation_identities_organization_id_idx
+  ON symphony_github_installation_identities (organization_id);
+
+CREATE TABLE IF NOT EXISTS symphony_github_repository_identities (
+  github_repository_identity_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  github_installation_identity_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('github')),
+  repository_key TEXT NOT NULL,
+  github_repository_id TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(github_repository_identity_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(github_installation_identity_id)) > 0),
+  CHECK (length(trim(repository_key)) > 0),
+  CHECK (length(trim(github_repository_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, github_installation_identity_id) REFERENCES symphony_github_installation_identities(organization_id, github_installation_identity_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_github_repository_identities_repository_key_idx
+  ON symphony_github_repository_identities (repository_key);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_github_repository_identities_organization_repository_idx
+  ON symphony_github_repository_identities (organization_id, github_repository_id);
+
+CREATE INDEX IF NOT EXISTS symphony_github_repository_identities_organization_id_idx
+  ON symphony_github_repository_identities (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_github_repository_identities_github_installation_identity_id_idx
+  ON symphony_github_repository_identities (github_installation_identity_id);
+
+CREATE TABLE IF NOT EXISTS symphony_linear_workspace_identities (
+  linear_workspace_identity_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('linear')),
+  linear_workspace_id TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(linear_workspace_identity_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(linear_workspace_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_workspace_identities_organization_workspace_idx
+  ON symphony_linear_workspace_identities (organization_id, linear_workspace_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_workspace_identities_organization_identity_idx
+  ON symphony_linear_workspace_identities (organization_id, linear_workspace_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_linear_workspace_identities_organization_id_idx
+  ON symphony_linear_workspace_identities (organization_id);
+
+CREATE TABLE IF NOT EXISTS symphony_linear_team_identities (
+  linear_team_identity_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  linear_workspace_identity_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('linear')),
+  linear_team_key TEXT NOT NULL,
+  linear_team_id TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(linear_team_identity_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(linear_workspace_identity_id)) > 0),
+  CHECK (length(trim(linear_team_key)) > 0),
+  CHECK (length(trim(linear_team_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, linear_workspace_identity_id) REFERENCES symphony_linear_workspace_identities(organization_id, linear_workspace_identity_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_team_identities_organization_workspace_team_key_idx
+  ON symphony_linear_team_identities (
+    organization_id,
+    linear_workspace_identity_id,
+    linear_team_key
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_team_identities_organization_team_idx
+  ON symphony_linear_team_identities (organization_id, linear_team_id);
+
+CREATE INDEX IF NOT EXISTS symphony_linear_team_identities_organization_id_idx
+  ON symphony_linear_team_identities (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_linear_team_identities_linear_workspace_identity_id_idx
+  ON symphony_linear_team_identities (linear_workspace_identity_id);
+
+CREATE TABLE IF NOT EXISTS symphony_linear_project_identities (
+  linear_project_identity_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  linear_workspace_identity_id TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('linear')),
+  linear_project_id TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(linear_project_identity_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(linear_workspace_identity_id)) > 0),
+  CHECK (length(trim(linear_project_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, linear_workspace_identity_id) REFERENCES symphony_linear_workspace_identities(organization_id, linear_workspace_identity_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_project_identities_organization_project_idx
+  ON symphony_linear_project_identities (organization_id, linear_project_id);
+
+CREATE INDEX IF NOT EXISTS symphony_linear_project_identities_organization_id_idx
+  ON symphony_linear_project_identities (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_linear_project_identities_linear_workspace_identity_id_idx
+  ON symphony_linear_project_identities (linear_workspace_identity_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_github_repository_identities_organization_identity_idx
+  ON symphony_github_repository_identities (organization_id, github_repository_identity_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_github_repository_identities_organization_installation_identity_idx
+  ON symphony_github_repository_identities (
+    organization_id,
+    github_installation_identity_id,
+    github_repository_identity_id
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_team_identities_organization_workspace_identity_idx
+  ON symphony_linear_team_identities (
+    organization_id,
+    linear_workspace_identity_id,
+    linear_team_identity_id
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_linear_project_identities_organization_workspace_identity_idx
+  ON symphony_linear_project_identities (
+    organization_id,
+    linear_workspace_identity_id,
+    linear_project_identity_id
+  );
+
+CREATE TABLE IF NOT EXISTS symphony_repository_workspace_bindings (
+  repository_workspace_binding_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  github_installation_identity_id TEXT NOT NULL,
+  github_repository_identity_id TEXT NOT NULL,
+  linear_workspace_identity_id TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('manual', 'bootstrap', 'sync')),
+  status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(repository_workspace_binding_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(github_installation_identity_id)) > 0),
+  CHECK (length(trim(github_repository_identity_id)) > 0),
+  CHECK (length(trim(linear_workspace_identity_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, github_installation_identity_id)
+    REFERENCES symphony_github_installation_identities(organization_id, github_installation_identity_id)
+    ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, github_installation_identity_id, github_repository_identity_id)
+    REFERENCES symphony_github_repository_identities(
+      organization_id,
+      github_installation_identity_id,
+      github_repository_identity_id
+    )
+    ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, linear_workspace_identity_id)
+    REFERENCES symphony_linear_workspace_identities(organization_id, linear_workspace_identity_id)
+    ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_organization_repository_workspace_idx
+  ON symphony_repository_workspace_bindings (
+    organization_id,
+    github_repository_identity_id,
+    linear_workspace_identity_id
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_organization_identity_idx
+  ON symphony_repository_workspace_bindings (
+    organization_id,
+    repository_workspace_binding_id
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_organization_workspace_identity_idx
+  ON symphony_repository_workspace_bindings (
+    organization_id,
+    repository_workspace_binding_id,
+    linear_workspace_identity_id
+  );
+
+CREATE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_organization_id_idx
+  ON symphony_repository_workspace_bindings (organization_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_github_repository_identity_id_idx
+  ON symphony_repository_workspace_bindings (github_repository_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_linear_workspace_identity_id_idx
+  ON symphony_repository_workspace_bindings (linear_workspace_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_workspace_bindings_status_idx
+  ON symphony_repository_workspace_bindings (status);
+
+CREATE TABLE IF NOT EXISTS symphony_repository_team_bindings (
+  repository_team_binding_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  repository_workspace_binding_id TEXT NOT NULL,
+  linear_workspace_identity_id TEXT NOT NULL,
+  linear_team_identity_id TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('manual', 'bootstrap', 'sync')),
+  status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(repository_team_binding_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(repository_workspace_binding_id)) > 0),
+  CHECK (length(trim(linear_workspace_identity_id)) > 0),
+  CHECK (length(trim(linear_team_identity_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, repository_workspace_binding_id, linear_workspace_identity_id)
+    REFERENCES symphony_repository_workspace_bindings(
+      organization_id,
+      repository_workspace_binding_id,
+      linear_workspace_identity_id
+    )
+    ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, linear_workspace_identity_id, linear_team_identity_id)
+    REFERENCES symphony_linear_team_identities(
+      organization_id,
+      linear_workspace_identity_id,
+      linear_team_identity_id
+    )
+    ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_team_bindings_organization_team_idx
+  ON symphony_repository_team_bindings (organization_id, linear_team_identity_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_team_bindings_organization_identity_idx
+  ON symphony_repository_team_bindings (organization_id, repository_team_binding_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_team_bindings_repository_workspace_binding_id_idx
+  ON symphony_repository_team_bindings (repository_workspace_binding_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_team_bindings_linear_team_identity_id_idx
+  ON symphony_repository_team_bindings (linear_team_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_team_bindings_status_idx
+  ON symphony_repository_team_bindings (status);
+
+CREATE TABLE IF NOT EXISTS symphony_repository_project_bindings (
+  repository_project_binding_id TEXT PRIMARY KEY NOT NULL,
+  organization_id TEXT NOT NULL,
+  repository_workspace_binding_id TEXT NOT NULL,
+  linear_workspace_identity_id TEXT NOT NULL,
+  linear_project_identity_id TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('manual', 'bootstrap', 'sync')),
+  status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(repository_project_binding_id)) > 0),
+  CHECK (length(trim(organization_id)) > 0),
+  CHECK (length(trim(repository_workspace_binding_id)) > 0),
+  CHECK (length(trim(linear_workspace_identity_id)) > 0),
+  CHECK (length(trim(linear_project_identity_id)) > 0),
+  FOREIGN KEY (organization_id) REFERENCES symphony_organizations(organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, repository_workspace_binding_id, linear_workspace_identity_id)
+    REFERENCES symphony_repository_workspace_bindings(
+      organization_id,
+      repository_workspace_binding_id,
+      linear_workspace_identity_id
+    )
+    ON DELETE CASCADE,
+  FOREIGN KEY (organization_id, linear_workspace_identity_id, linear_project_identity_id)
+    REFERENCES symphony_linear_project_identities(
+      organization_id,
+      linear_workspace_identity_id,
+      linear_project_identity_id
+    )
+    ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_project_bindings_organization_project_idx
+  ON symphony_repository_project_bindings (organization_id, linear_project_identity_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS symphony_repository_project_bindings_organization_identity_idx
+  ON symphony_repository_project_bindings (organization_id, repository_project_binding_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_project_bindings_repository_workspace_binding_id_idx
+  ON symphony_repository_project_bindings (repository_workspace_binding_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_project_bindings_linear_project_identity_id_idx
+  ON symphony_repository_project_bindings (linear_project_identity_id);
+
+CREATE INDEX IF NOT EXISTS symphony_repository_project_bindings_status_idx
+  ON symphony_repository_project_bindings (status);
+
+CREATE TABLE IF NOT EXISTS route_workflow_execution_contracts (
+  workflow_id TEXT PRIMARY KEY NOT NULL,
+  contract_id TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  done_definition TEXT NOT NULL,
+  required_capability_ids_json TEXT NOT NULL,
+  preferred_capability_ids_json TEXT NOT NULL,
+  forbidden_capability_ids_json TEXT NOT NULL,
+  required_evidence_ids_json TEXT NOT NULL,
+  allowed_model_profile_ids_json TEXT NOT NULL,
+  clarification_mode TEXT NOT NULL CHECK (clarification_mode IN ('required', 'best_effort')),
+  review_strictness TEXT NOT NULL CHECK (review_strictness IN ('standard', 'strict', 'adversarial')),
+  max_retry_count INTEGER NOT NULL CHECK (max_retry_count >= 0),
+  inserted_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (length(trim(contract_id)) > 0),
+  CHECK (length(trim(summary)) > 0),
+  CHECK (length(trim(objective)) > 0),
+  CHECK (length(trim(done_definition)) > 0),
+  FOREIGN KEY (workflow_id) REFERENCES route_workflows(workflow_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS route_workflow_execution_contracts_contract_id_idx
+  ON route_workflow_execution_contracts (contract_id);
+
+CREATE INDEX IF NOT EXISTS route_workflow_execution_contracts_updated_at_idx
+  ON route_workflow_execution_contracts (updated_at);
+
+CREATE TABLE IF NOT EXISTS route_workflow_capability_planner_decisions (
+  decision_id TEXT PRIMARY KEY NOT NULL,
+  workflow_id TEXT NOT NULL,
+  contract_id TEXT NOT NULL,
+  contract_updated_at TEXT NOT NULL,
+  history_event_sequence INTEGER NOT NULL CHECK (history_event_sequence >= 0),
+  lifecycle_projection_sequence INTEGER NOT NULL CHECK (lifecycle_projection_sequence >= 0),
+  lifecycle_current_node TEXT,
+  plan_kind TEXT NOT NULL CHECK (
+    plan_kind IN (
+      'execute',
+      'awaiting_input',
+      'blocked',
+      'ready_for_completion'
+    )
+  ),
+  plan_json TEXT NOT NULL,
+  recorded_at TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  CHECK (length(trim(decision_id)) > 0),
+  CHECK (length(trim(contract_id)) > 0),
+  CHECK (length(trim(contract_updated_at)) > 0),
+  FOREIGN KEY (workflow_id) REFERENCES route_workflows(workflow_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS route_workflow_capability_planner_decisions_workflow_basis_idx
+  ON route_workflow_capability_planner_decisions (
+    workflow_id,
+    history_event_sequence,
+    contract_updated_at
+  );
+
+CREATE INDEX IF NOT EXISTS route_workflow_capability_planner_decisions_workflow_recorded_at_idx
+  ON route_workflow_capability_planner_decisions (workflow_id, recorded_at);
+
+CREATE TABLE IF NOT EXISTS route_workflow_capability_planner_commands (
+  command_id TEXT PRIMARY KEY NOT NULL,
+  workflow_id TEXT NOT NULL,
+  decision_id TEXT NOT NULL,
+  contract_id TEXT NOT NULL,
+  history_event_sequence INTEGER NOT NULL CHECK (history_event_sequence >= 0),
+  dedupe_key TEXT,
+  kind TEXT NOT NULL CHECK (kind IN ('capability.execute')),
+  command_json TEXT NOT NULL,
+  emitted_at TEXT NOT NULL,
+  inserted_at TEXT NOT NULL,
+  CHECK (length(trim(command_id)) > 0),
+  CHECK (length(trim(contract_id)) > 0),
+  FOREIGN KEY (workflow_id) REFERENCES route_workflows(workflow_id) ON DELETE CASCADE,
+  FOREIGN KEY (decision_id) REFERENCES route_workflow_capability_planner_decisions(decision_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS route_workflow_capability_planner_commands_decision_id_idx
+  ON route_workflow_capability_planner_commands (decision_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS route_workflow_capability_planner_commands_workflow_dedupe_key_idx
+  ON route_workflow_capability_planner_commands (workflow_id, dedupe_key)
+  WHERE dedupe_key IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS route_workflow_capability_planner_commands_workflow_emitted_at_idx
+  ON route_workflow_capability_planner_commands (workflow_id, emitted_at);
+
+ALTER TABLE route_workflow_capability_planner_decisions
+  ADD COLUMN policy_id TEXT NOT NULL DEFAULT 'default' CHECK (length(trim(policy_id)) > 0);
+
+DROP INDEX IF EXISTS route_workflow_capability_planner_decisions_workflow_basis_idx;
+
+CREATE UNIQUE INDEX IF NOT EXISTS route_workflow_capability_planner_decisions_workflow_basis_idx
+  ON route_workflow_capability_planner_decisions (
+    workflow_id,
+    history_event_sequence,
+    contract_updated_at,
+    policy_id
+  );
+
+ALTER TABLE route_workflow_capability_planner_decisions
+  ADD COLUMN intelligent_flow_router_decision_json TEXT;

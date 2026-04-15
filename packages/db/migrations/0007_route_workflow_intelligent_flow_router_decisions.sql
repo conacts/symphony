@@ -1,2 +1,0 @@
-ALTER TABLE route_workflow_capability_planner_decisions
-  ADD COLUMN intelligent_flow_router_decision_json TEXT;

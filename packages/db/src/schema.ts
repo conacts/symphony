@@ -2057,7 +2057,6 @@ export const routeWorkflowExecutionContractsTable = sqliteTable(
     summary: text("summary").notNull(),
     objective: text("objective").notNull(),
     doneDefinition: text("done_definition").notNull(),
-    legacyMergePolicy: text("merge_policy").notNull(),
     requiredCapabilityIdsJson: text("required_capability_ids_json", {
       mode: "json"
     }).notNull().$type<unknown>(),
@@ -2073,7 +2072,6 @@ export const routeWorkflowExecutionContractsTable = sqliteTable(
     allowedModelProfileIdsJson: text("allowed_model_profile_ids_json", {
       mode: "json"
     }).notNull().$type<unknown>(),
-    legacyCompletionMode: text("completion_mode").notNull(),
     clarificationMode: text("clarification_mode").notNull(),
     reviewStrictness: text("review_strictness").notNull(),
     maxRetryCount: integer("max_retry_count").notNull(),
@@ -2101,14 +2099,6 @@ export const routeWorkflowExecutionContractsTable = sqliteTable(
     doneDefinitionCheck: check(
       "route_workflow_execution_contracts_done_definition_check",
       sql`length(trim(${table.doneDefinition})) > 0`
-    ),
-    legacyMergePolicyCheck: check(
-      "route_workflow_execution_contracts_merge_policy_check",
-      sql`${table.legacyMergePolicy} in (${sqlEnum(["manual"] as const)})`
-    ),
-    legacyCompletionModeCheck: check(
-      "route_workflow_execution_contracts_completion_mode_check",
-      sql`${table.legacyCompletionMode} in (${sqlEnum(["manual"] as const)})`
     ),
     clarificationModeCheck: check(
       "route_workflow_execution_contracts_clarification_mode_check",

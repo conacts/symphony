@@ -103,7 +103,6 @@ type RouteWorkflowExecutionContractRow = {
   forbiddenCapabilityIdsJson: unknown;
   requiredEvidenceIdsJson: unknown;
   allowedModelProfileIdsJson: unknown;
-  legacyCompletionMode: string;
   clarificationMode: string;
   reviewStrictness: string;
   maxRetryCount: number;
@@ -1066,13 +1065,11 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           summary,
           objective,
           doneDefinition,
-          legacyMergePolicy: "manual",
           requiredCapabilityIdsJson: requiredCapabilityIds,
           preferredCapabilityIdsJson: preferredCapabilityIds,
           forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
           requiredEvidenceIdsJson: requiredEvidenceIds,
           allowedModelProfileIdsJson: allowedModelProfileIds,
-          legacyCompletionMode: "manual",
           clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
           reviewStrictness: contract.routingDirectives.reviewStrictness,
           maxRetryCount,
@@ -1085,13 +1082,11 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
             summary,
             objective,
             doneDefinition,
-            legacyMergePolicy: "manual",
             requiredCapabilityIdsJson: requiredCapabilityIds,
             preferredCapabilityIdsJson: preferredCapabilityIds,
             forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
             requiredEvidenceIdsJson: requiredEvidenceIds,
             allowedModelProfileIdsJson: allowedModelProfileIds,
-            legacyCompletionMode: "manual",
             clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
             reviewStrictness: contract.routingDirectives.reviewStrictness,
             maxRetryCount,
@@ -1612,8 +1607,6 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           routeWorkflowExecutionContractsTable.requiredEvidenceIdsJson,
         allowedModelProfileIdsJson:
           routeWorkflowExecutionContractsTable.allowedModelProfileIdsJson,
-        legacyCompletionMode:
-          routeWorkflowExecutionContractsTable.legacyCompletionMode,
         clarificationMode: routeWorkflowExecutionContractsTable.clarificationMode,
         reviewStrictness: routeWorkflowExecutionContractsTable.reviewStrictness,
         maxRetryCount: routeWorkflowExecutionContractsTable.maxRetryCount,

@@ -1709,7 +1709,7 @@ function assertPiRuntimeHarness(
   }
 
   const error = new Error(
-    `Runtime execution rejects legacy harness '${harness}' for launch/execute. Use agent.harness: "pi".`
+    `Runtime execution requires agent.harness: "pi". Received "${harness}".`
   );
   Object.assign(error, {
     name: "SymphonyRuntimePolicyError",

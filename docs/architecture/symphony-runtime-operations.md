@@ -71,7 +71,7 @@ pnpm dev:host
 ```
 
 `pnpm dev:host` reads the local Symphony env file, sets the dashboard runtime base URL to the local
-API, and keeps the runtime DB at `./symphony.db`. Use it instead of bare `pnpm dev` when the goal
+API, and keeps the runtime DB at `.symphony/runtime/symphony.db`. Use it instead of bare `pnpm dev` when the goal
 is to have Symphony improve this repository directly. It also fails fast on missing required env
 and auto-builds the local Docker runner image if it has not been built yet.
 

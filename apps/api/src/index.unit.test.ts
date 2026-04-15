@@ -86,6 +86,17 @@ describe("@symphony/api scaffold", () => {
     expect(env.allowedOrigins).toEqual([]);
   });
 
+  it("defaults the runtime DB under .symphony/runtime when unset", () => {
+    const env = loadSymphonyRuntimeAppEnv(
+      buildSymphonyRuntimeEnv({
+        SYMPHONY_DB_FILE: undefined
+      }),
+      "/tmp/symphony-root"
+    );
+
+    expect(env.dbFile).toBe("/tmp/symphony-root/.symphony/runtime/symphony.db");
+  });
+
   it("allows Docker workspace execution to fall back to the supported local image", () => {
     const fallback = loadSymphonyRuntimeAppEnv(
       buildSymphonyRuntimeEnv({
