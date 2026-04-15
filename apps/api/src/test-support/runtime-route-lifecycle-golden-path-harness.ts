@@ -25,6 +25,13 @@ import {
 import { createRouteWorkflowPort, type SymphonyRouteWorkflowPort } from "../core/runtime-route-workflows.js";
 import { createDefaultRuntimeWorkflowPresetSelection } from "../core/runtime-workflow-preset-selection.js";
 import {
+  createRuntimeWorkflowSessionLoader
+} from "../core/runtime-workflow-session-loader.js";
+import {
+  createSymphonyCapabilityOperatorService,
+  type SymphonyCapabilityOperatorService
+} from "../core/symphony-capability-operator.js";
+import {
   createSymphonyCapabilityPlanningService,
   type SymphonyCapabilityPlanningService
 } from "../core/symphony-capability-planning.js";
@@ -36,6 +43,7 @@ export type RouteLifecycleGoldenPathHarness = {
   routeWorkflowStore: RouteWorkflowStore;
   routeWorkflows: SymphonyRouteWorkflowPort;
   capabilityPlanning: SymphonyCapabilityPlanningService;
+  capabilityOperator: SymphonyCapabilityOperatorService;
   service: SymphonyRuntimeRouteLifecycleService;
   cleanup(): Promise<void>;
 };
@@ -74,6 +82,16 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
     createIntelligentFlowCapabilityPreset:
       input.createIntelligentFlowCapabilityPreset
   });
+  const sessionLoader = await createRuntimeWorkflowSessionLoader({
+    routeWorkflows,
+    trackerConfig: runtimePolicy.tracker
+  });
+  const capabilityOperator = createSymphonyCapabilityOperatorService({
+    routeWorkflowStore,
+    routeWorkflows,
+    sessionLoader,
+    capabilityPlanning
+  });
   const service = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
@@ -95,6 +113,7 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
     routeWorkflowStore,
     routeWorkflows,
     capabilityPlanning,
+    capabilityOperator,
     service,
     async cleanup() {
       database.close();

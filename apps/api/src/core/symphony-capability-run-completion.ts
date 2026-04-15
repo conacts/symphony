@@ -4,6 +4,11 @@ import type {
   SymphonyImplementationModuleResult,
   SymphonyRunMode
 } from "@symphony/runtime-contract";
+import type {
+  SymphonyTracker,
+  SymphonyTrackerConfig,
+  SymphonyTrackerIssue
+} from "@symphony/tracker";
 import {
   createSymphonyCapabilityBlockedSignal,
   createSymphonyCapabilityStartedSignal,
@@ -14,6 +19,7 @@ import {
   type SymphonyCapabilityEvidenceId,
   type SymphonyCapabilityId,
   type SymphonyCapabilityModelProfileId,
+  type WorkflowCommand,
   type WorkflowCapabilityAttempt,
   type WorkflowCapabilityProjection,
   type WorkflowHistory,
@@ -24,6 +30,9 @@ import type {
   SymphonyRuntimeWorkflowSessionLoader
 } from "./runtime-workflow-session-loader.js";
 import {
+  createRouteCommandSettlementSessionLoader,
+  executeSettledRouteCommand,
+  readTrackerTransitionState,
   normalizeWorkflowToken
 } from "./runtime-route-workflow-command-utils.js";
 import type {
@@ -72,6 +81,8 @@ export function createSymphonyCapabilityRunCompletionService(input: {
   routeWorkflowStore: RouteWorkflowStore;
   routeWorkflows: SymphonyRouteWorkflowPort;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  tracker: SymphonyTracker;
+  trackerConfig: SymphonyTrackerConfig;
   capabilityPlanning: SymphonyCapabilityPlanningService;
 }): SymphonyCapabilityRunCompletionService {
   return {
@@ -129,7 +140,11 @@ export function createSymphonyCapabilityRunCompletionService(input: {
         await recordSignal({
           workflowId,
           routeWorkflows: input.routeWorkflows,
+          sessionLoader: input.sessionLoader,
           sessionLoaderResult: loaded,
+          tracker: input.tracker,
+          trackerConfig: input.trackerConfig,
+          issueIdentifier: completionInput.issueIdentifier,
           signal: createSymphonyCapabilityStartedSignal({
             id: buildCapabilitySignalId({
               workflowId,
@@ -155,7 +170,11 @@ export function createSymphonyCapabilityRunCompletionService(input: {
       await recordSignal({
         workflowId,
         routeWorkflows: input.routeWorkflows,
+        sessionLoader: input.sessionLoader,
         sessionLoaderResult: loaded,
+        tracker: input.tracker,
+        trackerConfig: input.trackerConfig,
+        issueIdentifier: completionInput.issueIdentifier,
         signal: createTerminalSignal({
           workflowId,
           recordedAt: terminalAt,
@@ -555,9 +574,13 @@ function buildEvidenceArtifacts(
 async function recordSignal(input: {
   workflowId: string;
   routeWorkflows: SymphonyRouteWorkflowPort;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
   sessionLoaderResult: NonNullable<
     Awaited<ReturnType<SymphonyRuntimeWorkflowSessionLoader["resumeByIssueIdentifier"]>>
   >;
+  tracker: SymphonyTracker;
+  trackerConfig: SymphonyTrackerConfig;
+  issueIdentifier: string;
   signal: WorkflowSignal;
 }) {
   const result = await input.sessionLoaderResult.resumed.session.receiveAsync(
@@ -569,6 +592,90 @@ async function recordSignal(input: {
     policy: input.sessionLoaderResult.routing.policy,
     result
   });
+
+  await settleTrackerTransitionCommands({
+    workflowId: input.workflowId,
+    routeWorkflows: input.routeWorkflows,
+    sessionLoader: input.sessionLoader,
+    sessionLoaderResult: input.sessionLoaderResult,
+    tracker: input.tracker,
+    trackerConfig: input.trackerConfig,
+    issueIdentifier: input.issueIdentifier,
+    commands: result.decision.commands,
+    recordedAt: input.signal.occurredAt
+  });
+}
+
+async function settleTrackerTransitionCommands(input: {
+  workflowId: string;
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  sessionLoaderResult: NonNullable<
+    Awaited<ReturnType<SymphonyRuntimeWorkflowSessionLoader["resumeByIssueIdentifier"]>>
+  >;
+  tracker: SymphonyTracker;
+  trackerConfig: SymphonyTrackerConfig;
+  issueIdentifier: string;
+  commands: WorkflowCommand[];
+  recordedAt: string;
+}) {
+  const trackerTransitionCommands = input.commands.filter(
+    (command) => command.kind === "tracker.transition"
+  );
+  if (trackerTransitionCommands.length === 0) {
+    return;
+  }
+
+  const currentIssue = await input.tracker.fetchIssueByIdentifier(
+    input.trackerConfig,
+    input.issueIdentifier
+  );
+  if (!currentIssue) {
+    throw new TypeError(
+      `Capability run completion cannot load tracker issue ${input.issueIdentifier} while settling tracker transitions.`
+    );
+  }
+
+  let projectedIssue = currentIssue;
+  const loadSettlementSession = createRouteCommandSettlementSessionLoader({
+    sessionLoader: input.sessionLoader,
+    workflowId: input.workflowId,
+    failureContext:
+      "while settling capability-managed run-completion tracker transitions"
+  });
+
+  for (const command of trackerTransitionCommands) {
+    projectedIssue = await executeSettledRouteCommand({
+      routeWorkflows: input.routeWorkflows,
+      workflowId: input.workflowId,
+      session: input.sessionLoaderResult.resumed.session,
+      loadSettlementSession,
+      command,
+      recordedAt: input.recordedAt,
+      async execute(executedCommand) {
+        return await executeTrackerTransition({
+          tracker: input.tracker,
+          trackerIssue: projectedIssue,
+          targetState: readTrackerTransitionState({
+            adapter: input.sessionLoaderResult.routing.module.runtimeAdapter,
+            command: executedCommand
+          })
+        });
+      }
+    });
+  }
+}
+
+async function executeTrackerTransition(input: {
+  tracker: SymphonyTracker;
+  trackerIssue: SymphonyTrackerIssue;
+  targetState: string;
+}): Promise<SymphonyTrackerIssue> {
+  await input.tracker.updateIssueState(input.trackerIssue.id, input.targetState);
+  return {
+    ...input.trackerIssue,
+    state: input.targetState
+  };
 }
 
 function incrementIsoTimestamp(value: string, milliseconds: number): string {

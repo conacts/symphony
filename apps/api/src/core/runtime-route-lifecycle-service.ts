@@ -225,6 +225,8 @@ export async function createRuntimeRouteLifecycleService(input: {
           routeWorkflowStore: input.routeWorkflowStore,
           routeWorkflows: input.routeWorkflows,
           sessionLoader,
+          tracker: input.tracker,
+          trackerConfig: input.trackerConfig,
           capabilityPlanning: input.capabilityPlanning
         })
       : null;
@@ -283,10 +285,17 @@ export async function createRuntimeRouteLifecycleService(input: {
             };
           }
           case "awaiting_input":
-          case "blocked":
+          case "blocked": {
+            const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
+              sessionLoader,
+              issueIdentifier: completionInput.issue.identifier,
+              failureContext: "during capability-managed run completion routing"
+            });
+
             return {
-              issue: completionInput.issue
+              issue: projectedIssue ?? completionInput.issue
             };
+          }
           case "failure_recorded":
           case "not_handled":
             break;
