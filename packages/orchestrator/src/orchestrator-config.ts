@@ -32,6 +32,7 @@ export type SymphonyAgentRuntimeConfig = {
     turnTimeoutMs: number;
     readTimeoutMs: number;
     stallTimeoutMs: number;
+    toolTimeoutMs: number | null;
   };
   agentRuntime: {
     command: string;

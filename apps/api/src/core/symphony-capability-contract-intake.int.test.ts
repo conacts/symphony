@@ -33,7 +33,7 @@ afterEach(async () => {
 });
 
 describe("Symphony capability contract intake", () => {
-  it("rejects missing objective sections", async () => {
+  it("derives the objective from the issue title when the objective section is missing", async () => {
     const harness = await createHarness({
       issue: buildIssue({
         description: createDescription({
@@ -43,42 +43,41 @@ describe("Symphony capability contract intake", () => {
     });
 
     try {
-      await expect(
-        harness.intake.createAndPersistForWorkflow({
-          workflowId: harness.workflowId,
-          issue: harness.issue,
-          repositoryKey: "openai/symphony",
-          recordedAt: "2026-04-13T06:10:00.000Z"
-        })
-      ).rejects.toThrow(/objective is required/i);
-      expect(
-        await harness.routeWorkflows.loadExecutionContractByWorkflowId(
-          harness.workflowId
-        )
-      ).toBeNull();
+      const saved = await harness.intake.createAndPersistForWorkflow({
+        workflowId: harness.workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-13T06:10:00.000Z"
+      });
+
+      expect(saved.objective).toBe(harness.issue.title);
+      expect(saved.doneDefinition).toBe(
+        "The API persists a strict execution contract with explicit routing directives."
+      );
     } finally {
       harness.close();
     }
   });
 
-  it("rejects missing done definition sections", async () => {
+  it("derives the done definition from a freeform ticket body when structured sections are missing", async () => {
     const harness = await createHarness({
       issue: buildIssue({
-        description: createDescription({
-          doneDefinition: null
-        })
+        title: "Render workflow progress for recently bootstrapped issues",
+        description:
+          "Make the issue detail page show the latest router step and the most recent execution narrative so operators can understand active work without digging through raw logs."
       })
     });
 
     try {
-      await expect(
-        harness.intake.createAndPersistForWorkflow({
-          workflowId: harness.workflowId,
-          issue: harness.issue,
-          repositoryKey: "openai/symphony",
-          recordedAt: "2026-04-13T06:11:00.000Z"
-        })
-      ).rejects.toThrow(/done definition is required/i);
+      const saved = await harness.intake.createAndPersistForWorkflow({
+        workflowId: harness.workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-13T06:11:00.000Z"
+      });
+
+      expect(saved.objective).toBe(harness.issue.title);
+      expect(saved.doneDefinition).toBe(harness.issue.description);
     } finally {
       harness.close();
     }

@@ -43,6 +43,28 @@ export function buildSymphonyRuntimePolicy(
     overrides.github?.statePath === undefined
       ? path.join(workspaceRoot, ".symphony", "github-state.json")
       : overrides.github.statePath;
+  const {
+    toolTimeoutMs: overriddenPiToolTimeoutMs,
+    ...remainingPiOverrides
+  } = overrides.pi ?? {};
+  const resolvedPiPolicy = {
+    profile: defaultPiProfileDefaults.profile,
+    defaultModel: defaultPiProfileDefaults.defaultModel,
+    defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort,
+    defaultPreset: defaultSymphonyPiPresetName,
+    presets: buildSymphonyDefaultPiPresets({
+      defaultModel: defaultPiProfileDefaults.defaultModel,
+      defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort
+    }),
+    provider: {
+      ...defaultPiProfileDefaults.provider
+    },
+    turnTimeoutMs: 3_600_000,
+    readTimeoutMs: 5_000,
+    stallTimeoutMs: 300_000,
+    ...remainingPiOverrides,
+    toolTimeoutMs: overriddenPiToolTimeoutMs ?? null
+  };
 
   return {
     tracker: {
@@ -83,21 +105,7 @@ export function buildSymphonyRuntimePolicy(
       ...overrides.agent
     },
     pi: {
-      profile: defaultPiProfileDefaults.profile,
-      defaultModel: defaultPiProfileDefaults.defaultModel,
-      defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort,
-      defaultPreset: defaultSymphonyPiPresetName,
-      presets: buildSymphonyDefaultPiPresets({
-        defaultModel: defaultPiProfileDefaults.defaultModel,
-        defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort
-      }),
-      provider: {
-        ...defaultPiProfileDefaults.provider
-      },
-      turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
-      stallTimeoutMs: 300_000,
-      ...overrides.pi
+      ...resolvedPiPolicy
     },
     agentRuntime: {
       command: "pi",

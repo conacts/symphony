@@ -504,6 +504,23 @@ async function executeRun(input: {
         }
       }
 
+      await recordRuntimeLifecycleLog({
+        runtimeLogs: input.runtimeLogs,
+        level: "info",
+        eventType: "runtime_turn_started",
+        message: "Started an agent runtime turn.",
+        issueIdentifier: input.issue.identifier,
+        runId: input.runId,
+        payload: {
+          turnNumber,
+          maxTurns: input.runtimePolicy.agent.maxTurns,
+          runMode: input.runMode,
+          issueState: currentIssue.state,
+          capabilityManagedRun,
+          explicitCompletionRequirement
+        }
+      });
+
       const turnResult = await session.client.runTurn(session, {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
@@ -662,11 +679,44 @@ async function executeRun(input: {
         }
       });
 
+      if (input.activeRun.completionOverride) {
+        await finalizeTurnForDetectedCompletion({
+          runStore: input.runStore,
+          runId: input.runId,
+          persistedTurnId,
+          turnResult
+        });
+        await reportCompletionOverride({
+          activeRun: input.activeRun,
+          runtimeLogs: input.runtimeLogs,
+          workerSessionContract: input.workerSessionContract,
+          sessionId: workerSessionId,
+          issue: input.issue,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          callbacks: input.callbacks,
+          launchTarget: input.launchTarget,
+          runtimePolicy: input.runtimePolicy,
+          runStore: input.runStore
+        });
+        return;
+      }
+
       persistedTurnId = await finalizePersistedTurnFromResult({
         runId: input.runId,
         persistedTurnId,
         runStore: input.runStore,
         turnResult
+      });
+      await recordRuntimeLifecycleLog({
+        runtimeLogs: input.runtimeLogs,
+        level: turnResult.kind === "failed" ? "warn" : "info",
+        eventType: "runtime_terminal_result_returned",
+        message: "Agent runtime returned a terminal result.",
+        issueIdentifier: input.issue.identifier,
+        runId: input.runId,
+        payload: buildRuntimeTerminalResultLogPayload(turnResult)
       });
 
       if (turnResult.kind !== "completed") {
@@ -689,30 +739,20 @@ async function executeRun(input: {
           });
         }
 
-        await input.runtimeLogs.record({
-          level: failedTurnClassification?.level ?? "info",
-          source: "agent_runtime",
-          eventType:
-            failedTurnClassification?.eventType ??
-            "runtime_terminal_result_returned",
-          message:
-            failedTurnClassification?.message ??
-            "Agent runtime returned a non-completed terminal result.",
-          issueIdentifier: input.issue.identifier,
-          runId: input.runId,
-          payload: {
-            terminalResultKind: turnResult.kind,
-            ...(failedTurnClassification?.payload ?? {
-              reason: turnResult.reason,
-              prompt:
-                turnResult.kind === "awaiting_input"
-                  ? turnResult.prompt
-                  : null,
-              failureClass: null,
-              detail: toJsonValue(turnResult.detail)
-            })
-          }
-        });
+        if (failedTurnClassification) {
+          await recordRuntimeLifecycleLog({
+            runtimeLogs: input.runtimeLogs,
+            level: failedTurnClassification.level,
+            eventType: failedTurnClassification.eventType,
+            message: failedTurnClassification.message,
+            issueIdentifier: input.issue.identifier,
+            runId: input.runId,
+            payload: {
+              terminalResultKind: turnResult.kind,
+              ...failedTurnClassification.payload
+            }
+          });
+        }
 
         const completion =
           failedTurnClassification?.completion ??
@@ -726,6 +766,12 @@ async function executeRun(input: {
           runMode: input.runMode,
           completion,
           recordedAt: new Date().toISOString()
+        });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
         });
         await input.callbacks.onComplete(input.issue.id, completion);
         return;
@@ -757,6 +803,7 @@ async function executeRun(input: {
     if (input.activeRun.completionOverride) {
       await reportCompletionOverride({
         activeRun: input.activeRun,
+        runtimeLogs: input.runtimeLogs,
         workerSessionContract: input.workerSessionContract,
         sessionId: workerSessionId,
         issue: input.issue,
@@ -797,11 +844,22 @@ async function executeRun(input: {
           completion,
           recordedAt: new Date().toISOString()
         });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
+        });
         await input.callbacks.onComplete(
           input.issue.id,
           completion
         );
       } else if (maxTurnsReached) {
+        const completion = {
+          kind: "max_turns_reached" as const,
+          reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
+          maxTurns: input.runtimePolicy.agent.maxTurns
+        };
         await recordWorkerSessionCompletion({
           workerSessionContract: input.workerSessionContract,
           sessionId: session.threadId,
@@ -809,18 +867,16 @@ async function executeRun(input: {
           runId: input.runId,
           attempt: input.attempt,
           runMode: input.runMode,
-          completion: {
-            kind: "max_turns_reached",
-            reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
-            maxTurns: input.runtimePolicy.agent.maxTurns
-          },
+          completion,
           recordedAt: new Date().toISOString()
         });
-        await input.callbacks.onComplete(input.issue.id, {
-          kind: "max_turns_reached",
-          reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
-          maxTurns: input.runtimePolicy.agent.maxTurns
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
         });
+        await input.callbacks.onComplete(input.issue.id, completion);
       } else {
         const completion = missingExplicitCompletion();
         await recordWorkerSessionCompletion({
@@ -833,6 +889,12 @@ async function executeRun(input: {
           completion,
           recordedAt: new Date().toISOString()
         });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
+        });
         await input.callbacks.onComplete(
           input.issue.id,
           completion
@@ -841,13 +903,14 @@ async function executeRun(input: {
     }
   } catch (error) {
     if (input.activeRun.completionOverride) {
-      await finalizeTurnForDetectedCompletion(
-        input.runStore,
-        input.runId,
+      await finalizeTurnForDetectedCompletion({
+        runStore: input.runStore,
+        runId: input.runId,
         persistedTurnId
-      );
+      });
       await reportCompletionOverride({
         activeRun: input.activeRun,
+        runtimeLogs: input.runtimeLogs,
         workerSessionContract: input.workerSessionContract,
         sessionId: workerSessionId,
         issue: input.issue,
@@ -963,6 +1026,12 @@ async function executeRun(input: {
       recordedAt: new Date().toISOString()
     });
 
+    await recordRuntimeRunOutcome({
+      runtimeLogs: input.runtimeLogs,
+      issueIdentifier: input.issue.identifier,
+      runId: input.runId,
+      completion
+    });
     await input.callbacks.onComplete(input.issue.id, completion);
   } finally {
     if (commandResourceMonitor && input.runId && persistedTurnId) {
@@ -1036,6 +1105,112 @@ async function recordWorkerSessionCompletion(input: {
     status: completionStatusForRuntimeCompletion(input.completion),
     reason: completionReasonForRuntimeCompletion(input.completion)
   });
+}
+
+async function recordRuntimeLifecycleLog(input: {
+  runtimeLogs: SymphonyRuntimeLogStore;
+  level: "info" | "warn" | "error";
+  eventType: string;
+  message: string;
+  issueIdentifier: string;
+  runId: string | null;
+  payload: JsonObject;
+}): Promise<void> {
+  await input.runtimeLogs.record({
+    level: input.level,
+    source: "agent_runtime",
+    eventType: input.eventType,
+    message: input.message,
+    issueIdentifier: input.issueIdentifier,
+    runId: input.runId,
+    payload: input.payload
+  });
+}
+
+function buildRuntimeTerminalResultLogPayload(
+  turnResult: HarnessTurnResult
+): JsonObject {
+  return {
+    terminalResultKind: turnResult.kind,
+    threadId: turnResult.threadId,
+    turnId: turnResult.turnId,
+    usage: toJsonValue(turnResult.usage),
+    reason:
+      turnResult.kind === "completed"
+        ? null
+        : turnResult.reason,
+    prompt:
+      turnResult.kind === "awaiting_input"
+        ? turnResult.prompt
+        : null,
+    failureClass:
+      turnResult.kind === "failed"
+        ? turnResult.failureClass
+        : null
+  };
+}
+
+async function recordRuntimeRunOutcome(input: {
+  runtimeLogs: SymphonyRuntimeLogStore;
+  issueIdentifier: string;
+  runId: string | null;
+  completion: SymphonyAgentRuntimeCompletion;
+}): Promise<void> {
+  const completed = input.completion.kind === "delivered";
+  await recordRuntimeLifecycleLog({
+    runtimeLogs: input.runtimeLogs,
+    level:
+      completed ? "info" : "warn",
+    eventType: completed ? "runtime_run_completed" : "runtime_run_paused",
+    message: completed
+      ? "Agent runtime run completed."
+      : "Agent runtime run paused.",
+    issueIdentifier: input.issueIdentifier,
+    runId: input.runId,
+    payload: buildRuntimeRunOutcomePayload(input.completion)
+  });
+}
+
+function buildRuntimeRunOutcomePayload(
+  completion: SymphonyAgentRuntimeCompletion
+): JsonObject {
+  const moduleResult =
+    "moduleResult" in completion ? completion.moduleResult : null;
+  return {
+    outcome: completion.kind === "delivered" ? "completed" : "paused",
+    completionKind: completion.kind,
+    reason: runtimeOutcomeReasonForCompletion(completion),
+    prompt:
+      completion.kind === "awaiting_input"
+        ? completion.prompt
+        : null,
+    moduleId: moduleResult?.moduleId ?? null,
+    moduleOutcome: moduleResult?.outcome ?? null,
+    requestedState: moduleResult?.requestedState ?? null,
+    maxTurns:
+      completion.kind === "max_turns_reached"
+        ? completion.maxTurns
+        : null
+  };
+}
+
+function runtimeOutcomeReasonForCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): string | null {
+  switch (completion.kind) {
+    case "awaiting_input":
+    case "blocked":
+    case "failure":
+    case "startup_failure":
+    case "rate_limited":
+    case "provider_transient":
+    case "stalled":
+    case "terminal_result_failure":
+    case "max_turns_reached":
+      return completion.reason;
+    default:
+      return null;
+  }
 }
 
 async function finalizePersistedTurnFromResult(input: {
@@ -1195,9 +1370,12 @@ function classifyPiFailure(input: {
           reason: input.reason
         },
         level: "warn",
-        eventType: "runtime_idle_timeout",
-        message: "Agent runtime idled without visible activity.",
-        payload
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "model_idle_timeout"
+        }
       };
     case "run_timeout":
       return {
@@ -1206,9 +1384,12 @@ function classifyPiFailure(input: {
           reason: input.reason
         },
         level: "error",
-        eventType: "runtime_run_timeout",
-        message: "Agent runtime exceeded the configured turn timeout.",
-        payload
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "run_timeout"
+        }
       };
     case "tool_timeout":
       return {
@@ -1217,9 +1398,12 @@ function classifyPiFailure(input: {
           reason: input.reason
         },
         level: "error",
-        eventType: "runtime_tool_timeout",
-        message: "Agent runtime exceeded the configured tool timeout.",
-        payload
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "tool_timeout"
+        }
       };
     case "transport_timeout":
       return {
@@ -1228,9 +1412,12 @@ function classifyPiFailure(input: {
           reason: input.reason
         },
         level: "error",
-        eventType: "runtime_transport_timeout",
-        message: "Agent runtime transport timed out while waiting for Pi SDK bridge output.",
-        payload
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "transport_timeout"
+        }
       };
     case "provider_error":
       if (isRateLimitedError(failureError)) {
@@ -1595,6 +1782,7 @@ function detectCapabilityManagedTerminalCompletion(
 
 async function reportCompletionOverride(input: {
   activeRun: ActiveRun;
+  runtimeLogs: SymphonyRuntimeLogStore;
   workerSessionContract: SymphonyWorkerSessionContract;
   sessionId: string | null;
   issue: SymphonyTrackerIssue;
@@ -1630,6 +1818,12 @@ async function reportCompletionOverride(input: {
     runMode: input.runMode,
     completion: input.activeRun.completionOverride,
     recordedAt: new Date().toISOString()
+  });
+  await recordRuntimeRunOutcome({
+    runtimeLogs: input.runtimeLogs,
+    issueIdentifier: input.issue.identifier,
+    runId: input.runId,
+    completion: input.activeRun.completionOverride
   });
   await input.callbacks.onComplete(
     input.issue.id,
@@ -1974,18 +2168,22 @@ async function finalizeStoppedTurn(
   });
 }
 
-async function finalizeTurnForDetectedCompletion(
-  runStore: SymphonyRuntimeRunStore,
-  runId: string | null,
-  persistedTurnId: string | null
-): Promise<void> {
-  if (!runId || !persistedTurnId) {
+async function finalizeTurnForDetectedCompletion(input: {
+  runStore: SymphonyRuntimeRunStore;
+  runId: string | null;
+  persistedTurnId: string | null;
+  turnResult?: HarnessTurnResult;
+}): Promise<void> {
+  if (!input.runId || !input.persistedTurnId) {
     return;
   }
 
-  await runStore.finalizeTurn(persistedTurnId, {
+  await input.runStore.finalizeTurn(input.persistedTurnId, {
     status: "completed",
     endedAt: new Date().toISOString(),
+    threadId: input.turnResult?.threadId,
+    agentTurnId: input.turnResult?.turnId,
+    usage: input.turnResult?.usage,
     metadata: {
       stopReason: "terminal_result_detected"
     }

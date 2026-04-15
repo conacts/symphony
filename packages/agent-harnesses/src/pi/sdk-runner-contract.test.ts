@@ -317,6 +317,50 @@ describe("pi sdk runner contract", () => {
     });
   });
 
+  it("parses tool heartbeat and tool-timeout events", () => {
+    const heartbeatEvent = parsePiSdkRunnerEvent({
+      schemaVersion: "1",
+      eventType: "tool_call_heartbeat",
+      sequence: 15,
+      recordedAt: "2026-04-14T18:05:10.000Z",
+      runId: "run-1",
+      callId: "tool-bash-1",
+      toolName: "bash",
+      argumentsText: "{\"command\":\"pnpm build\"}",
+      commandText: "pnpm build",
+      elapsedMs: 30000,
+      heartbeatIntervalMs: 30000,
+      timeoutMs: 900000
+    });
+    const timeoutEvent = parsePiSdkRunnerEvent({
+      schemaVersion: "1",
+      eventType: "tool_timeout_triggered",
+      sequence: 16,
+      recordedAt: "2026-04-14T18:20:10.000Z",
+      runId: "run-1",
+      failureClass: "tool_timeout",
+      thresholdMs: 900000,
+      callId: "tool-bash-1",
+      toolName: "bash",
+      commandText: "pnpm build",
+      lastActivityAt: "2026-04-14T18:19:40.000Z",
+      lastActivityType: "tool_call_heartbeat"
+    });
+
+    expect(heartbeatEvent).toMatchObject({
+      eventType: "tool_call_heartbeat",
+      callId: "tool-bash-1",
+      elapsedMs: 30000,
+      timeoutMs: 900000
+    });
+    expect(timeoutEvent).toMatchObject({
+      eventType: "tool_timeout_triggered",
+      failureClass: "tool_timeout",
+      thresholdMs: 900000,
+      lastActivityType: "tool_call_heartbeat"
+    });
+  });
+
   it("rejects an event with an invalid timestamp", () => {
     expect(() =>
       parsePiSdkRunnerEvent({

@@ -215,6 +215,17 @@ export type PiSdkRunnerToolCallCompletedEvent =
     outputText: string | null;
   };
 
+export type PiSdkRunnerToolCallHeartbeatEvent =
+  PiSdkRunnerEventBase<"tool_call_heartbeat"> & {
+    callId: string;
+    toolName: string;
+    argumentsText: string | null;
+    commandText: string | null;
+    elapsedMs: number;
+    heartbeatIntervalMs: number;
+    timeoutMs: number | null;
+  };
+
 export type PiSdkRunnerToolCallFailedEvent =
   PiSdkRunnerEventBase<"tool_call_failed"> & {
     callId: string;
@@ -272,6 +283,17 @@ export type PiSdkRunnerRunTimeoutTriggeredEvent =
     lastActivityType: string | null;
   };
 
+export type PiSdkRunnerToolTimeoutTriggeredEvent =
+  PiSdkRunnerEventBase<"tool_timeout_triggered"> & {
+    failureClass: "tool_timeout";
+    thresholdMs: number;
+    callId: string;
+    toolName: string;
+    commandText: string | null;
+    lastActivityAt: string | null;
+    lastActivityType: string | null;
+  };
+
 export type PiSdkRunnerInputRequiredEvent =
   PiSdkRunnerEventBase<"input_required"> & {
     reason: string;
@@ -297,6 +319,7 @@ export type PiSdkRunnerEvent =
   | PiSdkRunnerAssistantReasoningDeltaEvent
   | PiSdkRunnerToolCallStartedEvent
   | PiSdkRunnerToolCallCompletedEvent
+  | PiSdkRunnerToolCallHeartbeatEvent
   | PiSdkRunnerToolCallFailedEvent
   | PiSdkRunnerCommandStartedEvent
   | PiSdkRunnerCommandCompletedEvent
@@ -304,6 +327,7 @@ export type PiSdkRunnerEvent =
   | PiSdkRunnerFileChangeObservedEvent
   | PiSdkRunnerIdleTimeoutTriggeredEvent
   | PiSdkRunnerRunTimeoutTriggeredEvent
+  | PiSdkRunnerToolTimeoutTriggeredEvent
   | PiSdkRunnerInputRequiredEvent
   | PiSdkRunnerTerminalResultEvent
   | PiSdkRunnerRunnerErrorEvent;
@@ -482,6 +506,18 @@ export function parsePiSdkRunnerEvent(value: unknown): PiSdkRunnerEvent {
         toolName: requireNonEmptyString(record, "toolName"),
         outputText: requireNullableString(record, "outputText")
       };
+    case "tool_call_heartbeat":
+      return {
+        ...base,
+        eventType,
+        callId: requireNonEmptyString(record, "callId"),
+        toolName: requireNonEmptyString(record, "toolName"),
+        argumentsText: requireNullableString(record, "argumentsText"),
+        commandText: requireNullableString(record, "commandText"),
+        elapsedMs: requirePositiveInteger(record, "elapsedMs"),
+        heartbeatIntervalMs: requirePositiveInteger(record, "heartbeatIntervalMs"),
+        timeoutMs: requireNullablePositiveInteger(record, "timeoutMs")
+      };
     case "tool_call_failed":
       return {
         ...base,
@@ -551,6 +587,22 @@ export function parsePiSdkRunnerEvent(value: unknown): PiSdkRunnerEvent {
           "run_timeout"
         ),
         thresholdMs: requirePositiveInteger(record, "thresholdMs"),
+        lastActivityAt: requireNullableTimestamp(record, "lastActivityAt"),
+        lastActivityType: requireNullableString(record, "lastActivityType")
+      };
+    case "tool_timeout_triggered":
+      return {
+        ...base,
+        eventType,
+        failureClass: requireExactFailureClass(
+          record,
+          "failureClass",
+          "tool_timeout"
+        ),
+        thresholdMs: requirePositiveInteger(record, "thresholdMs"),
+        callId: requireNonEmptyString(record, "callId"),
+        toolName: requireNonEmptyString(record, "toolName"),
+        commandText: requireNullableString(record, "commandText"),
         lastActivityAt: requireNullableTimestamp(record, "lastActivityAt"),
         lastActivityType: requireNullableString(record, "lastActivityType")
       };

@@ -218,13 +218,9 @@ function buildContractIntakeFailureCommentBody(
     "Symphony capability routing failed before execution.",
     "",
     "State: `Failed`",
-    "What changed: Symphony stopped before starting implementation because the ticket contract was not strong enough to parse into an execution contract.",
+    "What changed: Symphony stopped before starting implementation because the ticket body or routing directives could not be normalized into a valid execution contract.",
     `Blocking validation: \`${error.message}\``,
-    "Required ticket sections:",
-    "- `## Objective`",
-    "- `## Done Definition`",
-    "- `## Merge Policy`",
-    "Next step: update the ticket body to include the missing contract sections, then move the issue back to `Todo` to retry dispatch."
+    "Next step: update the ticket body or routing directives so Symphony can derive a valid execution contract, then move the issue back to `Todo` to retry dispatch."
   ].join("\n");
 }
 

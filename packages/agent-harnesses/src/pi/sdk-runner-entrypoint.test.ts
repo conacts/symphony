@@ -585,4 +585,284 @@ describe("pi sdk runner entrypoint", () => {
       }
     });
   });
+
+  it("emits heartbeats for active tools and classifies tool timeouts explicitly", async () => {
+    vi.useFakeTimers();
+    let resolvePrompt: (() => void) | null = null;
+    const abort = vi.fn(async () => {
+      resolvePrompt?.();
+    });
+    const session = createSession({
+      onPrompt(listener) {
+        listener?.({
+          type: "tool_execution_start",
+          toolCallId: "tool-bash-1",
+          toolName: "bash",
+          args: {
+            command: "pnpm build"
+          }
+        });
+
+        return new Promise<void>((resolve) => {
+          resolvePrompt = resolve;
+        });
+      },
+      abort,
+      messages: []
+    });
+    const writes: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
+      writes.push(String(chunk));
+      return true;
+    });
+
+    const execution = executePiSdkRunnerTurn(
+      {
+        bootstrap: {
+          schemaVersion: "1",
+          runId: "bootstrap-run",
+          issue: {
+            id: "issue-1",
+            identifier: "SYM-42",
+            title: "Implement the thing"
+          },
+          workspace: {
+            cwd: "/workspace",
+            sessionFile: "/workspace/.symphony/runtime/pi-sdk-session.jsonl",
+            agentDir: null
+          },
+          prompt: {
+            title: "Bootstrap",
+            text: "Bootstrap"
+          },
+          model: {
+            id: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh",
+            profile: null,
+            providerId: "openrouter",
+            providerName: "OpenRouter"
+          },
+          timeouts: {
+            runTimeoutMs: 300000,
+            modelIdleTimeoutMs: 60000,
+            toolTimeoutMs: 900000
+          },
+          executionPolicy: {
+            approvalMode: "auto",
+            emitReasoning: true
+          }
+        },
+        resolvedAgentDir: "/tmp/pi-agent",
+        model: {
+          provider: "openrouter",
+          id: "xiaomi/mimo-v2-pro"
+        } as PiSdkRunnerRuntime["model"],
+        session,
+        sessionId: "session-1",
+        threadId: "session-1"
+      },
+      {
+        schemaVersion: "1",
+        commandType: "run_turn",
+        runId: "run-turn-1",
+        turnId: "turn-1",
+        prompt: {
+          title: "Implement spec",
+          text: "Apply the requested change."
+        },
+        timeouts: {
+          runTimeoutMs: 300000,
+          modelIdleTimeoutMs: 60,
+          toolTimeoutMs: 180
+        },
+        executionPolicy: {
+          emitReasoning: true
+        }
+      }
+    );
+
+    await vi.advanceTimersByTimeAsync(65);
+
+    const heartbeatEvents = writes
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line))
+      .filter((event) => event.eventType === "tool_call_heartbeat");
+
+    expect(heartbeatEvents.length).toBeGreaterThanOrEqual(1);
+    expect(heartbeatEvents.at(-1)).toMatchObject({
+      eventType: "tool_call_heartbeat",
+      toolName: "bash",
+      commandText: "pnpm build"
+    });
+    expect(abort).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(120);
+    await execution;
+
+    const events = writes
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line));
+
+    expect(events.map((event) => event.eventType)).not.toContain("idle_timeout_triggered");
+    expect(events.map((event) => event.eventType)).toContain("tool_timeout_triggered");
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(events.at(-1)).toMatchObject({
+      eventType: "terminal_result",
+      result: {
+        kind: "failed",
+        failureClass: "tool_timeout"
+      }
+    });
+  });
+
+  it("emits heartbeat-backed tool progress without classifying a clean completion as stalled", async () => {
+    vi.useFakeTimers();
+    const finalMessage = createAssistantMessage("Implemented the requested change.");
+    const abort = vi.fn(async () => {});
+    const session = createSession({
+      onPrompt(listener) {
+        listener?.({
+          type: "tool_execution_start",
+          toolCallId: "tool-bash-1",
+          toolName: "bash",
+          args: {
+            command: "pnpm build"
+          }
+        });
+
+        setTimeout(() => {
+          listener?.({
+            type: "tool_execution_end",
+            toolCallId: "tool-bash-1",
+            toolName: "bash",
+            isError: false,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Build passed."
+                }
+              ]
+            }
+          });
+          listener?.({
+            type: "message_start",
+            message: finalMessage
+          });
+          listener?.({
+            type: "message_update",
+            message: finalMessage,
+            assistantMessageEvent: {
+              type: "text_delta",
+              contentIndex: 0,
+              delta: "Implemented the requested change.",
+              partial: finalMessage
+            }
+          });
+          listener?.({
+            type: "message_end",
+            message: finalMessage
+          });
+        }, 90);
+
+        return new Promise<void>((resolve) => {
+          setTimeout(resolve, 95);
+        });
+      },
+      messages: [finalMessage],
+      abort
+    });
+    const writes: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
+      writes.push(String(chunk));
+      return true;
+    });
+
+    const execution = executePiSdkRunnerTurn(
+      {
+        bootstrap: {
+          schemaVersion: "1",
+          runId: "bootstrap-run",
+          issue: {
+            id: "issue-1",
+            identifier: "SYM-42",
+            title: "Implement the thing"
+          },
+          workspace: {
+            cwd: "/workspace",
+            sessionFile: "/workspace/.symphony/runtime/pi-sdk-session.jsonl",
+            agentDir: null
+          },
+          prompt: {
+            title: "Bootstrap",
+            text: "Bootstrap"
+          },
+          model: {
+            id: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh",
+            profile: null,
+            providerId: "openrouter",
+            providerName: "OpenRouter"
+          },
+          timeouts: {
+            runTimeoutMs: 300000,
+            modelIdleTimeoutMs: 60000,
+            toolTimeoutMs: 900000
+          },
+          executionPolicy: {
+            approvalMode: "auto",
+            emitReasoning: true
+          }
+        },
+        resolvedAgentDir: "/tmp/pi-agent",
+        model: {
+          provider: "openrouter",
+          id: "xiaomi/mimo-v2-pro"
+        } as PiSdkRunnerRuntime["model"],
+        session,
+        sessionId: "session-1",
+        threadId: "session-1"
+      },
+      {
+        schemaVersion: "1",
+        commandType: "run_turn",
+        runId: "run-turn-1",
+        turnId: "turn-1",
+        prompt: {
+          title: "Implement spec",
+          text: "Apply the requested change."
+        },
+        timeouts: {
+          runTimeoutMs: 300000,
+          modelIdleTimeoutMs: 60,
+          toolTimeoutMs: 180
+        },
+        executionPolicy: {
+          emitReasoning: true
+        }
+      }
+    );
+
+    await vi.advanceTimersByTimeAsync(100);
+    await execution;
+
+    const events = writes
+      .map((line) => line.trim())
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line));
+
+    expect(events.map((event) => event.eventType)).toContain("tool_call_heartbeat");
+    expect(events.map((event) => event.eventType)).not.toContain("idle_timeout_triggered");
+    expect(events.map((event) => event.eventType)).not.toContain("tool_timeout_triggered");
+    expect(abort).not.toHaveBeenCalled();
+    expect(events.at(-1)).toMatchObject({
+      eventType: "terminal_result",
+      result: {
+        kind: "completed",
+        finalAssistantMessage: "Implemented the requested change."
+      }
+    });
+  });
 });

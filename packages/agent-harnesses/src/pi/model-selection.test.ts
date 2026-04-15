@@ -244,7 +244,8 @@ function buildRuntimePolicy(
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000,
-      ...overrides.pi
+      ...overrides.pi,
+      toolTimeoutMs: overrides.pi?.toolTimeoutMs ?? 900_000
     },
     agentRuntime: {
       command: "pi",

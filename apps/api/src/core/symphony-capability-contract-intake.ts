@@ -87,6 +87,7 @@ export function createSymphonyCapabilityContractIntake(input: {
         issueIdentifier,
         repositoryKey,
         summary,
+        description: intakeInput.issue.description,
         recordedAt,
         existingContractId: existingContract?.contractId ?? null,
         existingCreatedAt: existingContract?.createdAt ?? null,
@@ -119,6 +120,7 @@ function buildExecutionContract(input: {
   issueIdentifier: string;
   repositoryKey: string;
   summary: string;
+  description: string | null;
   recordedAt: string;
   existingContractId: string | null;
   existingCreatedAt: string | null;
@@ -126,12 +128,15 @@ function buildExecutionContract(input: {
   sections: Map<string, string>;
 }) {
   try {
-    const objective = requireSection(input.sections, "objective", "objective");
-    const doneDefinition = requireSection(
-      input.sections,
-      "done definition",
-      "done definition"
-    );
+    const objective = resolveObjective({
+      sections: input.sections,
+      summary: input.summary
+    });
+    const doneDefinition = resolveDoneDefinition({
+      sections: input.sections,
+      summary: input.summary,
+      description: input.description
+    });
 
     return createSymphonyTicketExecutionContract({
       contractId: input.existingContractId ?? buildContractId(input.workflowId),
@@ -198,13 +203,41 @@ function buildExecutionContract(input: {
   }
 }
 
-function requireSection(
+function readSection(
   sections: Map<string, string>,
-  sectionName: string,
-  fieldLabel: string
-): string {
-  const value = sections.get(sectionName) ?? null;
-  return requireNonEmptyText(value, fieldLabel);
+  sectionName: string
+): string | null {
+  return sections.get(sectionName) ?? null;
+}
+
+function resolveObjective(input: {
+  sections: Map<string, string>;
+  summary: string;
+}): string {
+  const explicitObjective = readSection(input.sections, "objective");
+  if (explicitObjective !== null) {
+    return requireNonEmptyText(explicitObjective, "objective");
+  }
+
+  return requireNonEmptyText(input.summary, "issue.title");
+}
+
+function resolveDoneDefinition(input: {
+  sections: Map<string, string>;
+  summary: string;
+  description: string | null;
+}): string {
+  const explicitDoneDefinition = readSection(input.sections, "done definition");
+  if (explicitDoneDefinition !== null) {
+    return requireNonEmptyText(explicitDoneDefinition, "done definition");
+  }
+
+  const derivedFromPreamble = extractMarkdownPreamble(input.description);
+  if (derivedFromPreamble !== null) {
+    return derivedFromPreamble;
+  }
+
+  return requireNonEmptyText(input.summary, "issue.title");
 }
 
 function parseCapabilityIdListSection(
@@ -370,6 +403,25 @@ function parseMarkdownSections(markdown: string | null): Map<string, string> {
 
   flushSection(sections, activeSectionName, activeSectionLines);
   return sections;
+}
+
+function extractMarkdownPreamble(markdown: string | null): string | null {
+  if (typeof markdown !== "string" || markdown.trim().length === 0) {
+    return null;
+  }
+
+  const lines = markdown.replaceAll("\r\n", "\n").split("\n");
+  const preambleLines: string[] = [];
+
+  for (const line of lines) {
+    if (/^#{2,6}\s+.+?$/.test(line)) {
+      break;
+    }
+    preambleLines.push(line);
+  }
+
+  const preamble = trimSectionBody(preambleLines.join("\n"));
+  return preamble.length > 0 ? preamble : null;
 }
 
 function flushSection(

@@ -19,6 +19,7 @@ type SymphonyPiRuntimePolicy = {
   turnTimeoutMs: number;
   readTimeoutMs: number;
   stallTimeoutMs: number;
+  toolTimeoutMs: number | null;
 };
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
@@ -293,6 +294,28 @@ function readPiPolicy(input: {
     stallTimeoutMs: readPositiveInteger(
       environmentSource.SYMPHONY_PI_STALL_TIMEOUT_MS,
       300_000
+    ),
+    toolTimeoutMs: readOptionalPositiveInteger(
+      environmentSource.SYMPHONY_PI_TOOL_TIMEOUT_MS,
+      900_000
     )
   };
+}
+
+function readOptionalPositiveInteger(
+  value: string | undefined,
+  fallback: number | null
+): number | null {
+  if (typeof value !== "string" || value.trim() === "") {
+    return fallback;
+  }
+
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized <= 0) {
+    throw new TypeError(
+      `Invalid Symphony runtime policy: expected a positive integer, received ${JSON.stringify(value)}.`
+    );
+  }
+
+  return normalized;
 }

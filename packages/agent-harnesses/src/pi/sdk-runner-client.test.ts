@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError } from "../shared/session-types.js";
-import { buildPiSdkRunnerSpawnSpec } from "./launch.js";
+import {
+  buildPiSdkRunnerSpawnSpec,
+  defaultPiSdkRunnerEntrypointPath,
+  defaultPiSdkRunnerTsxLoaderPath
+} from "./launch.js";
 import { PiSdkRunnerClient } from "./sdk-runner-client.js";
 
 const { startMock } = vi.hoisted(() => ({
@@ -121,7 +125,8 @@ function createRuntimePolicy(): SymphonyAgentRuntimeConfig {
       },
       turnTimeoutMs: 300000,
       readTimeoutMs: 5000,
-      stallTimeoutMs: 300000
+      stallTimeoutMs: 300000,
+      toolTimeoutMs: 900000
     },
     hooks: {
       timeoutMs: 150000
@@ -150,7 +155,7 @@ describe("pi sdk runner client", () => {
 
     expect(spec.runtimeWorkspaceRoot).toBe("/workspace");
     expect(spec.args.at(-1)).toContain(
-      "exec node --import tsx '/workspace/packages/agent-harnesses/src/pi/sdk-runner-entrypoint.ts'"
+      `exec node --import '${defaultPiSdkRunnerTsxLoaderPath}' '${defaultPiSdkRunnerEntrypointPath}'`
     );
   });
 
@@ -406,7 +411,10 @@ describe("pi sdk runner client", () => {
       2,
       expect.objectContaining({
         commandType: "run_turn",
-        turnId: "pi-sdk-turn-1"
+        turnId: "pi-sdk-turn-1",
+        timeouts: expect.objectContaining({
+          toolTimeoutMs: 30000
+        })
       })
     );
     expect(updates).toEqual([
@@ -1091,6 +1099,287 @@ describe("pi sdk runner client", () => {
           thresholdMs: 30_000,
           lastActivityAt: "2026-04-14T18:00:35.000Z",
           lastActivityType: "assistant_text_delta"
+        })
+      }
+    });
+  });
+
+  it("emits command progress updates for tool heartbeats", async () => {
+    const awaitEvent = vi
+      .fn()
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "session_started",
+        sequence: 1,
+        recordedAt: "2026-04-14T18:00:00.000Z",
+        runId: "sdk-bootstrap-SYM-42-run",
+        sessionId: "sdk-bootstrap-SYM-42-session",
+        threadId: null,
+        modelId: "xiaomi/mimo-v2-pro",
+        cwd: "/workspace/packages/agent-harnesses"
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "prompt_started",
+        sequence: 2,
+        recordedAt: "2026-04-14T18:01:00.000Z",
+        runId: "pi-sdk-turn-1",
+        promptTitle: "Implement spec",
+        promptText: "Apply the requested change."
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "tool_call_started",
+        sequence: 3,
+        recordedAt: "2026-04-14T18:01:01.000Z",
+        runId: "pi-sdk-turn-1",
+        callId: "tool-bash-1",
+        toolName: "bash",
+        argumentsText: "{\"command\":\"pnpm build\"}"
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "command_started",
+        sequence: 4,
+        recordedAt: "2026-04-14T18:01:01.010Z",
+        runId: "pi-sdk-turn-1",
+        commandId: "tool-bash-1",
+        commandText: "pnpm build",
+        workingDirectory: "/workspace"
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "tool_call_heartbeat",
+        sequence: 5,
+        recordedAt: "2026-04-14T18:01:31.000Z",
+        runId: "pi-sdk-turn-1",
+        callId: "tool-bash-1",
+        toolName: "bash",
+        argumentsText: "{\"command\":\"pnpm build\"}",
+        commandText: "pnpm build",
+        elapsedMs: 30000,
+        heartbeatIntervalMs: 30000,
+        timeoutMs: 900000
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "tool_call_completed",
+        sequence: 6,
+        recordedAt: "2026-04-14T18:01:40.000Z",
+        runId: "pi-sdk-turn-1",
+        callId: "tool-bash-1",
+        toolName: "bash",
+        outputText: "Build passed."
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "command_completed",
+        sequence: 7,
+        recordedAt: "2026-04-14T18:01:40.010Z",
+        runId: "pi-sdk-turn-1",
+        commandId: "tool-bash-1",
+        commandText: "pnpm build",
+        exitCode: 0,
+        stdout: "Build passed.",
+        stderr: null
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "terminal_result",
+        sequence: 8,
+        recordedAt: "2026-04-14T18:01:41.000Z",
+        runId: "pi-sdk-turn-1",
+        result: {
+          schemaVersion: "1",
+          kind: "completed",
+          stopReason: "end_turn",
+          providerStopReason: "stop",
+          finalAssistantMessage: "Implemented the change.",
+          usage: {
+            inputTokens: 11,
+            cachedInputTokens: 2,
+            outputTokens: 7,
+            totalTokens: 20
+          },
+          lastActivityAt: "2026-04-14T18:01:40.010Z",
+          lastActivityType: "command_completed"
+        }
+      });
+
+    startMock.mockResolvedValue({
+      process: {
+        processId: "1234",
+        sendCommand: vi.fn(),
+        awaitEvent,
+        close: vi.fn()
+      },
+      hostLaunchPath: packageRoot,
+      runtimeWorkspacePath: "/workspace/packages/agent-harnesses",
+      runtimeWorkspaceRoot: "/workspace"
+    });
+
+    const session = await PiSdkRunnerClient.startSession({
+      launchTarget: {
+        kind: "container",
+        hostLaunchPath: packageRoot,
+        hostWorkspacePath: repoRoot,
+        runtimeWorkspacePath: "/workspace/packages/agent-harnesses",
+        containerId: "container-1",
+        containerName: "symphony-col-123",
+        shell: "sh",
+        user: "1000:1000"
+      },
+      env: {},
+      hostCommandEnvSource,
+      runtimePolicy: createRuntimePolicy(),
+      issue: createIssue(),
+      logger: {
+        debug() {},
+        warn() {},
+        error() {}
+      }
+    });
+
+    const updates: Array<Record<string, unknown>> = [];
+    const result = await session.client.runTurn(session, {
+      prompt: "Apply the requested change.",
+      title: "Implement spec",
+      onMessage(update) {
+        updates.push(update.event);
+      },
+      turnTimeoutMs: 30_000
+    });
+
+    expect(result.kind).toBe("completed");
+    expect(updates).toContainEqual({
+      type: "item.updated",
+      item: {
+        id: "tool-bash-1",
+        type: "command_execution",
+        command: "pnpm build",
+        aggregated_output: "Still running after 30000ms.",
+        status: "in_progress"
+      }
+    });
+  });
+
+  it("preserves timeout trigger metadata on tool-timeout terminal failures", async () => {
+    const awaitEvent = vi
+      .fn()
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "session_started",
+        sequence: 1,
+        recordedAt: "2026-04-14T18:00:00.000Z",
+        runId: "sdk-bootstrap-SYM-42-run",
+        sessionId: "sdk-bootstrap-SYM-42-session",
+        threadId: null,
+        modelId: "xiaomi/mimo-v2-pro",
+        cwd: "/workspace/packages/agent-harnesses"
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "prompt_started",
+        sequence: 2,
+        recordedAt: "2026-04-14T18:01:00.000Z",
+        runId: "pi-sdk-turn-1",
+        promptTitle: "Implement spec",
+        promptText: "Apply the requested change."
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "tool_timeout_triggered",
+        sequence: 3,
+        recordedAt: "2026-04-14T18:16:00.000Z",
+        runId: "pi-sdk-turn-1",
+        failureClass: "tool_timeout",
+        thresholdMs: 900000,
+        callId: "tool-bash-1",
+        toolName: "bash",
+        commandText: "pnpm build",
+        lastActivityAt: "2026-04-14T18:15:30.000Z",
+        lastActivityType: "tool_call_heartbeat"
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "terminal_result",
+        sequence: 4,
+        recordedAt: "2026-04-14T18:16:00.100Z",
+        runId: "pi-sdk-turn-1",
+        result: {
+          schemaVersion: "1",
+          kind: "failed",
+          stopReason: null,
+          providerStopReason: null,
+          finalAssistantMessage: null,
+          usage: null,
+          lastActivityAt: "2026-04-14T18:15:30.000Z",
+          lastActivityType: "tool_call_heartbeat",
+          failureClass: "tool_timeout",
+          reason:
+            "Pi SDK runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\"."
+        }
+      });
+
+    startMock.mockResolvedValue({
+      process: {
+        processId: "1234",
+        sendCommand: vi.fn(),
+        awaitEvent,
+        close: vi.fn()
+      },
+      hostLaunchPath: packageRoot,
+      runtimeWorkspacePath: "/workspace/packages/agent-harnesses",
+      runtimeWorkspaceRoot: "/workspace"
+    });
+
+    const session = await PiSdkRunnerClient.startSession({
+      launchTarget: {
+        kind: "container",
+        hostLaunchPath: packageRoot,
+        hostWorkspacePath: repoRoot,
+        runtimeWorkspacePath: "/workspace/packages/agent-harnesses",
+        containerId: "container-1",
+        containerName: "symphony-col-123",
+        shell: "sh",
+        user: "1000:1000"
+      },
+      env: {},
+      hostCommandEnvSource,
+      runtimePolicy: createRuntimePolicy(),
+      issue: createIssue(),
+      logger: {
+        debug() {},
+        warn() {},
+        error() {}
+      }
+    });
+
+    const result = await session.client.runTurn(session, {
+      prompt: "Apply the requested change.",
+      title: "Implement spec",
+      onMessage() {},
+      turnTimeoutMs: 30_000
+    });
+
+    expect(result).toEqual({
+      kind: "failed",
+      threadId: "sdk-bootstrap-SYM-42-session",
+      turnId: "pi-sdk-turn-1",
+      usage: null,
+      reason:
+        "Pi SDK runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\".",
+      failureClass: "tool_timeout",
+      detail: {
+        result: expect.objectContaining({
+          failureClass: "tool_timeout"
+        }),
+        timeoutTriggerEvent: expect.objectContaining({
+          eventType: "tool_timeout_triggered",
+          thresholdMs: 900000,
+          callId: "tool-bash-1",
+          toolName: "bash",
+          lastActivityType: "tool_call_heartbeat"
         })
       }
     });

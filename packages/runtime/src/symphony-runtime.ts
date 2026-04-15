@@ -222,7 +222,8 @@ function toSymphonyOrchestratorConfig(
         provider: runtimePolicy.pi.provider,
         turnTimeoutMs: runtimePolicy.pi.turnTimeoutMs,
         readTimeoutMs: runtimePolicy.pi.readTimeoutMs,
-        stallTimeoutMs: runtimePolicy.pi.stallTimeoutMs
+        stallTimeoutMs: runtimePolicy.pi.stallTimeoutMs,
+        toolTimeoutMs: runtimePolicy.pi.toolTimeoutMs
       },
       agentRuntime: {
         command: runtimePolicy.agentRuntime.command,

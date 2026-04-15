@@ -117,6 +117,7 @@ function createRuntimePolicy(
       turnTimeoutMs: 3_600_000,
       readTimeoutMs: 5_000,
       stallTimeoutMs: 300_000,
+      toolTimeoutMs: 900_000,
       ...pi
     },
     hooks: {
@@ -178,7 +179,8 @@ describe("harness runtime policy helpers", () => {
         provider: null,
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
-        stallTimeoutMs: 300_000
+        stallTimeoutMs: 300_000,
+        toolTimeoutMs: 900_000
       }
     });
 

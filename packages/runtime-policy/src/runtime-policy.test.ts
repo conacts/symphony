@@ -33,6 +33,7 @@ describe("resolveRuntimePolicy", () => {
     });
     expect(config.pi.turnTimeoutMs).toBe(3_600_000);
     expect(config.pi.stallTimeoutMs).toBe(300_000);
+    expect(config.pi.toolTimeoutMs).toBe(900_000);
   });
 
   it("resolves env-backed tracker values explicitly", () => {

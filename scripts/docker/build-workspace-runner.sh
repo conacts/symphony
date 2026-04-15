@@ -45,11 +45,11 @@ BUILD_ARGS=(
   build
   --file "$DOCKERFILE_PATH"
   --tag "$IMAGE_NAME"
-  "$ROOT_DIR/docker/workspace-runner"
+  "$ROOT_DIR"
 )
 
 if [[ "$NO_CACHE" -eq 1 ]]; then
-  BUILD_ARGS=(build --no-cache --file "$DOCKERFILE_PATH" --tag "$IMAGE_NAME" "$ROOT_DIR/docker/workspace-runner")
+  BUILD_ARGS=(build --no-cache --file "$DOCKERFILE_PATH" --tag "$IMAGE_NAME" "$ROOT_DIR")
 fi
 
 echo "Building Symphony workspace runner image: $IMAGE_NAME"

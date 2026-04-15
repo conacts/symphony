@@ -7,6 +7,9 @@ import {
   type SymphonyCapabilityPresetPolicyId,
   type SymphonyWorkflowCapabilityPreset
 } from "@symphony/router";
+import {
+  buildSymphonyTrackerIssue
+} from "@symphony/test-support";
 import type {
   SymphonyTrackerIssue
 } from "@symphony/tracker";
@@ -272,6 +275,60 @@ describe("intelligent-flow golden paths", () => {
       })
     );
     expect(resumedAdvance.nextPlanning.plan.kind).toBe("ready_for_completion");
+  });
+
+  it("derives a strict contract from a weak freeform ticket and routes to clarification instead of failing intake", async () => {
+    harness = await CapabilityRouterProofHarness.create({
+      presetId: "intelligent-flow",
+      issue: buildSymphonyTrackerIssue({
+        title: "Make active workflow progress easier to understand in the UI",
+        description:
+          "Show the latest router decision, the current module, and the most recent execution narrative so operators can see what Symphony is doing without digging through raw database records."
+      }),
+      createEngine: () =>
+        createCapabilityScenarioExecutionEngine({
+          outcomes: {
+            "implement.spec:1:1": "clarification_requested",
+            "implement.spec:1:2": "completed"
+          }
+        })
+    });
+
+    expect(harness.contract.objective).toBe(harness.issue.title);
+    expect(harness.contract.doneDefinition).toBe(harness.issue.description);
+
+    const clarificationAdvance = await harness.advance({
+      recordedAt: "2026-04-13T11:35:00.000Z"
+    });
+
+    expect(clarificationAdvance.kind).toBe("executed");
+    if (clarificationAdvance.kind !== "executed") {
+      throw new TypeError("Expected weak-ticket clarification advance to execute.");
+    }
+
+    expect(clarificationAdvance.planning.plan).toEqual(
+      expect.objectContaining({
+        kind: "execute",
+        decision: expect.objectContaining({
+          capabilityId: "implement.spec",
+          workEpoch: 1
+        })
+      })
+    );
+    expect(clarificationAdvance.execution.result).toEqual(
+      expect.objectContaining({
+        kind: "clarification_requested",
+        capabilityId: "implement.spec"
+      })
+    );
+    expect(clarificationAdvance.nextPlanning.plan).toEqual(
+      expect.objectContaining({
+        kind: "awaiting_input"
+      })
+    );
+    expect((await harness.loadLifecycleAuthority()).currentNode).toBe(
+      "awaiting_input"
+    );
   });
 
   it("moves the lifecycle shell into blocked after implementation emits a blocked outcome", async () => {

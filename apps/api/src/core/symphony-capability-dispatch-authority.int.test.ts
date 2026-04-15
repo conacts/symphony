@@ -159,11 +159,11 @@ describe("Symphony capability dispatch authority", () => {
     }
   });
 
-  it("fails malformed capability contracts once and does not keep redispatching bootstrapping work", async () => {
+  it("fails invalid capability directives once and does not keep redispatching bootstrapping work", async () => {
     const harness = await createHarness({
       state: "Todo",
       description: buildCapabilityTicketDescription({
-        objective: null
+        maxRetryCount: "1.5"
       })
     });
 
@@ -202,13 +202,11 @@ describe("Symphony capability dispatch authority", () => {
         expect.objectContaining({
           kind: "comment",
           issueId: harness.issue.id,
-          body: expect.stringContaining("ticket contract was not strong enough")
+          body: expect.stringContaining("could not be normalized into a valid execution contract")
         })
       );
-      expect(failureComment?.body).toContain("`objective is required.`");
-      expect(failureComment?.body).toContain("`## Objective`");
-      expect(failureComment?.body).toContain("`## Done Definition`");
-      expect(failureComment?.body).toContain("`## Merge Policy`");
+      expect(failureComment?.body).toContain("`Invalid max retry count \"1.5\".");
+      expect(failureComment?.body).toContain("update the ticket body or routing directives");
       expect(failureComment?.body).toContain("move the issue back to `Todo`");
       expect(repeated).toEqual({
         issueIdentifier: harness.issue.identifier,
@@ -339,6 +337,7 @@ async function createHarness(input: {
 function buildCapabilityTicketDescription(input: {
   objective?: string | null;
   doneDefinition?: string | null;
+  maxRetryCount?: string | null;
 } = {}): string {
   const sections: string[] = [];
 
@@ -360,6 +359,12 @@ function buildCapabilityTicketDescription(input: {
           "- Control-plane history records every planner-visible state change."
         ].join("\n")
     );
+    sections.push("");
+  }
+
+  if (input.maxRetryCount !== null && input.maxRetryCount !== undefined) {
+    sections.push("## Max Retry Count");
+    sections.push(input.maxRetryCount);
     sections.push("");
   }
 

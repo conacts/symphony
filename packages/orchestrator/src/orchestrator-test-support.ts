@@ -114,6 +114,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
         stallTimeoutMs: 300_000,
+        toolTimeoutMs: 900_000,
         ...overrides.runtime?.pi
       },
       agentRuntime: {

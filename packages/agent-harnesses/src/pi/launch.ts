@@ -15,6 +15,13 @@ export {
   resolvePiIssueModel
 };
 
+export const defaultPiSdkRunnerRoot =
+  "/opt/symphony/pi-sdk-runner";
+export const defaultPiSdkRunnerTsxLoaderPath =
+  `${defaultPiSdkRunnerRoot}/node_modules/tsx/dist/loader.mjs`;
+export const defaultPiSdkRunnerEntrypointPath =
+  `${defaultPiSdkRunnerRoot}/src/pi/sdk-runner-entrypoint.ts`;
+
 export function resolvePiSdkLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue,
@@ -82,10 +89,6 @@ export function buildPiSdkRunnerSpawnSpec(input: {
   const piAgentDir = "/tmp/symphony-pi-agent";
   const mountedPiAuthPath = "/home/agent/.pi/agent/auth.json";
   const runtimeWorkspaceRoot = resolveRuntimeWorkspaceRoot(input.launchTarget);
-  const runnerEntrypointPath = path.posix.join(
-    runtimeWorkspaceRoot,
-    "packages/agent-harnesses/src/pi/sdk-runner-entrypoint.ts"
-  );
 
   return {
     command: "docker",
@@ -106,7 +109,7 @@ export function buildPiSdkRunnerSpawnSpec(input: {
       [
         `mkdir -p ${shellQuote(piAgentDir)}`,
         `if [ -f ${shellQuote(mountedPiAuthPath)} ] && [ ! -f ${shellQuote(`${piAgentDir}/auth.json`)} ]; then cp ${shellQuote(mountedPiAuthPath)} ${shellQuote(`${piAgentDir}/auth.json`)}; fi`,
-        `exec node --import tsx ${shellQuote(runnerEntrypointPath)}`
+        `exec node --import ${shellQuote(defaultPiSdkRunnerTsxLoaderPath)} ${shellQuote(defaultPiSdkRunnerEntrypointPath)}`
       ].join(" && ")
     ],
     cwd: input.launchTarget.hostLaunchPath,

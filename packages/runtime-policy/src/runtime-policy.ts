@@ -96,6 +96,7 @@ export type SymphonyPiRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
   turnTimeoutMs: number;
   readTimeoutMs: number;
   stallTimeoutMs: number;
+  toolTimeoutMs: number | null;
 };
 
 export type SymphonyHooksRuntimePolicy = {
@@ -433,7 +434,11 @@ function normalizePiConfig(value: unknown): SymphonyPiRuntimePolicy {
       pi.stallTimeoutMs,
       300_000,
       "pi.stallTimeoutMs"
-    )
+    ),
+    toolTimeoutMs:
+      pi.toolTimeoutMs === undefined || pi.toolTimeoutMs === null
+        ? 900_000
+        : normalizeOptionalPositiveInteger(pi.toolTimeoutMs, "pi.toolTimeoutMs")
   };
 }
 

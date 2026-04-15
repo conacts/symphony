@@ -32,6 +32,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
   readonly #process: PiSdkRunnerProcess;
   readonly #readTimeoutMs: number;
   readonly #stallTimeoutMs: number;
+  readonly #toolTimeoutMs: number | null;
   #threadStartedEmitted = false;
   #turnSequence = 0;
 
@@ -39,10 +40,12 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
     process: PiSdkRunnerProcess;
     readTimeoutMs: number;
     stallTimeoutMs: number;
+    toolTimeoutMs: number | null;
   }) {
     this.#process = input.process;
     this.#readTimeoutMs = input.readTimeoutMs;
     this.#stallTimeoutMs = input.stallTimeoutMs;
+    this.#toolTimeoutMs = input.toolTimeoutMs;
   }
 
   static async startSession(
@@ -64,7 +67,8 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
     const client = new PiSdkRunnerClient({
       process: started.process,
       readTimeoutMs: input.runtimePolicy.pi.readTimeoutMs,
-      stallTimeoutMs: input.runtimePolicy.pi.stallTimeoutMs
+      stallTimeoutMs: input.runtimePolicy.pi.stallTimeoutMs,
+      toolTimeoutMs: input.runtimePolicy.pi.toolTimeoutMs
     });
 
     try {
@@ -158,7 +162,11 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
         promptTitle: input.title,
         promptText: input.prompt,
         turnTimeoutMs: input.turnTimeoutMs,
-        stallTimeoutMs: this.#stallTimeoutMs
+        stallTimeoutMs: this.#stallTimeoutMs,
+        toolTimeoutMs:
+          this.#toolTimeoutMs === null
+            ? null
+            : Math.min(this.#toolTimeoutMs, input.turnTimeoutMs)
       })
     );
 
@@ -210,6 +218,9 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
         case "tool_call_completed":
           await emitToolCallCompleted(input.onMessage, threadState, event);
           break;
+        case "tool_call_heartbeat":
+          await emitToolCallHeartbeat(input.onMessage, threadState, event);
+          break;
         case "tool_call_failed":
           await emitToolCallFailed(input.onMessage, threadState, event);
           break;
@@ -227,6 +238,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
           break;
         case "idle_timeout_triggered":
         case "run_timeout_triggered":
+        case "tool_timeout_triggered":
           timeoutTriggerEvent = event;
           break;
         case "terminal_result":
@@ -264,7 +276,12 @@ type PiSdkThreadItemState = {
 
 type PiSdkRunnerTimeoutTriggerEvent = Extract<
   PiSdkRunnerEvent,
-  { eventType: "idle_timeout_triggered" | "run_timeout_triggered" }
+  {
+    eventType:
+      | "idle_timeout_triggered"
+      | "run_timeout_triggered"
+      | "tool_timeout_triggered";
+  }
 >;
 
 function buildPiSdkRunnerBootstrapInput(input: {
@@ -327,6 +344,7 @@ function buildPiSdkRunnerRunTurnCommand(input: {
   promptText: string;
   turnTimeoutMs: number;
   stallTimeoutMs: number;
+  toolTimeoutMs: number | null;
 }): PiSdkRunnerCommand {
   return {
     schemaVersion: "1",
@@ -340,7 +358,7 @@ function buildPiSdkRunnerRunTurnCommand(input: {
     timeouts: {
       runTimeoutMs: input.turnTimeoutMs,
       modelIdleTimeoutMs: input.stallTimeoutMs,
-      toolTimeoutMs: null
+      toolTimeoutMs: input.toolTimeoutMs
     },
     executionPolicy: {
       emitReasoning: true
@@ -729,6 +747,46 @@ async function emitToolCallCompleted(
                 structured_content: null
               }
             })
+      }
+    },
+    rawPayload: event
+  });
+}
+
+async function emitToolCallHeartbeat(
+  onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
+  state: PiSdkThreadItemState,
+  event: Extract<PiSdkRunnerEvent, { eventType: "tool_call_heartbeat" }>
+): Promise<void> {
+  if (event.toolName === "bash") {
+    await onMessage({
+      event: {
+        type: "item.updated",
+        item: {
+          id: event.callId,
+          type: "command_execution",
+          command: event.commandText ?? "bash",
+          aggregated_output: `Still running after ${event.elapsedMs}ms.`,
+          status: "in_progress"
+        }
+      },
+      rawPayload: event
+    });
+    return;
+  }
+
+  await onMessage({
+    event: {
+      type: "item.updated",
+      item: {
+        id: event.callId,
+        type: "mcp_tool_call",
+        server: "pi",
+        tool: event.toolName,
+        arguments:
+          state.toolCallArguments.get(event.callId) ??
+          parseToolArguments(event.argumentsText),
+        status: "in_progress"
       }
     },
     rawPayload: event
