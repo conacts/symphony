@@ -217,10 +217,8 @@ function formatPlanKind(
       return "Awaiting Input";
     case "blocked":
       return "Blocked";
-    case "ready_for_manual_completion":
-      return "Manual Completion";
-    case "ready_for_auto_completion":
-      return "Auto Completion";
+    case "ready_for_completion":
+      return "Ready For Completion";
     default:
       return String(planKind);
   }

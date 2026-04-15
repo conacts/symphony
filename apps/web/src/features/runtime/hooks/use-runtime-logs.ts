@@ -9,16 +9,18 @@ import {
 export function useRuntimeLogs(input: {
   runtimeBaseUrl: string;
   websocketUrl: string;
+  issueIdentifier?: string;
   limit?: number;
 }) {
   return useRealtimeResource({
     loadResource: () =>
       fetchRuntimeLogs(input.runtimeBaseUrl, {
-        limit: input.limit
+        limit: input.limit,
+        issueIdentifier: input.issueIdentifier
       }),
     websocketUrl: input.websocketUrl,
     channels: ["runtime", "issues", "runs"],
     shouldRefresh: shouldRefreshRuntimeLogs,
-    refreshKey: `${input.runtimeBaseUrl}:logs:${input.limit ?? "default"}`
+    refreshKey: `${input.runtimeBaseUrl}:logs:${input.issueIdentifier ?? "all"}:${input.limit ?? "default"}`
   });
 }

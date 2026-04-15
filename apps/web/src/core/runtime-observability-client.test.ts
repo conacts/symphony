@@ -60,6 +60,38 @@ describe("runtime observability client", () => {
     });
   });
 
+  it("passes issue-scoped runtime log filters through to the request URL", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          schemaVersion: "1",
+          ok: true,
+          data: buildSymphonyRuntimeLogsResult(),
+          meta: {
+            durationMs: 1,
+            generatedAt: "2026-03-31T18:05:00.000Z"
+          }
+        })
+      )
+    );
+
+    await fetchRuntimeLogs(
+      "https://runtime.symphony.local",
+      {
+        limit: 12,
+        issueIdentifier: "SYM-18"
+      },
+      fetchImpl
+    );
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/runtime/logs?limit=12&issueIdentifier=SYM-18"),
+      expect.objectContaining({
+        cache: "no-store"
+      })
+    );
+  });
+
   it("refreshes health and logs on the expected realtime events", () => {
     expect(
       shouldRefreshRuntimeHealth({

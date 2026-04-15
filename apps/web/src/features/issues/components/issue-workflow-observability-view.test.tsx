@@ -258,6 +258,8 @@ describe("issue workflow observability view", () => {
     );
 
     expect(html).toContain("Current module");
+    expect(html).toContain("Waiting on");
+    expect(html).toContain("Latest activity");
     expect(html).toContain("Router decision");
     expect(html).toContain("Recent module runs");
     expect(html).toContain("Run logs");
@@ -298,6 +300,7 @@ describe("issue workflow observability view", () => {
     expect(html).toContain(
       "No intelligent-flow selection metadata has been recorded for this workflow yet."
     );
+    expect(html).toContain("Router progression");
     expect(html).toContain("No module runs have started for this workflow yet.");
     expect(html).toContain("Per-run logs will appear once a module attempt starts.");
     expect(html).toContain("No workflow events have been recorded for this issue yet.");

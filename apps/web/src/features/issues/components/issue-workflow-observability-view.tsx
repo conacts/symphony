@@ -61,6 +61,17 @@ export function IssueWorkflowObservabilityView(input: {
       ? null
       : (decisionsById.get(routerDecision.decisionId) ?? null);
   const latestRun = recentRuns[0] ?? null;
+  const waitState = buildWorkflowWaitState({
+    currentModule,
+    capability: input.workflow.capability ?? input.runtimeIssue?.operator.capability ?? null,
+    runtimeIssue: input.runtimeIssue,
+    terminal: input.workflow.snapshot?.terminal ?? false
+  });
+  const latestActivity = buildWorkflowLatestActivity({
+    history: input.workflow.history,
+    latestRun,
+    routerDecision
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,22 +118,14 @@ export function IssueWorkflowObservabilityView(input: {
             }
           />
           <SummaryCard
-            label="Router decisions"
-            value={formatCount(input.workflow.replay.recordedDecisionCount)}
-            detail={
-              routerDecision
-                ? `${formatStatusLabel(routerDecision.selectionMode)} · ${formatStatusLabel(routerDecision.reasonCode)}`
-                : "No intelligent-flow selection metadata has been recorded."
-            }
+            label="Waiting on"
+            value={waitState.value}
+            detail={waitState.detail}
           />
           <SummaryCard
-            label="Module runs"
-            value={formatCount(recentRuns.length)}
-            detail={
-              latestRun
-                ? `${formatStatusLabel(latestRun.state)} · ${formatTimestamp(latestRun.selectedAt)}`
-                : "No module runs have started for this workflow yet."
-            }
+            label="Latest activity"
+            value={latestActivity.value}
+            detail={latestActivity.detail}
           />
         </CardContent>
       </Card>
@@ -1004,4 +1007,112 @@ function buildHistoryEventDetail(event: WorkflowHistoryEntry): string {
   }
 
   return details.join(" · ");
+}
+
+function buildWorkflowWaitState(input: {
+  currentModule: WorkflowModuleObservation | null;
+  capability: SymphonyRuntimeIssueResult["operator"]["capability"] | null;
+  runtimeIssue: SymphonyRuntimeIssueResult | null;
+  terminal: boolean;
+}) {
+  if (input.capability?.planKind === "awaiting_input") {
+    return {
+      value: "Clarification",
+      detail:
+        input.capability.pendingClarification?.summary ??
+        "Waiting for an operator clarification answer."
+    };
+  }
+
+  if (input.capability?.planKind === "blocked") {
+    return {
+      value: "Blocked",
+      detail: input.capability.summary
+    };
+  }
+
+  if (input.capability?.planKind === "ready_for_completion") {
+    return {
+      value: "Manual completion",
+      detail: input.capability.summary
+    };
+  }
+
+  if (input.currentModule?.state === "selected") {
+    return {
+      value: "Module start",
+      detail: "Waiting for the selected module run to begin."
+    };
+  }
+
+  if (input.currentModule?.state === "started") {
+    return {
+      value: "Agent activity",
+      detail:
+        input.runtimeIssue?.running?.lastMessage ??
+        "Waiting for the active module to report more runtime activity."
+    };
+  }
+
+  if (input.currentModule?.state === "clarification_requested") {
+    return {
+      value: "Clarification",
+      detail: input.currentModule.summary
+    };
+  }
+
+  if (input.currentModule?.state === "blocked") {
+    return {
+      value: "Blocked",
+      detail: input.currentModule.summary
+    };
+  }
+
+  if (input.terminal) {
+    return {
+      value: "Terminal",
+      detail: "The workflow snapshot is terminal and is not waiting on more router work."
+    };
+  }
+
+  return {
+    value: "Router progression",
+    detail: "Waiting for the next router transition or runtime event."
+  };
+}
+
+function buildWorkflowLatestActivity(input: {
+  history: ReadonlyArray<WorkflowHistoryEntry>;
+  latestRun: WorkflowRecentModuleRun | null;
+  routerDecision: WorkflowRouterDecision | null;
+}) {
+  const latestHistory = [...input.history].sort(
+    (left, right) => right.eventSequence - left.eventSequence
+  )[0] ?? null;
+
+  if (latestHistory) {
+    return {
+      value: formatStatusLabel(latestHistory.kind),
+      detail: `${buildHistoryEventSummary(latestHistory)} · ${formatTimestamp(latestHistory.recordedAt)}`
+    };
+  }
+
+  if (input.latestRun) {
+    return {
+      value: formatStatusLabel(input.latestRun.state),
+      detail: `${input.latestRun.module.summary} · ${formatTimestamp(input.latestRun.selectedAt)}`
+    };
+  }
+
+  if (input.routerDecision) {
+    return {
+      value: formatStatusLabel(input.routerDecision.selectionMode),
+      detail: `${input.routerDecision.selectionSummary} · ${formatTimestamp(input.routerDecision.recordedAt)}`
+    };
+  }
+
+  return {
+    value: "No activity",
+    detail: "No workflow events or module activity have been recorded yet."
+  };
 }

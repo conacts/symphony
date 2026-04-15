@@ -7,6 +7,7 @@ import {
 } from "../test-support/build-symphony-dashboard-view-fixtures.js";
 import {
   buildSymphonyRuntimeIssueResult,
+  buildSymphonyRuntimeLogsResult,
   buildSymphonyRuntimeWorkflowObservabilityResult
 } from "../test-support/build-symphony-runtime-operator.js";
 import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
@@ -16,10 +17,14 @@ describe("issue detail view", () => {
     const html = renderToStaticMarkup(
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
+        issueIdentifier="COL-165"
         issueDetailError={null}
         issueDetail={buildSymphonyForensicsIssueDetailResult()}
         issueDetailLoading={false}
         runtimeIssue={null}
+        runtimeLogs={null}
+        runtimeLogsError={null}
+        runtimeLogsLoading={false}
         workflowObservability={null}
         workflowObservabilityError={null}
         workflowObservabilityLoading={false}
@@ -39,10 +44,14 @@ describe("issue detail view", () => {
     const html = renderToStaticMarkup(
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
+        issueIdentifier="COL-165"
         issueDetailError="issue unavailable"
         issueDetail={null}
         issueDetailLoading={false}
         runtimeIssue={null}
+        runtimeLogs={null}
+        runtimeLogsError={null}
+        runtimeLogsLoading={false}
         workflowObservability={null}
         workflowObservabilityError={null}
         workflowObservabilityLoading={false}
@@ -57,10 +66,14 @@ describe("issue detail view", () => {
     const html = renderToStaticMarkup(
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
+        issueIdentifier="COL-165"
         issueDetailError={null}
         issueDetail={null}
         issueDetailLoading={false}
         runtimeIssue={null}
+        runtimeLogs={null}
+        runtimeLogsError={null}
+        runtimeLogsLoading={false}
         workflowObservability={null}
         workflowObservabilityError={null}
         workflowObservabilityLoading={false}
@@ -76,6 +89,7 @@ describe("issue detail view", () => {
     const html = renderToStaticMarkup(
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
+        issueIdentifier="SYM-15"
         issueDetailError={null}
         issueDetail={null}
         issueDetailLoading={false}
@@ -114,15 +128,15 @@ describe("issue detail view", () => {
               contractId: "contract-15",
               policyId: "default",
               decidedAt: "2026-04-13T15:06:59.152Z",
-              planKind: "ready_for_manual_completion",
-              summary: "Workflow is ready for manual completion.",
+              planKind: "ready_for_completion",
+              summary: "Workflow is ready for completion.",
               capabilityId: null,
               modelProfileId: null,
               workEpoch: 1,
               pendingClarification: null,
               completion: {
                 workEpoch: 1,
-                result: "ready_for_manual_completion",
+                result: "ready_for_completion",
                 satisfiedCapabilityIds: ["implement.spec", "critic.code_review"],
                 missingCapabilityIds: [],
                 satisfiedEvidenceIds: ["change_set", "code_review_report"],
@@ -132,12 +146,59 @@ describe("issue detail view", () => {
             }
           }
         })}
+        runtimeLogs={buildSymphonyRuntimeLogsResult({
+          logs: [
+            {
+              entryId: "issue-log-1",
+              repositoryKey: "symphony",
+              level: "info",
+              source: "runtime",
+              eventType: "runtime_session_started",
+              message: "Runtime session started for SYM-15.",
+              trackerIssueId: "issue-15",
+              issueIdentifier: "SYM-15",
+              runId: "run-15",
+              payload: {
+                workerHost: "worker-b"
+              },
+              recordedAt: "2026-04-13T15:07:00.000Z"
+            },
+            {
+              entryId: "issue-log-2",
+              repositoryKey: "symphony",
+              level: "info",
+              source: "runtime",
+              eventType: "runtime_terminal_result_returned",
+              message: "Terminal result returned for SYM-15.",
+              trackerIssueId: "issue-15",
+              issueIdentifier: "SYM-15",
+              runId: "run-15",
+              payload: {
+                result: "completed"
+              },
+              recordedAt: "2026-04-13T15:08:00.000Z"
+            }
+          ],
+          filters: {
+            limit: 12,
+            repo: "symphony",
+            issueIdentifier: "SYM-15"
+          }
+        })}
+        runtimeLogsError={null}
+        runtimeLogsLoading={false}
         workflowObservability={buildSymphonyRuntimeWorkflowObservabilityResult()}
         workflowObservabilityError={null}
         workflowObservabilityLoading={false}
       />
     );
 
+    expect(html).toContain("Runtime lifecycle");
+    expect(html).toContain("Full timeline");
+    expect(html).toContain("/issues/SYM-15/timeline?repo=symphony");
+    expect(html).toContain("Latest runtime event");
+    expect(html).toContain("Terminal result returned");
+    expect(html).toContain("Terminal result returned for SYM-15.");
     expect(html).toContain("Workflow observability");
     expect(html).toContain("Current module");
     expect(html).toContain("Router decision");
@@ -145,7 +206,7 @@ describe("issue detail view", () => {
     expect(html).toContain("Run logs");
     expect(html).toContain("Live runtime snapshot");
     expect(html).toContain("Dogfooding");
-    expect(html).toContain("Manual Completion");
+    expect(html).toContain("Ready For Completion");
     expect(html).toContain("No active agent run is currently attached to this issue.");
     expect(html).toContain("Workspace context");
   });
@@ -154,10 +215,37 @@ describe("issue detail view", () => {
     const html = renderToStaticMarkup(
       <IssueDetailView
         connection={buildSymphonyDashboardConnectionState()}
+        issueIdentifier="COL-167"
         issueDetailError={null}
         issueDetail={null}
         issueDetailLoading={false}
         runtimeIssue={null}
+        runtimeLogs={buildSymphonyRuntimeLogsResult({
+          logs: [
+            {
+              entryId: "issue-log-167",
+              repositoryKey: "symphony",
+              level: "warn",
+              source: "runtime",
+              eventType: "runtime_timeout_classified",
+              message: "Timeout classified while waiting for more agent activity.",
+              trackerIssueId: "issue-167",
+              issueIdentifier: "COL-167",
+              runId: "run-167",
+              payload: {
+                timeoutKind: "idle_stall"
+              },
+              recordedAt: "2026-04-13T18:08:00.000Z"
+            }
+          ],
+          filters: {
+            limit: 12,
+            repo: "symphony",
+            issueIdentifier: "COL-167"
+          }
+        })}
+        runtimeLogsError={null}
+        runtimeLogsLoading={false}
         workflowObservability={buildSymphonyRuntimeWorkflowObservabilityResult()}
         workflowObservabilityError={null}
         workflowObservabilityLoading={false}
@@ -167,6 +255,8 @@ describe("issue detail view", () => {
     expect(html).toContain("Workflow observability");
     expect(html).toContain("Current module");
     expect(html).toContain("Recent module runs");
+    expect(html).toContain("Runtime lifecycle");
+    expect(html).toContain("Timeout classified while waiting for more agent activity.");
     expect(html).not.toContain("Issue detail unavailable");
   });
 });
