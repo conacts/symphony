@@ -31,15 +31,6 @@ export type SymphonyRuntimeCompletionSignalInput = {
   correlationId: string | null;
 };
 
-export type SymphonyRuntimeDeliveryReportedSignalInput = {
-  id: string;
-  occurredAt: string;
-  runId: string;
-  status: string;
-  causationId: string | null;
-  correlationId: string | null;
-};
-
 export type SymphonyRuntimeStateRequestedSignalInput = {
   id: string;
   occurredAt: string;
@@ -69,9 +60,6 @@ export type SymphonyRuntimeWorkflowPresetAdapter = {
   ): WorkflowSignal;
   createRuntimeCompletionSignal(
     input: SymphonyRuntimeCompletionSignalInput
-  ): WorkflowSignal;
-  createDeliveryReportedSignal(
-    input: SymphonyRuntimeDeliveryReportedSignalInput
   ): WorkflowSignal;
   createStateRequestedSignal(
     input: SymphonyRuntimeStateRequestedSignalInput

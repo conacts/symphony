@@ -262,7 +262,6 @@ export type {
 } from "./presets/intelligent-flow/symphony-intelligent-flow-router.js";
 export {
   createSymphonyIntelligentFlowDispatchCommand,
-  createSymphonyIntelligentFlowDeliveryReportedSignal,
   createSymphonyIntelligentFlowStateRequestedSignal,
   parseSymphonyIntelligentFlowRunMode,
   parseSymphonyIntelligentFlowTrackerState,
@@ -273,7 +272,6 @@ export {
   createSymphonyIntelligentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowTrackerTransitionCommand,
   readSymphonyIntelligentFlowDispatchCommand,
-  readSymphonyIntelligentFlowDeliveryReportedSignal,
   readSymphonyIntelligentFlowStateRequestedSignal,
   readSymphonyIntelligentFlowRunStartedSignal,
   readSymphonyIntelligentFlowRuntimeCompletedSignal,
@@ -281,7 +279,6 @@ export {
   readSymphonyIntelligentFlowShutdownRequestedSignal,
   readSymphonyIntelligentFlowTrackerStateObservedSignal,
   readSymphonyIntelligentFlowTrackerTransitionCommand,
-  symphonyIntelligentFlowDeliveryStatusSchema,
   symphonyIntelligentFlowStateRequestKindSchema,
   symphonyIntelligentFlowStateRequestTargetStateSchema,
   symphonyIntelligentFlowCompletionKindSchema,
@@ -291,8 +288,6 @@ export {
 } from "./presets/intelligent-flow/symphony-intelligent-flow-lifecycle-contract.js";
 export type {
   SymphonyIntelligentFlowCompletionKind,
-  SymphonyIntelligentFlowDeliveryReportedSignal,
-  SymphonyIntelligentFlowDeliveryStatus,
   SymphonyIntelligentFlowDispatchCommand,
   SymphonyIntelligentFlowRunMode,
   SymphonyIntelligentFlowRunStartedSignal,

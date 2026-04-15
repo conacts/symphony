@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 describe("explicit completion golden paths", () => {
-  it("closes intelligent-flow delivery directly into Done", async () => {
+  it("closes intelligent-flow completion directly into Done", async () => {
     harness = await createRouteLifecycleGoldenPathHarness({
       state: "Todo",
       presetId: "intelligent-flow"
@@ -54,7 +54,7 @@ describe("explicit completion golden paths", () => {
     expect(hydration?.snapshot?.projection.currentNode).toBe("done");
 
     const signalTypes = await listRecordedWorkflowSignalTypes(harness, workflowId);
-    expect(signalTypes).toContain("runtime.delivery_reported");
+    expect(signalTypes).toContain("runtime.completed");
     expect(signalTypes).not.toContain("capability.completed");
   });
 });

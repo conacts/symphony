@@ -454,8 +454,8 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
       eventSequence: 6,
       currentNode: "implementation",
       terminal: false,
-      lastSignalId: "signal_delivery_completed",
-      lastDecisionId: "decision_delivery_completed",
+      lastSignalId: "signal_runtime_completed",
+      lastDecisionId: "decision_runtime_completed",
       pendingCommandCount: 1,
       projection: {
         workflowId: "workflow-167",
@@ -470,7 +470,7 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
             dedupeKey: null
           }
         ],
-        recordedSignalIds: ["signal_todo_observed", "signal_delivery_completed"],
+        recordedSignalIds: ["signal_todo_observed", "signal_runtime_completed"],
         emittedCommandIds: ["command-review"],
         terminal: false,
         sequence: 6,
@@ -478,23 +478,25 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
           trackerState: "In Progress"
         },
         lastSignal: {
-          id: "signal_delivery_completed",
-          type: "runtime.delivery_reported",
+          id: "signal_runtime_completed",
+          type: "runtime.completed",
           source: "runtime",
           occurredAt: "2026-04-13T18:07:00.000Z",
           causationId: null,
           correlationId: "COL-167",
           payload: {
+            kind: "delivered",
             runId: "run-167",
-            status: "completed"
+            runMode: "implementation",
+            reason: null
           }
         },
         lastDecision: {
-          id: "decision_delivery_completed",
+          id: "decision_runtime_completed",
           fromNode: "bootstrapping",
           toNode: "implementation",
           edgeId: "bootstrapping_to_implementation",
-          reasonCode: "delivery_reported",
+          reasonCode: "runtime_completed",
           commands: [
             {
               id: "command-review",
@@ -539,15 +541,17 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
           }
         },
         {
-          id: "signal_delivery_completed",
-          type: "runtime.delivery_reported",
+          id: "signal_runtime_completed",
+          type: "runtime.completed",
           source: "runtime",
           occurredAt: "2026-04-13T18:07:00.000Z",
           causationId: null,
           correlationId: "COL-167",
           payload: {
+            kind: "delivered",
             runId: "run-167",
-            status: "completed"
+            runMode: "implementation",
+            reason: null
           }
         }
       ]
@@ -619,24 +623,24 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
         eventSequence: 2,
         kind: "decision_recorded",
         recordedAt: "2026-04-13T18:07:00.000Z",
-        signalId: "signal_delivery_completed",
-        signalType: "runtime.delivery_reported",
+        signalId: "signal_runtime_completed",
+        signalType: "runtime.completed",
         signalSource: "runtime",
-        decisionId: "decision_delivery_completed",
+        decisionId: "decision_runtime_completed",
         commandId: null,
         fromNode: "bootstrapping",
         toNode: "implementation",
         edgeId: "bootstrapping_to_implementation",
-        reasonCode: "delivery_reported",
+        reasonCode: "runtime_completed",
         event: {
           kind: "decision_recorded",
           recordedAt: "2026-04-13T18:07:00.000Z",
           decision: {
-            id: "decision_delivery_completed",
+            id: "decision_runtime_completed",
             fromNode: "bootstrapping",
             toNode: "implementation",
             edgeId: "bootstrapping_to_implementation",
-            reasonCode: "delivery_reported",
+            reasonCode: "runtime_completed",
             commands: [
               {
                 id: "command-review",
@@ -670,15 +674,15 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
         signalId: null,
         signalType: null,
         signalSource: null,
-        decisionId: "decision_delivery_completed",
+        decisionId: "decision_runtime_completed",
         commandId: "command-review",
         fromNode: "bootstrapping",
         toNode: "implementation",
         edgeId: "bootstrapping_to_implementation",
-        reasonCode: "delivery_reported",
+        reasonCode: "runtime_completed",
         event: {
           kind: "command_emitted",
-          decisionId: "decision_delivery_completed",
+          decisionId: "decision_runtime_completed",
           recordedAt: "2026-04-13T18:07:00.500Z",
           command: {
             id: "command-review",
@@ -717,13 +721,13 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
     ],
     decisions: [
       {
-        decisionId: "decision_delivery_completed",
+        decisionId: "decision_runtime_completed",
         eventSequence: 2,
-        signalId: "signal_delivery_completed",
+        signalId: "signal_runtime_completed",
         fromNode: "bootstrapping",
         toNode: "implementation",
         edgeId: "bootstrapping_to_implementation",
-        reasonCode: "delivery_reported",
+        reasonCode: "runtime_completed",
         policy: {
           presetId: "intelligent-flow"
         },

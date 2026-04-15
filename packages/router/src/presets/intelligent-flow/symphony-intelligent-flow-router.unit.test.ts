@@ -5,8 +5,8 @@ import {
   createSymphonyWorkflowClarificationRequestedSignal
 } from "../../capability/symphony-capability-contract.js";
 import {
-  createSymphonyIntelligentFlowDeliveryReportedSignal,
   createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowRuntimeCompletedSignal,
   createSymphonyIntelligentFlowTrackerStateObservedSignal
 } from "./symphony-intelligent-flow-lifecycle-contract.js";
 import {
@@ -125,7 +125,7 @@ describe("Symphony intelligent-flow router", () => {
     ]);
   });
 
-  it("closes completed delivery into done and transitions the tracker to Done", async () => {
+  it("closes delivered runtime completion into done and transitions the tracker to Done", async () => {
     const router = await createSymphonyIntelligentFlowRouterAsync({
       now: () => new Date("2026-04-13T23:10:00.000Z"),
       createId: buildCreateId()
@@ -158,11 +158,13 @@ describe("Symphony intelligent-flow router", () => {
     );
 
     const result = await session.receiveAsync(
-      createSymphonyIntelligentFlowDeliveryReportedSignal({
-        id: "signal_delivery_reported",
+      createSymphonyIntelligentFlowRuntimeCompletedSignal({
+        id: "signal_runtime_completed",
         occurredAt: "2026-04-13T23:10:00.000Z",
+        kind: "delivered",
         runId: "run-1",
-        status: "completed",
+        runMode: "implementation",
+        reason: null,
         causationId: "run-1",
         correlationId: "SYM-INT-703"
       })
@@ -170,10 +172,10 @@ describe("Symphony intelligent-flow router", () => {
 
     expect(result.decision.fromNode).toBe("active");
     expect(result.decision.toNode).toBe("done");
-    expect(result.decision.reasonCode).toBe("active_delivery_completed");
+    expect(result.decision.reasonCode).toBe("active_runtime_delivered");
     expect(result.decision.commands).toEqual([
       {
-        id: "command_signal_delivery_reported_tracker_done",
+        id: "command_signal_runtime_completed_tracker_done",
         kind: "tracker.transition",
         dedupeKey: null,
         payload: {

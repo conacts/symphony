@@ -291,8 +291,7 @@ function completionStatus(
       return "failed";
     case "stalled":
       return "stalled";
-    case "invalid_result":
-    case "missing_terminal_result":
+    case "terminal_result_failure":
     case "failure":
       return "failed";
     default:
@@ -322,8 +321,7 @@ function completionOutcome(
       return "provider_transient";
     case "stalled":
       return "stalled";
-    case "invalid_result":
-    case "missing_terminal_result":
+    case "terminal_result_failure":
     case "failure":
       return "failed";
     default:

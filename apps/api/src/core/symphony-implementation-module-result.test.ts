@@ -47,19 +47,19 @@ describe("symphony implementation module result parser", () => {
     });
   });
 
-  it("records missing_terminal_result when the final message is plain text", () => {
+  it("records terminal_result_failure when the final message is plain text", () => {
     expect(
       parseSymphonyImplementationModuleResultMessage({
         messageText: "Implemented the work and opened the PR."
       })
     ).toEqual({
-      kind: "missing_terminal_result",
+      kind: "terminal_result_failure",
       reason:
         "Capability-managed run ended without a final terminal module result JSON block."
     });
   });
 
-  it("records invalid_result when the terminal payload attempts the contract but violates it", () => {
+  it("records terminal_result_failure when the terminal payload attempts the contract but violates it", () => {
     const result = parseSymphonyImplementationModuleResultMessage({
       messageText: [
         "```json",
@@ -86,7 +86,7 @@ describe("symphony implementation module result parser", () => {
     });
 
     expect(result).toEqual({
-      kind: "invalid_result",
+      kind: "terminal_result_failure",
       reason:
         "Completed terminal module results must use requestedState \"done\"."
     });

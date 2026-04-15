@@ -19,10 +19,6 @@ import {
   createRuntimeDispatchBootstrapRouter
 } from "./runtime-dispatch-bootstrap-routing.js";
 import {
-  createRuntimeDeliveryRouter,
-  type SymphonyDeliveryStatus
-} from "./runtime-delivery-routing.js";
-import {
   createRuntimeRunLifecycleRouter
 } from "./runtime-run-lifecycle-routing.js";
 import {
@@ -77,7 +73,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
     issueIdentifier: string;
     runId: string;
     recordedAt: string;
-    status: SymphonyDeliveryStatus;
+    status: "completed" | "blocked" | "partial";
   }): Promise<boolean>;
   routeRuntimeStateRequest(input: {
     issueIdentifier: string;
@@ -201,11 +197,6 @@ export async function createRuntimeRouteLifecycleService(input: {
     tracker: input.tracker,
     sessionLoader
   });
-  const deliveryRouter = await createRuntimeDeliveryRouter({
-    routeWorkflows: input.routeWorkflows,
-    tracker: input.tracker,
-    sessionLoader
-  });
   const stateRequestRouter = await createRuntimeStateRequestRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
@@ -272,19 +263,22 @@ export async function createRuntimeRouteLifecycleService(input: {
           case "ready_for_completion": {
             if (!completionInput.runId) {
               throw new TypeError(
-                `Capability-managed completion for ${completionInput.issue.identifier} requires a run id to route delivery.`
+                `Capability-managed completion for ${completionInput.issue.identifier} requires a run id to route completion.`
               );
             }
 
-            const routedDelivery = await deliveryRouter.routeDelivery({
-              projectedIssue: completionInput.issue,
+            const routedCompletion = await runLifecycleRouter.routeCompletion({
+              issue: completionInput.issue,
               runId: completionInput.runId,
-              recordedAt: completionInput.recordedAt,
-              status: "completed"
+              runMode: completionInput.runMode,
+              completion: {
+                kind: "delivered"
+              },
+              recordedAt: completionInput.recordedAt
             });
 
             return {
-              issue: routedDelivery.projectedIssue,
+              issue: routedCompletion.issue,
               continueWithRunMode: null
             };
           }
@@ -507,17 +501,30 @@ export async function createRuntimeRouteLifecycleService(input: {
       const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
         sessionLoader,
         issueIdentifier: deliveryInput.issueIdentifier,
-        failureContext: "during delivery routing"
+        failureContext: "during delivery completion routing"
       });
       if (!projectedIssue) {
         return false;
       }
 
-      await deliveryRouter.routeDelivery({
-        projectedIssue,
+      if (deliveryInput.status === "partial") {
+        return true;
+      }
+
+      await runLifecycleRouter.routeCompletion({
+        issue: projectedIssue,
         runId: deliveryInput.runId,
-        recordedAt: deliveryInput.recordedAt,
-        status: deliveryInput.status
+        runMode: "implementation",
+        completion:
+          deliveryInput.status === "completed"
+            ? {
+                kind: "delivered"
+              }
+            : {
+                kind: "blocked",
+                reason: "Runtime delivery report marked the run as blocked."
+              },
+        recordedAt: deliveryInput.recordedAt
       });
       return true;
     },

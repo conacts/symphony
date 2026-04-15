@@ -917,8 +917,7 @@ function completionStatusForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
-    case "invalid_result":
-    case "missing_terminal_result":
+    case "terminal_result_failure":
       return "failed";
     default:
       return "completed";
@@ -933,8 +932,7 @@ function completionReasonForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
-    case "invalid_result":
-    case "missing_terminal_result":
+    case "terminal_result_failure":
       return completion.reason;
     default:
       return null;
@@ -1016,7 +1014,7 @@ function missingTerminalResultCompletion(): SymphonyAgentRuntimeCompletion {
 
 function implicitCapabilityRunCompletion(): SymphonyAgentRuntimeCompletion {
   return {
-    kind: "missing_terminal_result",
+    kind: "terminal_result_failure",
     reason:
       "Capability-managed run ended without a structured terminal module result."
   };
@@ -1054,14 +1052,9 @@ function capabilityManagedRunCompletion(input: {
           };
       }
       break;
-    case "invalid_result":
+    case "terminal_result_failure":
       return {
-        kind: "invalid_result",
-        reason: parsed.reason
-      };
-    case "missing_terminal_result":
-      return {
-        kind: "missing_terminal_result",
+        kind: "terminal_result_failure",
         reason: parsed.reason
       };
   }

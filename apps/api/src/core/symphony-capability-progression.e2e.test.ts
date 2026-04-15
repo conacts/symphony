@@ -97,6 +97,6 @@ describe("capability progression golden paths", () => {
     expect(signalTypes).toEqual(
       expect.arrayContaining(["capability.started", "capability.completed"])
     );
-    expect(signalTypes).not.toContain("runtime.delivery_reported");
+    expect(signalTypes).not.toContain("runtime.completed");
   });
 });

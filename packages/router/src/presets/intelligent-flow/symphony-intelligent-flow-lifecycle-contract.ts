@@ -27,12 +27,6 @@ const trackerStates = [
 
 const runModes = ["implementation"] as const;
 
-const deliveryStatuses = [
-  "completed",
-  "blocked",
-  "partial"
-] as const;
-
 const stateRequestKinds = [
   "spike_result",
   "cancel"
@@ -70,7 +64,6 @@ const nonStartupCompletionKinds = completionKinds.filter(
 
 export type SymphonyIntelligentFlowTrackerState = (typeof trackerStates)[number];
 export type SymphonyIntelligentFlowRunMode = (typeof runModes)[number];
-export type SymphonyIntelligentFlowDeliveryStatus = (typeof deliveryStatuses)[number];
 export type SymphonyIntelligentFlowStateRequestKind = (typeof stateRequestKinds)[number];
 export type SymphonyIntelligentFlowStateRequestTargetState =
   (typeof stateRequestTargetStates)[number];
@@ -78,7 +71,6 @@ export type SymphonyIntelligentFlowCompletionKind = (typeof completionKinds)[num
 
 const symphonyIntelligentFlowTrackerStateSchema = z.enum(trackerStates);
 const symphonyIntelligentFlowRunModeSchema = z.enum(runModes);
-const symphonyIntelligentFlowDeliveryStatusSchema = z.enum(deliveryStatuses);
 const symphonyIntelligentFlowStateRequestKindSchema = z.enum(stateRequestKinds);
 const symphonyIntelligentFlowStateRequestTargetStateSchema = z.enum(
   stateRequestTargetStates
@@ -100,13 +92,6 @@ const runStartedPayloadSchema = z
   .object({
     runId: workflowNullableIdSchema,
     runMode: symphonyIntelligentFlowRunModeSchema
-  })
-  .strict();
-
-const deliveryReportedPayloadSchema = z
-  .object({
-    runId: z.string().trim().min(1),
-    status: symphonyIntelligentFlowDeliveryStatusSchema
   })
   .strict();
 
@@ -159,14 +144,6 @@ const runStartedSignalSchema = workflowSignalSchema
     type: z.literal("runtime.run_started"),
     source: z.literal("runtime"),
     payload: runStartedPayloadSchema
-  })
-  .strict();
-
-const deliveryReportedSignalSchema = workflowSignalSchema
-  .extend({
-    type: z.literal("runtime.delivery_reported"),
-    source: z.literal("runtime"),
-    payload: deliveryReportedPayloadSchema
   })
   .strict();
 
@@ -232,11 +209,6 @@ export type SymphonyIntelligentFlowTrackerStateObservedSignal = WorkflowSignal<
 export type SymphonyIntelligentFlowRunStartedSignal = WorkflowSignal<
   "runtime.run_started",
   z.infer<typeof runStartedPayloadSchema>
->;
-
-export type SymphonyIntelligentFlowDeliveryReportedSignal = WorkflowSignal<
-  "runtime.delivery_reported",
-  z.infer<typeof deliveryReportedPayloadSchema>
 >;
 
 export type SymphonyIntelligentFlowStateRequestedSignal = WorkflowSignal<
@@ -309,28 +281,6 @@ export function createSymphonyIntelligentFlowRunStartedSignal(input: {
     payload: {
       runId: input.runId,
       runMode: input.runMode
-    },
-    causationId: input.causationId,
-    correlationId: input.correlationId
-  });
-}
-
-export function createSymphonyIntelligentFlowDeliveryReportedSignal(input: {
-  id: string;
-  occurredAt: string;
-  runId: string;
-  status: SymphonyIntelligentFlowDeliveryStatus;
-  causationId: string | null;
-  correlationId: string | null;
-}): SymphonyIntelligentFlowDeliveryReportedSignal {
-  return deliveryReportedSignalSchema.parse({
-    id: input.id,
-    type: "runtime.delivery_reported",
-    source: "runtime",
-    occurredAt: input.occurredAt,
-    payload: {
-      runId: input.runId,
-      status: input.status
     },
     causationId: input.causationId,
     correlationId: input.correlationId
@@ -518,17 +468,6 @@ export function readSymphonyIntelligentFlowRunStartedSignal(
   });
 }
 
-export function readSymphonyIntelligentFlowDeliveryReportedSignal(
-  signal: WorkflowSignal
-): SymphonyIntelligentFlowDeliveryReportedSignal | null {
-  return readSignal({
-    signal,
-    expectedType: "runtime.delivery_reported",
-    schema: deliveryReportedSignalSchema,
-    label: "runtime.delivery_reported"
-  });
-}
-
 export function readSymphonyIntelligentFlowStateRequestedSignal(
   signal: WorkflowSignal
 ): SymphonyIntelligentFlowStateRequestedSignal | null {
@@ -642,7 +581,6 @@ function readCommand<TCommand extends WorkflowCommand>(
 }
 
 export {
-  symphonyIntelligentFlowDeliveryStatusSchema,
   symphonyIntelligentFlowStateRequestKindSchema,
   symphonyIntelligentFlowStateRequestTargetStateSchema,
   symphonyIntelligentFlowCompletionKindSchema,

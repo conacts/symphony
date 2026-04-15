@@ -233,8 +233,7 @@ export type SymphonyAgentRuntimeCompletion =
   | { kind: "rate_limited"; reason: string }
   | { kind: "provider_transient"; reason: string }
   | { kind: "stalled"; reason: string }
-  | { kind: "invalid_result"; reason: string }
-  | { kind: "missing_terminal_result"; reason: string }
+  | { kind: "terminal_result_failure"; reason: string }
   | { kind: "failure"; reason: string };
 
 export type SymphonyAgentRuntimeUpdate = {

@@ -14,7 +14,6 @@ import {
 import {
   createSymphonyIntelligentFlowDispatchCommand,
   createSymphonyIntelligentFlowTrackerTransitionCommand,
-  readSymphonyIntelligentFlowDeliveryReportedSignal,
   readSymphonyIntelligentFlowRunStartedSignal,
   readSymphonyIntelligentFlowRuntimeCompletedSignal,
   readSymphonyIntelligentFlowRuntimeStartupFailureSignal,
@@ -161,18 +160,11 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
       ...buildRequestedTerminalEdges("claimed"),
       ...buildObservedTerminalEdges("claimed"),
       new WorkflowEdge({
-        id: "active_delivery_completed_to_done",
+        id: "active_runtime_delivered_to_done",
         from: "active",
         to: "done",
-        reasonCode: "active_delivery_completed",
-        guard: ({ signal }) => isDeliveryReported(signal, "completed")
-      }),
-      new WorkflowEdge({
-        id: "active_delivery_blocked_to_blocked",
-        from: "active",
-        to: "blocked",
-        reasonCode: "active_delivery_blocked",
-        guard: ({ signal }) => isDeliveryReported(signal, "blocked")
+        reasonCode: "active_runtime_delivered",
+        guard: ({ signal }) => isDeliveredOutcome(signal)
       }),
       new WorkflowEdge({
         id: "active_clarification_requested_to_awaiting_input",
@@ -326,13 +318,6 @@ function isObservedTrackerState(
   );
 }
 
-function isDeliveryReported(
-  signal: WorkflowSignal,
-  status: "completed" | "blocked"
-) {
-  return readSymphonyIntelligentFlowDeliveryReportedSignal(signal)?.payload.status === status;
-}
-
 function isClarificationRequested(signal: WorkflowSignal) {
   return readSymphonyWorkflowClarificationRequestedSignal(signal) !== null;
 }
@@ -359,6 +344,11 @@ function isPausedOutcome(signal: WorkflowSignal) {
     kind === "stalled" ||
     kind === "max_turns_reached"
   );
+}
+
+function isDeliveredOutcome(signal: WorkflowSignal) {
+  const kind = readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)?.payload.kind ?? null;
+  return kind === "delivered";
 }
 
 function isBlockedOutcome(signal: WorkflowSignal) {
@@ -423,10 +413,7 @@ function buildBootstrappingRedispatchCommands(
 function resolveClosedTrackerState(
   signal: WorkflowSignal
 ): Extract<SymphonyIntelligentFlowTrackerState, "Done" | "Canceled"> | null {
-  if (
-    isObservedTrackerState(signal, "Done") ||
-    isDeliveryReported(signal, "completed")
-  ) {
+  if (isObservedTrackerState(signal, "Done") || isDeliveredOutcome(signal)) {
     return "Done";
   }
 

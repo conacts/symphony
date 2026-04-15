@@ -1,6 +1,5 @@
 import {
   type WorkflowRouterPreset,
-  createSymphonyIntelligentFlowDeliveryReportedSignal,
   createSymphonyIntelligentFlowRunStartedSignal,
   createSymphonyIntelligentFlowRuntimeCompletedSignal,
   createSymphonyIntelligentFlowRuntimeStartupFailureSignal,
@@ -11,7 +10,6 @@ import {
   parseSymphonyIntelligentFlowTrackerState,
   readSymphonyIntelligentFlowDispatchCommand,
   readSymphonyIntelligentFlowTrackerTransitionCommand,
-  symphonyIntelligentFlowDeliveryStatusSchema,
   symphonyIntelligentFlowStateRequestKindSchema,
   symphonyIntelligentFlowStateRequestTargetStateSchema,
   type SymphonyIntelligentFlowData,
@@ -190,16 +188,6 @@ function createIntelligentFlowRuntimeWorkflowPresetAdapter(): SymphonyRuntimeWor
         correlationId: input.correlationId
       });
     },
-    createDeliveryReportedSignal(input) {
-      return createSymphonyIntelligentFlowDeliveryReportedSignal({
-        id: input.id,
-        occurredAt: input.occurredAt,
-        runId: input.runId,
-        status: symphonyIntelligentFlowDeliveryStatusSchema.parse(input.status),
-        causationId: input.causationId,
-        correlationId: input.correlationId
-      });
-    },
     createStateRequestedSignal(input) {
       return createSymphonyIntelligentFlowStateRequestedSignal({
         id: input.id,
@@ -269,8 +257,7 @@ function normalizeLegacyRuntimeCompletionKind(
     | "merged"
     | "merge_blocked"
     | "awaiting_input"
-    | "invalid_result"
-    | "missing_terminal_result"
+    | "terminal_result_failure"
 ): Parameters<typeof createSymphonyIntelligentFlowRuntimeCompletedSignal>[0]["kind"] {
   switch (kind) {
     case "merged":
@@ -278,8 +265,7 @@ function normalizeLegacyRuntimeCompletionKind(
     case "merge_blocked":
       return "blocked";
     case "awaiting_input":
-    case "invalid_result":
-    case "missing_terminal_result":
+    case "terminal_result_failure":
       return "failure";
     default:
       return kind;

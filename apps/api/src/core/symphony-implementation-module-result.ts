@@ -13,11 +13,7 @@ export type SymphonyImplementationModuleResultParseResult =
       result: SymphonyImplementationModuleResult;
     }
   | {
-      kind: "missing_terminal_result";
-      reason: string;
-    }
-  | {
-      kind: "invalid_result";
+      kind: "terminal_result_failure";
       reason: string;
     };
 
@@ -44,43 +40,35 @@ export function parseSymphonyImplementationModuleResultMessage(input: {
 }): SymphonyImplementationModuleResultParseResult {
   const trimmed = input.messageText?.trim() ?? "";
   if (trimmed === "") {
-    return {
-      kind: "missing_terminal_result",
-      reason:
-        "Capability-managed run ended without a final assistant message containing a terminal module result."
-    };
+    return terminalResultFailure(
+      "Capability-managed run ended without a final assistant message containing a terminal module result."
+    );
   }
 
   const extracted = extractTerminalJsonCandidate(trimmed);
   if (extracted.kind !== "candidate") {
-    return extracted.kind === "invalid_result"
+    return extracted.kind === "terminal_result_failure"
       ? extracted
-      : {
-          kind: "missing_terminal_result",
-          reason:
-            "Capability-managed run ended without a final terminal module result JSON block."
-        };
+      : terminalResultFailure(
+          "Capability-managed run ended without a final terminal module result JSON block."
+        );
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(extracted.json);
   } catch (error) {
-    return {
-      kind: "invalid_result",
-      reason: `Capability-managed run emitted malformed terminal module result JSON: ${
+    return terminalResultFailure(
+      `Capability-managed run emitted malformed terminal module result JSON: ${
         error instanceof Error ? error.message : String(error)
       }`
-    };
+    );
   }
 
   const validated = validateImplementationModuleResult(parsed);
   return validated.kind === "parsed"
     ? validated
-    : {
-        kind: "invalid_result",
-        reason: validated.reason
-      };
+    : terminalResultFailure(validated.reason);
 }
 
 function extractTerminalJsonCandidate(
@@ -94,7 +82,7 @@ function extractTerminalJsonCandidate(
       kind: "missing_terminal_result";
     }
   | {
-      kind: "invalid_result";
+      kind: "terminal_result_failure";
       reason: string;
     } {
   const fenced = value.match(/^```json\s*([\s\S]+?)\s*```$/u);
@@ -113,19 +101,15 @@ function extractTerminalJsonCandidate(
   }
 
   if (value.includes("```json")) {
-    return {
-      kind: "invalid_result",
-      reason:
-        "Capability-managed run attempted a terminal module result, but the final assistant message was not exactly one fenced `json` block."
-    };
+    return terminalResultFailure(
+      "Capability-managed run attempted a terminal module result, but the final assistant message was not exactly one fenced `json` block."
+    );
   }
 
   if (value.startsWith("{") || value.endsWith("}")) {
-    return {
-      kind: "invalid_result",
-      reason:
-        "Capability-managed run attempted a terminal module result, but the final assistant message was not a single valid JSON object."
-    };
+    return terminalResultFailure(
+      "Capability-managed run attempted a terminal module result, but the final assistant message was not a single valid JSON object."
+    );
   }
 
   return {
@@ -138,50 +122,40 @@ function validateImplementationModuleResult(
 ): SymphonyImplementationModuleResultParseResult {
   const record = asRecord(value);
   if (!record) {
-    return {
-      kind: "invalid_result",
-      reason: "Terminal module result must be a JSON object."
-    };
+    return terminalResultFailure("Terminal module result must be a JSON object.");
   }
 
   const schemaVersion = requireString(record, "schemaVersion");
   if (schemaVersion !== "1") {
-    return {
-      kind: "invalid_result",
-      reason: `Terminal module result schemaVersion must be "1". Received ${JSON.stringify(schemaVersion)}.`
-    };
+    return terminalResultFailure(
+      `Terminal module result schemaVersion must be "1". Received ${JSON.stringify(schemaVersion)}.`
+    );
   }
 
   const moduleId = requireString(record, "moduleId");
   if (moduleId !== "implement.spec") {
-    return {
-      kind: "invalid_result",
-      reason: `Terminal module result moduleId must be "implement.spec". Received ${JSON.stringify(moduleId)}.`
-    };
+    return terminalResultFailure(
+      `Terminal module result moduleId must be "implement.spec". Received ${JSON.stringify(moduleId)}.`
+    );
   }
 
   const outcome = requireString(record, "outcome");
   if (!outcomes.has(outcome as SymphonyImplementationModuleOutcome)) {
-    return {
-      kind: "invalid_result",
-      reason: `Terminal module result outcome must be one of ${JSON.stringify(Array.from(outcomes))}.`
-    };
+    return terminalResultFailure(
+      `Terminal module result outcome must be one of ${JSON.stringify(Array.from(outcomes))}.`
+    );
   }
 
   const summary = requireString(record, "summary");
   if (!summary) {
-    return {
-      kind: "invalid_result",
-      reason: "Terminal module result summary must be a non-empty string."
-    };
+    return terminalResultFailure(
+      "Terminal module result summary must be a non-empty string."
+    );
   }
 
   const evidence = validateEvidence(record.evidence);
   if ("reason" in evidence) {
-    return {
-      kind: "invalid_result",
-      reason: evidence.reason
-    };
+    return terminalResultFailure(evidence.reason);
   }
 
   const requestedState = requireString(record, "requestedState");
@@ -190,10 +164,9 @@ function validateImplementationModuleResult(
       requestedState as SymphonyImplementationModuleRequestedState
     )
   ) {
-    return {
-      kind: "invalid_result",
-      reason: `Terminal module result requestedState must be one of ${JSON.stringify(Array.from(requestedStates))}.`
-    };
+    return terminalResultFailure(
+      `Terminal module result requestedState must be one of ${JSON.stringify(Array.from(requestedStates))}.`
+    );
   }
 
   const nextInputPrompt = validateNullableString(
@@ -201,18 +174,12 @@ function validateImplementationModuleResult(
     "nextInputPrompt"
   );
   if ("reason" in nextInputPrompt) {
-    return {
-      kind: "invalid_result",
-      reason: nextInputPrompt.reason
-    };
+    return terminalResultFailure(nextInputPrompt.reason);
   }
 
   const blockers = validateStringArray(record.blockers, "blockers");
   if ("reason" in blockers) {
-    return {
-      kind: "invalid_result",
-      reason: blockers.reason
-    };
+    return terminalResultFailure(blockers.reason);
   }
 
   const result: SymphonyImplementationModuleResult = {
@@ -229,10 +196,7 @@ function validateImplementationModuleResult(
 
   const consistencyError = validateOutcomeConsistency(result);
   if (consistencyError) {
-    return {
-      kind: "invalid_result",
-      reason: consistencyError
-    };
+    return terminalResultFailure(consistencyError);
   }
 
   return {
@@ -434,4 +398,16 @@ function requireString(
 ): string | null {
   const value = record[key];
   return typeof value === "string" ? value.trim() : null;
+}
+
+function terminalResultFailure(
+  reason: string
+): Extract<
+  SymphonyImplementationModuleResultParseResult,
+  { kind: "terminal_result_failure" }
+> {
+  return {
+    kind: "terminal_result_failure",
+    reason
+  };
 }

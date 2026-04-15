@@ -665,8 +665,8 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
       eventSequence: 4,
       currentNode: "active",
       terminal: false,
-      lastSignalId: "signal_delivery_completed",
-      lastDecisionId: "decision_delivery_reported",
+      lastSignalId: "signal_runtime_completed",
+      lastDecisionId: "decision_runtime_completed",
       pendingCommandCount: 1,
       projection: {
         currentNode: "active",
@@ -702,15 +702,17 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
           }
         },
         {
-          id: "signal_delivery_completed",
-          type: "runtime.delivery_reported",
+          id: "signal_runtime_completed",
+          type: "runtime.completed",
           source: "runtime" as const,
           occurredAt: "2026-04-11T12:01:20.000Z",
           causationId: null,
           correlationId: null,
           payload: {
+            kind: "delivered",
             runId: "run-1",
-            status: "completed"
+            runMode: "implementation",
+            reason: null
           }
         }
       ]
@@ -782,10 +784,10 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
         eventSequence: 2,
         kind: "decision_recorded" as const,
         recordedAt: "2026-04-11T12:01:20.000Z",
-        signalId: "signal_delivery_completed",
-        signalType: "runtime.delivery_reported",
+        signalId: "signal_runtime_completed",
+        signalType: "runtime.completed",
         signalSource: "runtime" as const,
-        decisionId: "decision_delivery_reported",
+        decisionId: "decision_runtime_completed",
         commandId: null,
         fromNode: "bootstrapping",
         toNode: "active",
@@ -795,7 +797,7 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
           kind: "decision_recorded",
           recordedAt: "2026-04-11T12:01:20.000Z",
           decision: {
-            id: "decision_delivery_reported",
+            id: "decision_runtime_completed",
             fromNode: "bootstrapping",
             toNode: "active",
             edgeId: "claimed_run_started_to_active",
@@ -816,9 +818,9 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
     ],
     decisions: [
       {
-        decisionId: "decision_delivery_reported",
+        decisionId: "decision_runtime_completed",
         eventSequence: 2,
-        signalId: "signal_delivery_completed",
+        signalId: "signal_runtime_completed",
         fromNode: "bootstrapping",
         toNode: "active",
         edgeId: "claimed_run_started_to_active",

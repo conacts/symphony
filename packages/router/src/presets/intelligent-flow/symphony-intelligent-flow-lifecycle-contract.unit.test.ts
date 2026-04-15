@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   createSymphonyIntelligentFlowDispatchCommand,
-  createSymphonyIntelligentFlowDeliveryReportedSignal,
   createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowRuntimeCompletedSignal,
   createSymphonyIntelligentFlowStateRequestedSignal,
   createSymphonyIntelligentFlowTrackerStateObservedSignal,
   createSymphonyIntelligentFlowTrackerTransitionCommand,
   readSymphonyIntelligentFlowDispatchCommand,
-  readSymphonyIntelligentFlowDeliveryReportedSignal,
   readSymphonyIntelligentFlowRunStartedSignal,
+  readSymphonyIntelligentFlowRuntimeCompletedSignal,
   readSymphonyIntelligentFlowStateRequestedSignal,
   readSymphonyIntelligentFlowTrackerStateObservedSignal,
   readSymphonyIntelligentFlowTrackerTransitionCommand
@@ -45,17 +45,19 @@ describe("Symphony intelligent-flow lifecycle contract", () => {
     expect(readSymphonyIntelligentFlowRunStartedSignal(signal)).toEqual(signal);
   });
 
-  it("builds and reads runtime delivery reports with strict required fields", () => {
-    const signal = createSymphonyIntelligentFlowDeliveryReportedSignal({
-      id: "signal_delivery_reported",
+  it("builds and reads runtime completions with strict required fields", () => {
+    const signal = createSymphonyIntelligentFlowRuntimeCompletedSignal({
+      id: "signal_runtime_completed",
       occurredAt: "2026-04-10T15:00:01.500Z",
+      kind: "delivered",
       runId: "run-300",
-      status: "completed",
+      runMode: "implementation",
+      reason: null,
       causationId: "run-300",
       correlationId: "SYM-300"
     });
 
-    expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toEqual(signal);
+    expect(readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)).toEqual(signal);
     expect(readSymphonyIntelligentFlowRunStartedSignal(signal)).toBeNull();
   });
 
@@ -71,7 +73,7 @@ describe("Symphony intelligent-flow lifecycle contract", () => {
     });
 
     expect(readSymphonyIntelligentFlowStateRequestedSignal(signal)).toEqual(signal);
-    expect(readSymphonyIntelligentFlowDeliveryReportedSignal(signal)).toBeNull();
+    expect(readSymphonyIntelligentFlowRuntimeCompletedSignal(signal)).toBeNull();
   });
 
   it("fails fast when tracker observations omit required null fields", () => {
