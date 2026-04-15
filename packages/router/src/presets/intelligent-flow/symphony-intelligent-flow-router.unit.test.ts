@@ -270,6 +270,72 @@ describe("Symphony intelligent-flow router", () => {
     expect(clarificationAnswered.decision.commands).toEqual([]);
   });
 
+  it("projects router-origin clarification requests as a paused tracker shell while keeping the workflow in awaiting_input", async () => {
+    const router = await createSymphonyIntelligentFlowRouterAsync({
+      now: () => new Date("2026-04-13T23:22:00.000Z"),
+      createId: buildCreateId()
+    });
+    const session = await router.startSessionAsync({
+      workflowId: "SYM-INT-705B",
+      policy: {}
+    });
+
+    await session.receiveAsync(
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
+        id: "signal_todo_observed_router_clarification",
+        occurredAt: "2026-04-13T23:21:57.000Z",
+        state: "Todo",
+        runId: null,
+        runMode: null,
+        causationId: null,
+        correlationId: "SYM-INT-705B"
+      })
+    );
+
+    const clarificationRequested = await session.receiveAsync(
+      createSymphonyWorkflowClarificationRequestedSignal({
+        id: "signal_router_clarification_requested",
+        occurredAt: "2026-04-13T23:21:58.000Z",
+        source: "router",
+        workflowId: "SYM-INT-705B",
+        requestId: "contract-intake-1",
+        raisedByCapabilityId: null,
+        workEpoch: 0,
+        summary: "Need stronger completion criteria before execution can start.",
+        questions: [
+          {
+            id: "done_definition",
+            prompt: "What concrete outcome should count as done for this ticket?",
+            context: "SYM-INT-705B"
+          }
+        ],
+        causationId: "dispatch-1",
+        correlationId: "SYM-INT-705B"
+      })
+    );
+
+    expect(clarificationRequested.decision.fromNode).toBe("claimed");
+    expect(clarificationRequested.decision.toNode).toBe("awaiting_input");
+    expect(clarificationRequested.decision.reasonCode).toBe(
+      "claimed_waiting_for_clarification"
+    );
+    expect(clarificationRequested.decision.commands).toEqual([]);
+    expect(clarificationRequested.projectionAfter.currentNode).toBe(
+      "awaiting_input"
+    );
+    expect(clarificationRequested.projectionAfter.data).toEqual(
+      expect.objectContaining({
+        trackerState: "Paused"
+      })
+    );
+    expect(session.projection().currentNode).toBe("awaiting_input");
+    expect(session.projection().data).toEqual(
+      expect.objectContaining({
+        trackerState: "Paused"
+      })
+    );
+  });
+
   it("moves active work into blocked when a capability emits a blocked outcome", async () => {
     const router = await createSymphonyIntelligentFlowRouterAsync({
       now: () => new Date("2026-04-13T23:25:00.000Z"),

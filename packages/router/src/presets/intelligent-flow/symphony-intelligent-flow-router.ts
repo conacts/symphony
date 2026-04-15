@@ -560,6 +560,15 @@ function reduceSignalData(
   data: SymphonyIntelligentFlowData,
   signal: WorkflowSignal
 ): SymphonyIntelligentFlowData {
+  const clarificationRequested =
+    readSymphonyWorkflowClarificationRequestedSignal(signal);
+  if (clarificationRequested?.source === "router") {
+    return {
+      ...data,
+      trackerState: "Paused"
+    };
+  }
+
   const observedTrackerState =
     readSymphonyIntelligentFlowTrackerStateObservedSignal(signal)?.payload.state ?? null;
   if (observedTrackerState !== null) {

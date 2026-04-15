@@ -2,7 +2,10 @@ import type {
   SymphonyAgentRuntimeCompletion,
   SymphonyDispatchHandling
 } from "@symphony/orchestrator";
-import type { WorkflowCommand } from "@symphony/router";
+import {
+  createSymphonyWorkflowClarificationRequestedSignal,
+  type WorkflowCommand
+} from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
   type SymphonyTracker,
@@ -26,17 +29,15 @@ import type {
   SymphonyRuntimeWorkflowPresetAdapter
 } from "./runtime-workflow-preset-adapter.js";
 import type {
-  SymphonyCapabilityContractIntakeValidationError,
   SymphonyCapabilityContractIntake
 } from "./symphony-capability-contract-intake.js";
 import type {
   SymphonyCapabilityPlanningService
 } from "./symphony-capability-planning.js";
 import {
-  isSymphonyCapabilityContractIntakeValidationError
-} from "./symphony-capability-contract-intake.js";
-import {
   readSymphonyTicketIntakeDisposition,
+  type SymphonyTicketIntakeClarificationRequest,
+  type SymphonyTicketIntakeReason,
   renderSymphonyOperatorStateDirectiveComment
 } from "./symphony-ticket-intake-contract.js";
 
@@ -61,27 +62,36 @@ export function createSymphonyCapabilityDispatchAuthorityService(input: {
         return "external_run";
       }
 
-      try {
-        await ensureExecutionContract({
-          sessionLoader: input.sessionLoader,
-          contractIntake: input.contractIntake,
-          workflowId: dispatchInput.workflowId,
-          issue: dispatchInput.trackerIssue,
-          recordedAt: dispatchInput.recordedAt
-        });
-      } catch (error) {
-        if (!isSymphonyCapabilityContractIntakeValidationError(error)) {
-          throw error;
-        }
+      const contractResolution = await ensureExecutionContract({
+        sessionLoader: input.sessionLoader,
+        contractIntake: input.contractIntake,
+        workflowId: dispatchInput.workflowId,
+        issue: dispatchInput.trackerIssue,
+        recordedAt: dispatchInput.recordedAt
+      });
 
-        await routeContractIntakeFailure({
-          sessionLoader: input.sessionLoader,
-          routeWorkflows: input.routeWorkflows,
-          tracker: input.tracker,
-          dispatchRequest: dispatchInput,
-          error
-        });
-        return "handled_in_process";
+      switch (contractResolution.kind) {
+        case "ready":
+          break;
+        case "needs_clarification":
+          await routeContractIntakeClarification({
+            sessionLoader: input.sessionLoader,
+            routeWorkflows: input.routeWorkflows,
+            tracker: input.tracker,
+            dispatchRequest: dispatchInput,
+            clarificationRequest: contractResolution.clarificationRequest,
+            reasons: contractResolution.reasons
+          });
+          return "handled_in_process";
+        case "invalid_directive":
+          await routeContractIntakeFailure({
+            sessionLoader: input.sessionLoader,
+            routeWorkflows: input.routeWorkflows,
+            tracker: input.tracker,
+            dispatchRequest: dispatchInput,
+            reasons: contractResolution.reasons
+          });
+          return "handled_in_process";
       }
 
       const planning = await input.capabilityPlanning.planByWorkflowId({
@@ -104,10 +114,25 @@ async function ensureExecutionContract(input: {
   workflowId: string;
   issue: Pick<SymphonyTrackerIssue, "identifier" | "title" | "description">;
   recordedAt: string;
-}) {
+}): Promise<
+  | {
+      kind: "ready";
+    }
+  | {
+      kind: "needs_clarification";
+      reasons: SymphonyTicketIntakeReason[];
+      clarificationRequest: SymphonyTicketIntakeClarificationRequest;
+    }
+  | {
+      kind: "invalid_directive";
+      reasons: SymphonyTicketIntakeReason[];
+    }
+> {
   const existing = await input.contractIntake.loadByWorkflowId(input.workflowId);
   if (existing) {
-    return existing;
+    return {
+      kind: "ready"
+    };
   }
 
   const loaded = await input.sessionLoader.loadHydrationByWorkflowId({
@@ -119,12 +144,36 @@ async function ensureExecutionContract(input: {
     );
   }
 
-  return await input.contractIntake.createAndPersistForWorkflow({
+  const assessment = await input.contractIntake.assessForWorkflow({
     workflowId: input.workflowId,
     issue: input.issue,
     repositoryKey: loaded.hydrationState.workflow.repositoryKey,
     recordedAt: input.recordedAt
   });
+
+  switch (assessment.decision) {
+    case "ready":
+      await input.contractIntake.createAndPersistForWorkflow({
+        workflowId: input.workflowId,
+        issue: input.issue,
+        repositoryKey: loaded.hydrationState.workflow.repositoryKey,
+        recordedAt: input.recordedAt
+      });
+      return {
+        kind: "ready"
+      };
+    case "needs_clarification":
+      return {
+        kind: "needs_clarification",
+        reasons: assessment.reasons,
+        clarificationRequest: assessment.clarificationRequest
+      };
+    case "invalid_directive":
+      return {
+        kind: "invalid_directive",
+        reasons: assessment.reasons
+      };
+  }
 }
 
 async function routeContractIntakeFailure(input: {
@@ -132,7 +181,7 @@ async function routeContractIntakeFailure(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
   tracker: SymphonyTracker;
   dispatchRequest: SymphonyTrackerStateDispatchRequest;
-  error: SymphonyCapabilityContractIntakeValidationError;
+  reasons: SymphonyTicketIntakeReason[];
 }) {
   const loaded = await input.sessionLoader.resumeByWorkflowId({
     workflowId: input.dispatchRequest.workflowId
@@ -153,7 +202,9 @@ async function routeContractIntakeFailure(input: {
       occurredAt: input.dispatchRequest.recordedAt,
       runId: null,
       runMode: input.dispatchRequest.runMode,
-      completion: buildContractIntakeStartupFailure(input.error),
+      completion: buildContractIntakeStartupFailure({
+        reasons: input.reasons
+      }),
       causationId: input.dispatchRequest.commandId,
       correlationId: input.dispatchRequest.trackerIssue.identifier
     })
@@ -185,16 +236,18 @@ async function routeContractIntakeFailure(input: {
   await leaveContractIntakeFailureComment({
     tracker: input.tracker,
     issue: input.dispatchRequest.trackerIssue,
-    error: input.error
+    reasons: input.reasons
   });
 }
 
 function buildContractIntakeStartupFailure(
-  error: SymphonyCapabilityContractIntakeValidationError
+  input: {
+    reasons: SymphonyTicketIntakeReason[];
+  }
 ): Extract<SymphonyAgentRuntimeCompletion, { kind: "startup_failure" }> {
   return {
     kind: "startup_failure",
-    reason: `Capability contract intake failed: ${error.message}`,
+    reason: `Capability contract intake failed: ${readPrimaryReasonMessage(input.reasons)}`,
     failureStage: "workspace_before_run",
     failureOrigin: "capability_contract_intake"
   };
@@ -203,12 +256,12 @@ function buildContractIntakeStartupFailure(
 async function leaveContractIntakeFailureComment(input: {
   tracker: SymphonyTracker;
   issue: SymphonyTrackerIssue;
-  error: SymphonyCapabilityContractIntakeValidationError;
+  reasons: SymphonyTicketIntakeReason[];
 }) {
   try {
     await input.tracker.createComment(
       input.issue.id,
-      buildContractIntakeFailureCommentBody(input.error)
+      buildContractIntakeFailureCommentBody(input.reasons)
     );
   } catch {
     return;
@@ -216,7 +269,7 @@ async function leaveContractIntakeFailureComment(input: {
 }
 
 function buildContractIntakeFailureCommentBody(
-  error: SymphonyCapabilityContractIntakeValidationError
+  reasons: SymphonyTicketIntakeReason[]
 ): string {
   const disposition = readSymphonyTicketIntakeDisposition("invalid_directive");
   const trackerState =
@@ -232,9 +285,123 @@ function buildContractIntakeFailureCommentBody(
     state: trackerState,
     whatChanged:
       "Symphony stopped before starting implementation because the ticket body or routing directives could not be normalized into a valid execution contract.",
-    reasons: error.reasons,
+    reasons,
     nextAction:
       "Update the ticket body or routing directives so Symphony can derive a valid execution contract.",
+    requeueToState: disposition.requeueToState
+  });
+}
+
+async function routeContractIntakeClarification(input: {
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  tracker: SymphonyTracker;
+  dispatchRequest: SymphonyTrackerStateDispatchRequest;
+  clarificationRequest: SymphonyTicketIntakeClarificationRequest;
+  reasons: SymphonyTicketIntakeReason[];
+}) {
+  const loaded = await input.sessionLoader.resumeByWorkflowId({
+    workflowId: input.dispatchRequest.workflowId
+  });
+  if (!loaded) {
+    throw new TypeError(
+      `Capability dispatch authority cannot resume route workflow ${input.dispatchRequest.workflowId} after contract intake requested clarification.`
+    );
+  }
+
+  const result = await loaded.resumed.session.receiveAsync(
+    createSymphonyWorkflowClarificationRequestedSignal({
+      id: buildContractIntakeClarificationSignalId({
+        workflowId: input.dispatchRequest.workflowId,
+        runMode: input.dispatchRequest.runMode,
+        recordedAt: input.dispatchRequest.recordedAt
+      }),
+      occurredAt: input.dispatchRequest.recordedAt,
+      source: "router",
+      workflowId: input.dispatchRequest.workflowId,
+      requestId: buildContractIntakeClarificationRequestId(
+        input.dispatchRequest.workflowId
+      ),
+      raisedByCapabilityId: null,
+      workEpoch: 0,
+      summary: input.clarificationRequest.summary,
+      questions: input.clarificationRequest.questions,
+      causationId: input.dispatchRequest.commandId,
+      correlationId: input.dispatchRequest.trackerIssue.identifier
+    })
+  );
+
+  await input.routeWorkflows.recordRouteResult({
+    workflowId: input.dispatchRequest.workflowId,
+    policy: loaded.routing.policy,
+    result
+  });
+
+  if (result.decision.commands.length > 0) {
+    throw new TypeError(
+      "Contract intake clarification routing must not emit route commands."
+    );
+  }
+
+  await input.tracker.updateIssueState(
+    input.dispatchRequest.trackerIssue.id,
+    "Paused"
+  );
+
+  await leaveContractIntakeClarificationComment({
+    tracker: input.tracker,
+    issue: input.dispatchRequest.trackerIssue,
+    clarificationRequest: input.clarificationRequest,
+    reasons: input.reasons
+  });
+}
+
+async function leaveContractIntakeClarificationComment(input: {
+  tracker: SymphonyTracker;
+  issue: SymphonyTrackerIssue;
+  clarificationRequest: SymphonyTicketIntakeClarificationRequest;
+  reasons: SymphonyTicketIntakeReason[];
+}) {
+  try {
+    await input.tracker.createComment(
+      input.issue.id,
+      buildContractIntakeClarificationCommentBody({
+        clarificationRequest: input.clarificationRequest,
+        reasons: input.reasons
+      })
+    );
+  } catch {
+    return;
+  }
+}
+
+function buildContractIntakeClarificationCommentBody(input: {
+  clarificationRequest: SymphonyTicketIntakeClarificationRequest;
+  reasons: SymphonyTicketIntakeReason[];
+}): string {
+  const disposition = readSymphonyTicketIntakeDisposition("needs_clarification");
+  const trackerState =
+    disposition.trackerState ??
+    (() => {
+      throw new TypeError(
+        "Needs-clarification intake disposition must resolve to a tracker state."
+      );
+    })();
+
+  const quotedQuestions = input.clarificationRequest.questions
+    .map((question) => `"${question.prompt}"`)
+    .join(" ");
+
+  return renderSymphonyOperatorStateDirectiveComment({
+    title: "Symphony capability routing paused before execution.",
+    state: trackerState,
+    whatChanged:
+      "Symphony paused before starting implementation because the ticket needs more detail before it can derive a valid execution contract.",
+    reasons: input.reasons,
+    nextAction:
+      input.clarificationRequest.questions.length === 0
+        ? "Update the ticket body with the missing implementation detail so Symphony can derive a valid execution contract."
+        : `Update the ticket body to answer the missing question${input.clarificationRequest.questions.length === 1 ? "" : "s"}: ${quotedQuestions}`,
     requeueToState: disposition.requeueToState
   });
 }
@@ -292,4 +459,29 @@ function buildContractIntakeFailureSignalId(input: {
     normalizeWorkflowToken(input.runMode),
     normalizeWorkflowToken(input.recordedAt)
   ].join("_");
+}
+
+function buildContractIntakeClarificationSignalId(input: {
+  workflowId: string;
+  runMode: string;
+  recordedAt: string;
+}) {
+  return [
+    "signal",
+    "contract_intake_clarification_requested",
+    normalizeWorkflowToken(input.workflowId),
+    normalizeWorkflowToken(input.runMode),
+    normalizeWorkflowToken(input.recordedAt)
+  ].join("_");
+}
+
+function buildContractIntakeClarificationRequestId(workflowId: string) {
+  return `contract_intake_${normalizeWorkflowToken(workflowId)}`;
+}
+
+function readPrimaryReasonMessage(reasons: SymphonyTicketIntakeReason[]) {
+  return (
+    reasons[0]?.message ??
+    "Ticket intake could not derive a valid execution contract."
+  );
 }

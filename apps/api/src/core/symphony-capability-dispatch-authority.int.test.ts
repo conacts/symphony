@@ -240,6 +240,88 @@ describe("Symphony capability dispatch authority", () => {
       harness.close();
     }
   });
+
+  it("pauses weak intake tickets for clarification without collapsing the workflow into generic paused state", async () => {
+    const harness = await createHarness({
+      state: "Todo",
+      description: ""
+    });
+
+    try {
+      const observed = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-13T08:20:00.000Z"
+      });
+      const workflowId = await harness.requireWorkflowId();
+      const contract = await harness.routeWorkflowStore.getExecutionContract(workflowId);
+      const hydration =
+        await harness.routeWorkflowStore.loadWorkflowHydrationState(workflowId);
+      const trackerOperations = harness.tracker.listOperations();
+      const clarificationComment = trackerOperations.find(
+        (operation) => operation.kind === "comment"
+      );
+      const repeated = await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-13T08:20:05.000Z"
+      });
+
+      expect(observed).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Todo",
+        workflowTrackerState: "Paused",
+        observed: true,
+        disposition: "observed"
+      });
+      expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+      expect(contract).toBeNull();
+      expect(hydration?.snapshot?.projection.currentNode).toBe("awaiting_input");
+      expect(hydration?.snapshot?.projection.data).toEqual(
+        expect.objectContaining({
+          trackerState: "Paused"
+        })
+      );
+      expect(clarificationComment).toEqual(
+        expect.objectContaining({
+          kind: "comment",
+          issueId: harness.issue.id,
+          body: expect.stringContaining("paused before execution")
+        })
+      );
+      expect(clarificationComment?.body).toContain(
+        "ticket needs more detail before it can derive a valid execution contract"
+      );
+      expect(clarificationComment?.body).toContain(
+        "What concrete outcome should count as done for this ticket?"
+      );
+      expect(clarificationComment?.body).toContain(
+        "The issue is currently in `Paused`."
+      );
+      expect(clarificationComment?.body).toContain("move it to `Todo` to requeue");
+      expect(repeated).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Paused",
+        workflowTrackerState: "Paused",
+        observed: false,
+        disposition: "skipped"
+      });
+
+      await harness.restartService("2026-04-13T08:20:10.000Z");
+      const afterRestart =
+        await harness.service.observeNonRunningTrackerStateByIdentifier({
+          issueIdentifier: harness.issue.identifier,
+          recordedAt: "2026-04-13T08:20:11.000Z"
+        });
+      expect(afterRestart).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Paused",
+        workflowTrackerState: "Paused",
+        observed: false,
+        disposition: "skipped"
+      });
+    } finally {
+      harness.close();
+    }
+  });
 });
 
 async function createHarness(input: {
