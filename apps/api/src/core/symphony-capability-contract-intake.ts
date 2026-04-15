@@ -19,15 +19,27 @@ import type {
 } from "@symphony/tracker";
 import { normalizeWorkflowToken } from "./runtime-route-workflow-command-utils.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
+import {
+  inferSymphonyTicketIntakeReasonFromMessage,
+  type SymphonyTicketIntakeClarificationRequest,
+  type SymphonyTicketIntakeReason
+} from "./symphony-ticket-intake-contract.js";
+
+type SymphonyCapabilityContractIntakeInput = {
+  workflowId: string;
+  issue: Pick<SymphonyTrackerIssue, "identifier" | "title" | "description">;
+  repositoryKey: string;
+  recordedAt: string;
+  policyId?: SymphonyCapabilityPresetPolicyId;
+};
 
 export type SymphonyCapabilityContractIntake = {
-  createAndPersistForWorkflow(input: {
-    workflowId: string;
-    issue: Pick<SymphonyTrackerIssue, "identifier" | "title" | "description">;
-    repositoryKey: string;
-    recordedAt: string;
-    policyId?: SymphonyCapabilityPresetPolicyId;
-  }): Promise<
+  assessForWorkflow(
+    input: SymphonyCapabilityContractIntakeInput
+  ): Promise<SymphonyCapabilityContractIntakeAssessment>;
+  createAndPersistForWorkflow(
+    input: SymphonyCapabilityContractIntakeInput
+  ): Promise<
     RouteWorkflowExecutionContractRecord<
       SymphonyCapabilityId,
       SymphonyCapabilityEvidenceId,
@@ -43,10 +55,45 @@ export type SymphonyCapabilityContractIntake = {
   >;
 };
 
+export type SymphonyCapabilityContractReadyAssessment = {
+  decision: "ready";
+  reasons: SymphonyTicketIntakeReason[];
+  contract: ReturnType<typeof createSymphonyTicketExecutionContract>;
+};
+
+export type SymphonyCapabilityContractNeedsClarificationAssessment = {
+  decision: "needs_clarification";
+  reasons: SymphonyTicketIntakeReason[];
+  clarificationRequest: SymphonyTicketIntakeClarificationRequest;
+};
+
+export type SymphonyCapabilityContractInvalidDirectiveAssessment = {
+  decision: "invalid_directive";
+  reasons: SymphonyTicketIntakeReason[];
+};
+
+export type SymphonyCapabilityContractIntakeAssessment =
+  | SymphonyCapabilityContractReadyAssessment
+  | SymphonyCapabilityContractNeedsClarificationAssessment
+  | SymphonyCapabilityContractInvalidDirectiveAssessment;
+
 export class SymphonyCapabilityContractIntakeValidationError extends TypeError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+  readonly decision: "needs_clarification" | "invalid_directive";
+  readonly reasons: SymphonyTicketIntakeReason[];
+  readonly clarificationRequest: SymphonyTicketIntakeClarificationRequest | null;
+
+  constructor(input: {
+    message: string;
+    decision: "needs_clarification" | "invalid_directive";
+    reasons: SymphonyTicketIntakeReason[];
+    clarificationRequest?: SymphonyTicketIntakeClarificationRequest | null;
+    options?: ErrorOptions;
+  }) {
+    super(input.message, input.options);
     this.name = "SymphonyCapabilityContractIntakeValidationError";
+    this.decision = input.decision;
+    this.reasons = input.reasons;
+    this.clarificationRequest = input.clarificationRequest ?? null;
   }
 }
 
@@ -59,45 +106,73 @@ export function isSymphonyCapabilityContractIntakeValidationError(
 export function createSymphonyCapabilityContractIntake(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
 }): SymphonyCapabilityContractIntake {
+  async function assessForWorkflow(
+    intakeInput: SymphonyCapabilityContractIntakeInput
+  ): Promise<SymphonyCapabilityContractIntakeAssessment> {
+    const workflowId = requireNonEmptyText(intakeInput.workflowId, "workflowId");
+    const repositoryKey = requireNonEmptyText(
+      intakeInput.repositoryKey,
+      "repositoryKey"
+    );
+    const issueIdentifier = requireNonEmptyText(
+      intakeInput.issue.identifier,
+      "issue.identifier"
+    );
+    const summary = requireNonEmptyText(intakeInput.issue.title, "issue.title");
+    const recordedAt = requireNonEmptyText(intakeInput.recordedAt, "recordedAt");
+    const preset = createSymphonyCapabilityPreset({
+      policyId: intakeInput.policyId ?? "default"
+    });
+    const sections = parseMarkdownSections(intakeInput.issue.description);
+    const existingContract =
+      await input.routeWorkflows.loadExecutionContractByWorkflowId<
+        SymphonyCapabilityId,
+        SymphonyCapabilityEvidenceId,
+        SymphonyCapabilityModelProfileId
+      >(workflowId);
+    const contractAssessment = buildExecutionContract({
+      workflowId,
+      issueIdentifier,
+      repositoryKey,
+      summary,
+      description: intakeInput.issue.description,
+      recordedAt,
+      existingContractId: existingContract?.contractId ?? null,
+      existingCreatedAt: existingContract?.createdAt ?? null,
+      preset,
+      sections
+    });
+
+    return contractAssessment;
+  }
+
   return {
+    assessForWorkflow,
     async createAndPersistForWorkflow(intakeInput) {
       const workflowId = requireNonEmptyText(intakeInput.workflowId, "workflowId");
-      const repositoryKey = requireNonEmptyText(
-        intakeInput.repositoryKey,
-        "repositoryKey"
-      );
-      const issueIdentifier = requireNonEmptyText(
-        intakeInput.issue.identifier,
-        "issue.identifier"
-      );
-      const summary = requireNonEmptyText(intakeInput.issue.title, "issue.title");
       const recordedAt = requireNonEmptyText(intakeInput.recordedAt, "recordedAt");
-      const preset = createSymphonyCapabilityPreset({
-        policyId: intakeInput.policyId ?? "default"
-      });
-      const sections = parseMarkdownSections(intakeInput.issue.description);
-      const existingContract =
-        await input.routeWorkflows.loadExecutionContractByWorkflowId<
-          SymphonyCapabilityId,
-          SymphonyCapabilityEvidenceId,
-          SymphonyCapabilityModelProfileId
-        >(workflowId);
-      const contract = buildExecutionContract({
-        workflowId,
-        issueIdentifier,
-        repositoryKey,
-        summary,
-        description: intakeInput.issue.description,
-        recordedAt,
-        existingContractId: existingContract?.contractId ?? null,
-        existingCreatedAt: existingContract?.createdAt ?? null,
-        preset,
-        sections
-      });
+      const contractAssessment = await assessForWorkflow(intakeInput);
+      if (contractAssessment.decision !== "ready") {
+        const message =
+          contractAssessment.decision === "needs_clarification"
+            ? contractAssessment.clarificationRequest.questions[0]?.prompt ??
+              contractAssessment.clarificationRequest.summary
+            : contractAssessment.reasons[0]?.message ??
+              "Ticket intake could not derive a valid execution contract.";
+        throw new SymphonyCapabilityContractIntakeValidationError({
+          message,
+          decision: contractAssessment.decision,
+          reasons: contractAssessment.reasons,
+          clarificationRequest:
+            contractAssessment.decision === "needs_clarification"
+              ? contractAssessment.clarificationRequest
+              : null
+        });
+      }
 
       return await input.routeWorkflows.saveExecutionContract({
         workflowId,
-        contract,
+        contract: contractAssessment.contract,
         recordedAt
       });
     },
@@ -126,80 +201,90 @@ function buildExecutionContract(input: {
   existingCreatedAt: string | null;
   preset: ReturnType<typeof createSymphonyCapabilityPreset>;
   sections: Map<string, string>;
-}) {
-  try {
-    const objective = resolveObjective({
-      sections: input.sections,
-      summary: input.summary
-    });
-    const doneDefinition = resolveDoneDefinition({
-      sections: input.sections,
-      summary: input.summary,
-      description: input.description
-    });
+}): SymphonyCapabilityContractIntakeAssessment {
+  const objective = resolveObjective({
+    sections: input.sections,
+    summary: input.summary
+  });
+  const doneDefinition = resolveDoneDefinition({
+    sections: input.sections,
+    summary: input.summary,
+    description: input.description
+  });
+  const reasons = [...objective.reasons, ...doneDefinition.reasons];
+  if (doneDefinition.decision === "needs_clarification") {
+    return {
+      decision: "needs_clarification",
+      reasons,
+      clarificationRequest: doneDefinition.clarificationRequest
+    };
+  }
 
-    return createSymphonyTicketExecutionContract({
-      contractId: input.existingContractId ?? buildContractId(input.workflowId),
-      workflowId: input.workflowId,
-      issueIdentifier: input.issueIdentifier,
-      repositoryKey: input.repositoryKey,
-      summary: input.summary,
-      objective,
-      doneDefinition,
-      routingDirectives: {
-        requiredCapabilityIds: parseCapabilityIdListSection(
-          input.sections,
-          "required capabilities",
-          input.preset.defaultPolicy.requiredCapabilityIds
-        ),
-        preferredCapabilityIds: parseCapabilityIdListSection(
-          input.sections,
-          "preferred capabilities",
-          input.preset.defaultPolicy.preferredCapabilityIds
-        ),
-        forbiddenCapabilityIds: parseCapabilityIdListSection(
-          input.sections,
-          "forbidden capabilities",
-          input.preset.defaultPolicy.forbiddenCapabilityIds
-        ),
-        requiredEvidenceIds: parseEvidenceIdListSection(
-          input.sections,
-          "required evidence",
-          input.preset.defaultPolicy.requiredEvidenceIds
-        ),
-        allowedModelProfileIds: parseModelProfileIdListSection(
-          input.sections,
-          "allowed model profiles",
-          input.preset.defaultPolicy.allowedModelProfileIds
-        ),
-        clarificationPolicy: {
-          mode: parseClarificationModeSection(
+  try {
+    return {
+      decision: "ready",
+      reasons,
+      contract: createSymphonyTicketExecutionContract({
+        contractId: input.existingContractId ?? buildContractId(input.workflowId),
+        workflowId: input.workflowId,
+        issueIdentifier: input.issueIdentifier,
+        repositoryKey: input.repositoryKey,
+        summary: input.summary,
+        objective: objective.value,
+        doneDefinition: doneDefinition.value,
+        routingDirectives: {
+          requiredCapabilityIds: parseCapabilityIdListSection(
             input.sections,
-            "clarification mode",
-            input.preset.defaultPolicy.clarificationPolicy.mode
+            "required capabilities",
+            input.preset.defaultPolicy.requiredCapabilityIds
+          ),
+          preferredCapabilityIds: parseCapabilityIdListSection(
+            input.sections,
+            "preferred capabilities",
+            input.preset.defaultPolicy.preferredCapabilityIds
+          ),
+          forbiddenCapabilityIds: parseCapabilityIdListSection(
+            input.sections,
+            "forbidden capabilities",
+            input.preset.defaultPolicy.forbiddenCapabilityIds
+          ),
+          requiredEvidenceIds: parseEvidenceIdListSection(
+            input.sections,
+            "required evidence",
+            input.preset.defaultPolicy.requiredEvidenceIds
+          ),
+          allowedModelProfileIds: parseModelProfileIdListSection(
+            input.sections,
+            "allowed model profiles",
+            input.preset.defaultPolicy.allowedModelProfileIds
+          ),
+          clarificationPolicy: {
+            mode: parseClarificationModeSection(
+              input.sections,
+              "clarification mode",
+              input.preset.defaultPolicy.clarificationPolicy.mode
+            )
+          },
+          reviewStrictness: parseReviewStrictnessSection(
+            input.sections,
+            "review strictness",
+            input.preset.defaultPolicy.reviewStrictness
+          ),
+          maxRetryCount: parseMaxRetryCountSection(
+            input.sections,
+            "max retry count",
+            input.preset.defaultPolicy.maxRetryCount
           )
         },
-        reviewStrictness: parseReviewStrictnessSection(
-          input.sections,
-          "review strictness",
-          input.preset.defaultPolicy.reviewStrictness
-        ),
-        maxRetryCount: parseMaxRetryCountSection(
-          input.sections,
-          "max retry count",
-          input.preset.defaultPolicy.maxRetryCount
-        )
-      },
-      createdAt: input.existingCreatedAt ?? input.recordedAt,
-      updatedAt: input.recordedAt
-    });
+        createdAt: input.existingCreatedAt ?? input.recordedAt,
+        updatedAt: input.recordedAt
+      })
+    };
   } catch (error) {
-    throw new SymphonyCapabilityContractIntakeValidationError(
-      error instanceof Error ? error.message : String(error),
-      {
-        cause: error
-      }
-    );
+    return {
+      decision: "invalid_directive",
+      reasons: [inferSymphonyTicketIntakeReason(error)]
+    };
   }
 }
 
@@ -213,31 +298,125 @@ function readSection(
 function resolveObjective(input: {
   sections: Map<string, string>;
   summary: string;
-}): string {
-  const explicitObjective = readSection(input.sections, "objective");
+}): {
+  value: string;
+  reasons: SymphonyTicketIntakeReason[];
+} {
+  const explicitObjective = readFirstNonEmptySection(input.sections, [
+    "objective",
+    "desired outcome",
+    "goal"
+  ]);
   if (explicitObjective !== null) {
-    return requireNonEmptyText(explicitObjective, "objective");
+    return {
+      value: explicitObjective,
+      reasons: []
+    };
   }
 
-  return requireNonEmptyText(input.summary, "issue.title");
+  return {
+    value: requireNonEmptyText(input.summary, "issue.title"),
+    reasons: [
+      {
+        code: "missing_objective",
+        message:
+          "The ticket does not include an explicit objective section. Symphony derived the objective from the issue title.",
+        severity: "warning",
+        field: "objective"
+      }
+    ]
+  };
 }
 
 function resolveDoneDefinition(input: {
   sections: Map<string, string>;
   summary: string;
   description: string | null;
-}): string {
-  const explicitDoneDefinition = readSection(input.sections, "done definition");
+}):
+  | {
+      decision: "ready";
+      value: string;
+      reasons: SymphonyTicketIntakeReason[];
+    }
+  | {
+      decision: "needs_clarification";
+      value: null;
+      reasons: SymphonyTicketIntakeReason[];
+      clarificationRequest: SymphonyTicketIntakeClarificationRequest;
+    } {
+  const explicitDoneDefinition = readFirstNonEmptySection(input.sections, [
+    "done definition",
+    "acceptance criteria",
+    "expected output"
+  ]);
   if (explicitDoneDefinition !== null) {
-    return requireNonEmptyText(explicitDoneDefinition, "done definition");
+    return {
+      decision: "ready",
+      value: explicitDoneDefinition,
+      reasons: []
+    };
+  }
+
+  const desiredOutcome = readFirstNonEmptySection(input.sections, [
+    "desired outcome"
+  ]);
+  if (desiredOutcome !== null) {
+    return {
+      decision: "ready",
+      value: desiredOutcome,
+      reasons: [
+        {
+          code: "missing_done_definition",
+          message:
+            "The ticket does not include an explicit done definition section. Symphony derived the completion criteria from the desired outcome.",
+          severity: "warning",
+          field: "doneDefinition"
+        }
+      ]
+    };
   }
 
   const derivedFromPreamble = extractMarkdownPreamble(input.description);
   if (derivedFromPreamble !== null) {
-    return derivedFromPreamble;
+    return {
+      decision: "ready",
+      value: derivedFromPreamble,
+      reasons: [
+        {
+          code: "missing_done_definition",
+          message:
+            "The ticket does not include an explicit done definition section. Symphony derived the completion criteria from the freeform ticket body.",
+          severity: "warning",
+          field: "doneDefinition"
+        }
+      ]
+    };
   }
 
-  return requireNonEmptyText(input.summary, "issue.title");
+  const reason: SymphonyTicketIntakeReason = {
+    code: "missing_done_definition",
+    message:
+      "The ticket does not describe what concrete outcome should count as done.",
+    severity: "warning",
+    field: "doneDefinition"
+  };
+  return {
+    decision: "needs_clarification",
+    value: null,
+    reasons: [reason],
+    clarificationRequest: {
+      summary:
+        "Symphony needs the completion criteria for this ticket before execution can begin.",
+      questions: [
+        {
+          id: "done_definition",
+          prompt:
+            "What concrete outcome should count as done for this ticket?",
+          context: input.summary
+        }
+      ]
+    }
+  };
 }
 
 function parseCapabilityIdListSection(
@@ -450,6 +629,39 @@ function normalizeSectionName(value: string): string {
 
 function normalizeDirectiveToken(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function readFirstNonEmptySection(
+  sections: Map<string, string>,
+  sectionNames: readonly string[]
+): string | null {
+  for (const sectionName of sectionNames) {
+    const value = readSection(sections, sectionName);
+    if (value !== null) {
+      return requireNonEmptyText(value, sectionName);
+    }
+  }
+
+  return null;
+}
+
+function inferSymphonyTicketIntakeReason(
+  error: unknown
+): SymphonyTicketIntakeReason {
+  if (error instanceof SymphonyCapabilityContractIntakeValidationError) {
+    return error.reasons[0] ?? {
+      code: "invalid_execution_contract",
+      message: error.message,
+      severity: "error",
+      field: "ticket"
+    };
+  }
+
+  if (error instanceof Error) {
+    return inferSymphonyTicketIntakeReasonFromMessage(error.message);
+  }
+
+  return inferSymphonyTicketIntakeReasonFromMessage(String(error));
 }
 
 function requireNonEmptyText(value: string | null | undefined, fieldLabel: string): string {

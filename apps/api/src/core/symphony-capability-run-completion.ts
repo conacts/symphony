@@ -7,7 +7,6 @@ import type {
 import type {
   SymphonyTracker,
   SymphonyTrackerConfig,
-  SymphonyTrackerIssue
 } from "@symphony/tracker";
 import {
   createSymphonyCapabilityBlockedSignal,
@@ -31,7 +30,7 @@ import type {
 } from "./runtime-workflow-session-loader.js";
 import {
   createRouteCommandSettlementSessionLoader,
-  executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   readTrackerTransitionState,
   normalizeWorkflowToken
 } from "./runtime-route-workflow-command-utils.js";
@@ -645,37 +644,23 @@ async function settleTrackerTransitionCommands(input: {
   });
 
   for (const command of trackerTransitionCommands) {
-    projectedIssue = await executeSettledRouteCommand({
+    projectedIssue = await executeSettledTrackerTransitionCommand({
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.sessionLoaderResult.resumed.session,
       loadSettlementSession,
       command,
       recordedAt: input.recordedAt,
-      async execute(executedCommand) {
-        return await executeTrackerTransition({
-          tracker: input.tracker,
-          trackerIssue: projectedIssue,
-          targetState: readTrackerTransitionState({
-            adapter: input.sessionLoaderResult.routing.module.runtimeAdapter,
-            command: executedCommand
-          })
+      issue: projectedIssue,
+      tracker: input.tracker,
+      readTargetState(executedCommand) {
+        return readTrackerTransitionState({
+          adapter: input.sessionLoaderResult.routing.module.runtimeAdapter,
+          command: executedCommand
         });
       }
     });
   }
-}
-
-async function executeTrackerTransition(input: {
-  tracker: SymphonyTracker;
-  trackerIssue: SymphonyTrackerIssue;
-  targetState: string;
-}): Promise<SymphonyTrackerIssue> {
-  await input.tracker.updateIssueState(input.trackerIssue.id, input.targetState);
-  return {
-    ...input.trackerIssue,
-    state: input.targetState
-  };
 }
 
 function incrementIsoTimestamp(value: string, milliseconds: number): string {

@@ -10,7 +10,7 @@ import {
 } from "@symphony/tracker";
 import {
   createRouteCommandSettlementSessionLoader,
-  executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
@@ -35,6 +35,10 @@ import type {
 import {
   isSymphonyCapabilityContractIntakeValidationError
 } from "./symphony-capability-contract-intake.js";
+import {
+  readSymphonyTicketIntakeDisposition,
+  renderSymphonyOperatorStateDirectiveComment
+} from "./symphony-ticket-intake-contract.js";
 
 const capabilityManagedRunModes = new Set<SymphonyRunMode>(["implementation"]);
 
@@ -214,14 +218,25 @@ async function leaveContractIntakeFailureComment(input: {
 function buildContractIntakeFailureCommentBody(
   error: SymphonyCapabilityContractIntakeValidationError
 ): string {
-  return [
-    "Symphony capability routing failed before execution.",
-    "",
-    "State: `Failed`",
-    "What changed: Symphony stopped before starting implementation because the ticket body or routing directives could not be normalized into a valid execution contract.",
-    `Blocking validation: \`${error.message}\``,
-    "Next step: update the ticket body or routing directives so Symphony can derive a valid execution contract, then move the issue back to `Todo` to retry dispatch."
-  ].join("\n");
+  const disposition = readSymphonyTicketIntakeDisposition("invalid_directive");
+  const trackerState =
+    disposition.trackerState ??
+    (() => {
+      throw new TypeError(
+        "Invalid directive intake disposition must resolve to a tracker state."
+      );
+    })();
+
+  return renderSymphonyOperatorStateDirectiveComment({
+    title: "Symphony capability routing failed before execution.",
+    state: trackerState,
+    whatChanged:
+      "Symphony stopped before starting implementation because the ticket body or routing directives could not be normalized into a valid execution contract.",
+    reasons: error.reasons,
+    nextAction:
+      "Update the ticket body or routing directives so Symphony can derive a valid execution contract.",
+    requeueToState: disposition.requeueToState
+  });
 }
 
 async function settleFailureCommands(input: {
@@ -246,23 +261,20 @@ async function settleFailureCommands(input: {
       );
     }
 
-    currentIssue = await executeSettledRouteCommand({
+    currentIssue = await executeSettledTrackerTransitionCommand({
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.session,
       loadSettlementSession: input.loadSettlementSession,
       command,
       recordedAt: input.recordedAt,
-      async execute(executedCommand) {
-        const targetState = readTrackerTransitionState({
+      issue: currentIssue,
+      tracker: input.tracker,
+      readTargetState(executedCommand) {
+        return readTrackerTransitionState({
           adapter: input.presetAdapter,
           command: executedCommand
         });
-        await input.tracker.updateIssueState(currentIssue.id, targetState);
-        return {
-          ...currentIssue,
-          state: targetState
-        };
       }
     });
   }

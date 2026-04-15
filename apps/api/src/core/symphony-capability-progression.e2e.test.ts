@@ -141,6 +141,18 @@ describe("capability progression golden paths", () => {
     });
     expect(workflowLifecycle).not.toBeNull();
     expect(workflowLifecycle?.trackerState).toBe("Done");
+    const observed =
+      await harness.service.observeNonRunningTrackerStateByIdentifier({
+        issueIdentifier: harness.issue.identifier,
+        recordedAt: "2026-04-13T10:10:31.000Z"
+      });
+    expect(observed).toEqual({
+      issueIdentifier: harness.issue.identifier,
+      observedTrackerState: "Done",
+      workflowTrackerState: "Done",
+      observed: false,
+      disposition: "skipped"
+    });
 
     const hydration =
       await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<

@@ -13,7 +13,7 @@ import type {
 } from "./runtime-workflow-session-types.js";
 import {
   createRouteCommandSettlementSessionLoader,
-  executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
@@ -127,20 +127,27 @@ async function executeRequestedStateCommands(input: {
       );
     }
 
-    currentProjectedIssue = await executeSettledRouteCommand({
+    currentProjectedIssue = await executeSettledTrackerTransitionCommand({
       routeWorkflows: input.routeWorkflows,
       workflowId: input.workflowId,
       session: input.session,
       loadSettlementSession: input.loadSettlementSession,
       command,
       recordedAt: input.recordedAt,
-      async execute(executedCommand) {
+      issue: currentProjectedIssue,
+      tracker: input.tracker,
+      readTargetState(executedCommand) {
+        return readTrackerTransitionState({
+          adapter: input.presetAdapter,
+          command: executedCommand
+        });
+      },
+      async executeTransition({ issue, tracker, targetState }) {
         return await executeRequestedTrackerTransition({
-          presetAdapter: input.presetAdapter,
-          command: executedCommand,
-          projectedIssue: currentProjectedIssue,
-          tracker: input.tracker,
-          targetState: input.targetState
+          projectedIssue: issue,
+          tracker,
+          targetState,
+          expectedTargetState: input.targetState
         });
       }
     });
@@ -150,26 +157,24 @@ async function executeRequestedStateCommands(input: {
 }
 
 async function executeRequestedTrackerTransition(input: {
-  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  command: WorkflowCommand;
   projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   targetState: string;
+  expectedTargetState: string;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState({
-    adapter: input.presetAdapter,
-    command: input.command
-  });
-  if (targetState !== input.targetState) {
+  if (input.targetState !== input.expectedTargetState) {
     throw new TypeError(
-      `Runtime state-request routing expected tracker transition to ${input.targetState}. Received ${String(targetState)}.`
+      `Runtime state-request routing expected tracker transition to ${input.expectedTargetState}. Received ${String(input.targetState)}.`
     );
   }
 
-  await input.tracker.updateIssueState(input.projectedIssue.id, targetState);
+  await input.tracker.updateIssueState(
+    input.projectedIssue.id,
+    input.targetState
+  );
   return {
     ...input.projectedIssue,
-    state: targetState
+    state: input.targetState
   };
 }
 

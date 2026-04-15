@@ -2,17 +2,15 @@ import type {
   SymphonyRunStartActivationInput,
   SymphonyRunStartActivationResult
 } from "@symphony/orchestrator";
-import { type WorkflowCommand } from "@symphony/router";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
-import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   createRouteCommandSettlementSessionLoader,
-  executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
@@ -91,19 +89,26 @@ export async function activateRuntimeRunStart(input: {
   });
   for (const command of result.decision.commands) {
     if (command.kind === "tracker.transition") {
-      activatedIssue = await executeSettledRouteCommand({
+      activatedIssue = await executeSettledTrackerTransitionCommand({
         routeWorkflows: input.routeWorkflows,
         workflowId: resumed.hydrationState.workflow.workflowId,
         session: resumed.session,
         loadSettlementSession,
         command,
         recordedAt: input.activationInput.recordedAt,
-        async execute(executedCommand) {
+        issue: activatedIssue,
+        tracker: input.tracker,
+        readTargetState(executedCommand) {
+          return readTrackerTransitionState({
+            adapter: presetAdapter,
+            command: executedCommand
+          });
+        },
+        async executeTransition({ issue, tracker, targetState }) {
           return await executeInProgressTransition({
-            presetAdapter,
-            command: executedCommand,
-            issue: activatedIssue,
-            tracker: input.tracker
+            issue,
+            tracker,
+            targetState
           });
         }
       });
@@ -121,25 +126,20 @@ export async function activateRuntimeRunStart(input: {
 }
 
 async function executeInProgressTransition(input: {
-  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
+  targetState: string;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState({
-    adapter: input.presetAdapter,
-    command: input.command
-  });
-  if (targetState !== "In Progress") {
+  if (input.targetState !== "In Progress") {
     throw new TypeError(
-      `Run start activation only supports tracker transitions to In Progress. Received ${String(targetState)}.`
+      `Run start activation only supports tracker transitions to In Progress. Received ${String(input.targetState)}.`
     );
   }
 
-  await input.tracker.updateIssueState(input.issue.id, targetState);
+  await input.tracker.updateIssueState(input.issue.id, input.targetState);
   return {
     ...input.issue,
-    state: targetState
+    state: input.targetState
   };
 }
 

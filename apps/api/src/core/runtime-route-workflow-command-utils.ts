@@ -5,6 +5,10 @@ import {
   type WorkflowPayload,
   type WorkflowProjection
 } from "@symphony/router";
+import type {
+  SymphonyTracker,
+  SymphonyTrackerIssue
+} from "@symphony/tracker";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
@@ -121,6 +125,57 @@ export async function executeSettledRouteCommand<
   }
 
   return result;
+}
+
+export async function executeSettledTrackerTransitionCommand<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(input: {
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  workflowId: string;
+  session: SymphonyRuntimeWorkflowSettlementSession<Node, Data, Policy>;
+  loadSettlementSession?: () => Promise<
+    SymphonyRuntimeWorkflowSettlementSession<Node, Data, Policy>
+  >;
+  command: WorkflowCommand;
+  recordedAt: string;
+  issue: SymphonyTrackerIssue;
+  tracker: SymphonyTracker;
+  readTargetState(command: WorkflowCommand): string;
+  executeTransition?(input: {
+    command: WorkflowCommand;
+    issue: SymphonyTrackerIssue;
+    tracker: SymphonyTracker;
+    targetState: string;
+  }): Promise<SymphonyTrackerIssue>;
+}): Promise<SymphonyTrackerIssue> {
+  return await executeSettledRouteCommand({
+    routeWorkflows: input.routeWorkflows,
+    workflowId: input.workflowId,
+    session: input.session,
+    loadSettlementSession: input.loadSettlementSession,
+    command: input.command,
+    recordedAt: input.recordedAt,
+    async execute(command) {
+      const targetState = input.readTargetState(command);
+
+      if (input.executeTransition) {
+        return await input.executeTransition({
+          command,
+          issue: input.issue,
+          tracker: input.tracker,
+          targetState
+        });
+      }
+
+      await input.tracker.updateIssueState(input.issue.id, targetState);
+      return {
+        ...input.issue,
+        state: targetState
+      };
+    }
+  });
 }
 
 export function normalizeWorkflowToken(value: string): string {

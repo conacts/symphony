@@ -43,6 +43,12 @@ describe("Symphony capability contract intake", () => {
     });
 
     try {
+      const assessment = await harness.intake.assessForWorkflow({
+        workflowId: harness.workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-13T06:09:59.000Z"
+      });
       const saved = await harness.intake.createAndPersistForWorkflow({
         workflowId: harness.workflowId,
         issue: harness.issue,
@@ -50,6 +56,16 @@ describe("Symphony capability contract intake", () => {
         recordedAt: "2026-04-13T06:10:00.000Z"
       });
 
+      expect(assessment).toEqual(
+        expect.objectContaining({
+          decision: "ready",
+          reasons: expect.arrayContaining([
+            expect.objectContaining({
+              code: "missing_objective"
+            })
+          ])
+        })
+      );
       expect(saved.objective).toBe(harness.issue.title);
       expect(saved.doneDefinition).toBe(
         "The API persists a strict execution contract with explicit routing directives."
@@ -69,6 +85,12 @@ describe("Symphony capability contract intake", () => {
     });
 
     try {
+      const assessment = await harness.intake.assessForWorkflow({
+        workflowId: harness.workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-13T06:10:59.000Z"
+      });
       const saved = await harness.intake.createAndPersistForWorkflow({
         workflowId: harness.workflowId,
         issue: harness.issue,
@@ -76,8 +98,119 @@ describe("Symphony capability contract intake", () => {
         recordedAt: "2026-04-13T06:11:00.000Z"
       });
 
+      expect(assessment).toEqual(
+        expect.objectContaining({
+          decision: "ready",
+          reasons: expect.arrayContaining([
+            expect.objectContaining({
+              code: "missing_done_definition"
+            })
+          ])
+        })
+      );
       expect(saved.objective).toBe(harness.issue.title);
       expect(saved.doneDefinition).toBe(harness.issue.description);
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("derives a ready contract from alternate freeform headings instead of requiring objective and done-definition headers", async () => {
+    const harness = await createHarness({
+      issue: buildIssue({
+        description: [
+          "## Desired Outcome",
+          "Render workflow progress so operators can understand the live router step.",
+          "",
+          "## Acceptance Criteria",
+          "- The issue detail page shows the latest router step.",
+          "- The page shows the latest execution narrative."
+        ].join("\n")
+      })
+    });
+
+    try {
+      const assessment = await harness.intake.assessForWorkflow({
+        workflowId: harness.workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-13T06:11:30.000Z"
+      });
+
+      expect(assessment).toEqual(
+        expect.objectContaining({
+          decision: "ready",
+          contract: expect.objectContaining({
+            objective:
+              "Render workflow progress so operators can understand the live router step.",
+            doneDefinition: [
+              "- The issue detail page shows the latest router step.",
+              "- The page shows the latest execution narrative."
+            ].join("\n")
+          })
+        })
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
+  it("classifies tickets without completion criteria as needs_clarification instead of persisting a weak contract", async () => {
+    const harness = await createHarness({
+      issue: buildIssue({
+        title: "Render workflow progress",
+        description: ""
+      })
+    });
+
+    try {
+      const assessment = await harness.intake.assessForWorkflow({
+        workflowId: harness.workflowId,
+        issue: harness.issue,
+        repositoryKey: "openai/symphony",
+        recordedAt: "2026-04-13T06:11:45.000Z"
+      });
+
+      expect(assessment).toEqual({
+        decision: "needs_clarification",
+        reasons: [
+          {
+            code: "missing_objective",
+            message:
+              "The ticket does not include an explicit objective section. Symphony derived the objective from the issue title.",
+            severity: "warning",
+            field: "objective"
+          },
+          {
+            code: "missing_done_definition",
+            message:
+              "The ticket does not describe what concrete outcome should count as done.",
+            severity: "warning",
+            field: "doneDefinition"
+          }
+        ],
+        clarificationRequest: {
+          summary:
+            "Symphony needs the completion criteria for this ticket before execution can begin.",
+          questions: [
+            {
+              id: "done_definition",
+              prompt:
+                "What concrete outcome should count as done for this ticket?",
+              context: "Render workflow progress"
+            }
+          ]
+        }
+      });
+
+      await expect(
+        harness.intake.createAndPersistForWorkflow({
+          workflowId: harness.workflowId,
+          issue: harness.issue,
+          repositoryKey: "openai/symphony",
+          recordedAt: "2026-04-13T06:11:46.000Z"
+        })
+      ).rejects.toThrow(/what concrete outcome should count as done/i);
     } finally {
       harness.close();
     }
@@ -111,6 +244,22 @@ describe("Symphony capability contract intake", () => {
       });
 
       try {
+        const assessment = await harness.intake.assessForWorkflow({
+          workflowId: harness.workflowId,
+          issue: harness.issue,
+          repositoryKey: "openai/symphony",
+          recordedAt: "2026-04-13T06:13:29.000Z"
+        });
+
+        expect(assessment).toEqual({
+          decision: "invalid_directive",
+          reasons: [
+            expect.objectContaining({
+              code: "invalid_max_retry_count",
+              field: "routingDirectives.maxRetryCount"
+            })
+          ]
+        });
         await expect(
           harness.intake.createAndPersistForWorkflow({
             workflowId: harness.workflowId,

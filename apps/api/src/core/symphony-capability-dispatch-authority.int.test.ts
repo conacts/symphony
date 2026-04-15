@@ -159,7 +159,7 @@ describe("Symphony capability dispatch authority", () => {
     }
   });
 
-  it("fails invalid capability directives once and does not keep redispatching bootstrapping work", async () => {
+  it("fails invalid capability directives once and keeps workflow-authoritative failure across restart", async () => {
     const harness = await createHarness({
       state: "Todo",
       description: buildCapabilityTicketDescription({
@@ -205,10 +205,31 @@ describe("Symphony capability dispatch authority", () => {
           body: expect.stringContaining("could not be normalized into a valid execution contract")
         })
       );
-      expect(failureComment?.body).toContain("`Invalid max retry count \"1.5\".");
-      expect(failureComment?.body).toContain("update the ticket body or routing directives");
-      expect(failureComment?.body).toContain("move the issue back to `Todo`");
+      expect(failureComment?.body).toContain(
+        'Invalid max retry count "1.5".'
+      );
+      expect(failureComment?.body).toContain(
+        "Update the ticket body or routing directives"
+      );
+      expect(failureComment?.body).toContain(
+        "The issue is currently in `Failed`."
+      );
+      expect(failureComment?.body).toContain("move it to `Todo` to requeue");
       expect(repeated).toEqual({
+        issueIdentifier: harness.issue.identifier,
+        observedTrackerState: "Failed",
+        workflowTrackerState: "Failed",
+        observed: false,
+        disposition: "skipped"
+      });
+
+      await harness.restartService("2026-04-13T08:15:10.000Z");
+      const afterRestart =
+        await harness.service.observeNonRunningTrackerStateByIdentifier({
+          issueIdentifier: harness.issue.identifier,
+          recordedAt: "2026-04-13T08:15:11.000Z"
+        });
+      expect(afterRestart).toEqual({
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Failed",
         workflowTrackerState: "Failed",
