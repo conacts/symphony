@@ -7,6 +7,7 @@ import {
   initializeSymphonyDb,
   type RouteWorkflowStore
 } from "@symphony/db";
+import { createSymphonyCapabilityPreset } from "@symphony/router";
 import {
   buildSymphonyRuntimePolicy,
   buildSymphonyTrackerIssue
@@ -42,6 +43,7 @@ export type RouteLifecycleGoldenPathHarness = {
 export async function createRouteLifecycleGoldenPathHarness(input: {
   state: string;
   presetId?: SymphonyRuntimeRouterPresetId;
+  createIntelligentFlowCapabilityPreset?: typeof createSymphonyCapabilityPreset;
 }): Promise<RouteLifecycleGoldenPathHarness> {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-golden-path-"));
   const database = initializeSymphonyDb({
@@ -68,7 +70,9 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
   });
 
   const capabilityPlanning = createSymphonyCapabilityPlanningService({
-    routeWorkflowStore
+    routeWorkflowStore,
+    createIntelligentFlowCapabilityPreset:
+      input.createIntelligentFlowCapabilityPreset
   });
   const service = await createRuntimeRouteLifecycleService({
     routeWorkflows,
