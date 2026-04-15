@@ -4,7 +4,7 @@ import {
   normalizePiThinkingLevel,
   resolvePiIssueSelection
 } from "./model-selection.js";
-import { resolvePiLaunchSettings } from "./rpc-process.js";
+import { resolvePiSdkLaunchSettings } from "./launch.js";
 
 describe("pi model selection", () => {
   it("applies issue labels on top of provided defaults", () => {
@@ -103,62 +103,58 @@ describe("pi model selection", () => {
     expect(normalizePiThinkingLevel(null)).toBeNull();
   });
 
-  it("uses the same issue override rules for native rpc launches", () => {
-    const launchSettings = resolvePiLaunchSettings({
-      issue: buildIssue({
-        labels: ["model:premium"]
-      }),
-      runtimePolicy: buildRuntimePolicy({
-        pi: {
-          defaultModel: "xiaomi/mimo-v2-pro",
-          defaultReasoningEffort: "xhigh",
-          defaultPreset: "advanced",
-          presets: {
-            basic: {
-              model: "minimax/minimax-m2.7",
-              reasoningEffort: "medium",
-              authMode: "provider"
-            },
-            advanced: {
-              model: "xiaomi/mimo-v2-pro",
-              reasoningEffort: "xhigh",
-              authMode: "provider"
-            },
-            premium: {
-              model: "gpt-5.4",
-              reasoningEffort: "high",
-              authMode: "subscription"
-            }
+  it("uses the same issue override rules for SDK launches", () => {
+    const runtimePolicy = buildRuntimePolicy({
+      pi: {
+        defaultModel: "xiaomi/mimo-v2-pro",
+        defaultReasoningEffort: "xhigh",
+        defaultPreset: "advanced",
+        presets: {
+          basic: {
+            model: "minimax/minimax-m2.7",
+            reasoningEffort: "medium",
+            authMode: "provider"
           },
-          provider: {
-            id: "openrouter",
-            name: "OpenRouter",
-            baseUrl: "https://openrouter.ai/api/v1",
-            envKey: "OPENROUTER_API_KEY",
-            supportsWebsockets: false,
-            wireApi: "responses"
+          advanced: {
+            model: "xiaomi/mimo-v2-pro",
+            reasoningEffort: "xhigh",
+            authMode: "provider"
+          },
+          premium: {
+            model: "gpt-5.4",
+            reasoningEffort: "high",
+            authMode: "subscription"
           }
+        },
+        provider: {
+          id: "openrouter",
+          name: "OpenRouter",
+          baseUrl: "https://openrouter.ai/api/v1",
+          envKey: "OPENROUTER_API_KEY",
+          supportsWebsockets: false,
+          wireApi: "responses"
         }
-      }),
-      launchTarget: {
-        kind: "container",
-        hostLaunchPath: "/tmp/workspace",
-        hostWorkspacePath: "/tmp/workspace",
-        runtimeWorkspacePath: "/workspace",
-        containerId: "container-123",
-        containerName: "symphony-col-123",
-        shell: "sh",
-        user: "1000:1000"
-      },
-      env: {},
-      logger: {
-        debug() {},
-        warn() {},
-        error() {}
       }
     });
+    const launchSettings = resolvePiSdkLaunchSettings(
+      "pi --profile advanced",
+      buildIssue({
+        labels: ["model:premium"]
+      }),
+      {
+        model: runtimePolicy.pi.defaultModel,
+        reasoningEffort: runtimePolicy.pi.defaultReasoningEffort,
+        defaultPreset: runtimePolicy.pi.defaultPreset,
+        presets: runtimePolicy.pi.presets,
+        profile: runtimePolicy.pi.profile,
+        providerId: runtimePolicy.pi.provider?.id ?? null,
+        providerName: runtimePolicy.pi.provider?.name ?? null
+      }
+    );
 
     expect(launchSettings).toMatchObject({
+      command: "pi --profile advanced",
+      executable: "pi",
       model: "gpt-5.4",
       reasoningEffort: "high",
       providerId: null,

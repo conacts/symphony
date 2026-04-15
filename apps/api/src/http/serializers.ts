@@ -17,7 +17,7 @@ import {
   listSupportedPiModels,
   piModelLabelPrefix,
   resolvePiIssueModel
-} from "../core/agent-app-server-launch.js";
+} from "@symphony/agent-harnesses";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
 import {
   requireWorkflowTrackerState,

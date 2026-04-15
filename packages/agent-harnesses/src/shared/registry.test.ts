@@ -13,24 +13,12 @@ describe("agent harness registry", () => {
     expect(modules.every((module) => module.analytics)).toBe(true);
   });
 
-  it("exposes the PI analytics adapter through the provider module", () => {
+  it("exposes the PI SDK runner as a native analytics source", () => {
     const module = resolveAgentHarnessModule("pi");
 
-    expect(module.analytics.mode).toBe("projection");
-    expect(module.analytics.lossiness).toBe("best_effort");
-    expect(module.analytics.adapter).toEqual(
-      expect.objectContaining({
-        extractTurnUsage: expect.any(Function),
-        projectMessageEndEvent: expect.any(Function),
-        projectQueueUpdateEvent: expect.any(Function),
-        projectRuntimeEvent: expect.any(Function),
-        projectSessionHeaderEvent: expect.any(Function),
-        projectToolExecutionEndEvent: expect.any(Function),
-        projectToolExecutionStartEvent: expect.any(Function),
-        projectToolExecutionUpdateEvent: expect.any(Function),
-        projectTurnEndEvent: expect.any(Function),
-        projectTurnStartEvent: expect.any(Function)
-      })
-    );
+    expect(module.analytics.mode).toBe("native");
+    expect(module.analytics.lossiness).toBe("none");
+    expect(module.analytics.adapter).toBeNull();
+    expect(module.transport.startSession).toEqual(expect.any(Function));
   });
 });

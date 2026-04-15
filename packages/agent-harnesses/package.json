@@ -21,6 +21,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "effect": "^3.21.0",
+    "@mariozechner/pi-agent-core": "0.67.2",
+    "@mariozechner/pi-ai": "0.67.2",
+    "@mariozechner/pi-coding-agent": "0.67.2",
     "@symphony/agent-analytics": "workspace:*",
     "@symphony/orchestrator": "workspace:*",
     "@symphony/tracker": "workspace:*"

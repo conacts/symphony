@@ -1,5 +1,5 @@
 import type { AgentRuntimeLaunchTarget, SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
-import type { Usage } from "@symphony/agent-analytics";
+import type { ThreadEvent, Usage } from "@symphony/agent-analytics";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 
 export type HarnessSessionLogger = {
@@ -20,21 +20,45 @@ export class HarnessSessionError extends Error {
   }
 }
 
-export type HarnessToolExecutor = (
-  toolName: string | null,
-  argumentsPayload: unknown
-) => Promise<Record<string, unknown>>;
-
-export type HarnessTurnResult = {
+type HarnessTurnResultBase = {
   threadId: string;
   turnId: string;
-  usage?: Usage | null;
+  usage: Usage | null;
 };
 
+export type HarnessCompletedTurnResult = HarnessTurnResultBase & {
+  kind: "completed";
+};
+
+export type HarnessAwaitingInputTurnResult = HarnessTurnResultBase & {
+  kind: "awaiting_input";
+  reason: string;
+  prompt: string;
+  detail: unknown;
+};
+
+export type HarnessBlockedTurnResult = HarnessTurnResultBase & {
+  kind: "blocked";
+  reason: string;
+  detail: unknown;
+};
+
+export type HarnessFailedTurnResult = HarnessTurnResultBase & {
+  kind: "failed";
+  reason: string;
+  failureClass: string | null;
+  detail: unknown;
+};
+
+export type HarnessTurnResult =
+  | HarnessCompletedTurnResult
+  | HarnessAwaitingInputTurnResult
+  | HarnessBlockedTurnResult
+  | HarnessFailedTurnResult;
+
 export type HarnessRuntimeUpdate = {
-  message: Record<string, unknown>;
+  event: ThreadEvent;
   rawPayload?: unknown;
-  projectionLosses?: unknown[] | null;
 };
 
 export type HarnessSessionClient = {
@@ -44,8 +68,6 @@ export type HarnessSessionClient = {
     input: {
       prompt: string;
       title: string;
-      sandboxPolicy: Record<string, unknown> | null;
-      toolExecutor: HarnessToolExecutor;
       onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
       turnTimeoutMs: number;
     }

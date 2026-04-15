@@ -2637,7 +2637,7 @@ describe("symphony orchestrator", () => {
     await orchestrator.dispatchIssue(issue, 1);
     await orchestrator.handleRunCompletion("issue-123", {
       kind: "startup_failure",
-      reason: "Pi RPC process exited (code:137).",
+      reason: "Pi SDK runner process exited (code:137).",
       failureStage: "runtime_session_start",
       failureOrigin: "pi_startup",
       launchTarget: null

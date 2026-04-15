@@ -20,8 +20,7 @@ import {
 } from "@symphony/runtime-contract";
 import type { JsonObject, JsonValue } from "@symphony/contracts";
 import {
-  extractUsage,
-  isThreadEvent
+  extractUsage
 } from "@symphony/contracts";
 import type {
   SymphonyTracker,
@@ -34,11 +33,11 @@ import type {
 } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
-  decodePiRuntimeEvent,
-  extractPiRuntimeUsage,
   HarnessSessionError,
+  piSdkRunnerFailureClasses,
+  type PiSdkRunnerFailureClass,
   resolveHarnessModelRuntimePolicy,
-  type HarnessToolExecutor,
+  type HarnessTurnResult,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
@@ -97,6 +96,8 @@ type WorkflowLifecycleReaders = {
     runMode: SymphonyRunMode;
   }): Promise<boolean>;
 };
+
+const piSdkRunnerFailureClassSet = new Set<string>(piSdkRunnerFailureClasses);
 
 export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
@@ -506,35 +507,25 @@ async function executeRun(input: {
       const turnResult = await session.client.runTurn(session, {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
-        sandboxPolicy: null,
-        toolExecutor: unsupportedRuntimeToolExecutor,
         turnTimeoutMs: input.runtimePolicy.pi.turnTimeoutMs,
         onMessage: async (update) => {
-          const { message, projectionLosses, rawPayload } = update;
-          const threadEvent = isThreadEvent(message) ? message : null;
-          const runtimePayload = rawPayload ?? message;
+          const { event: threadEvent, rawPayload } = update;
+          const runtimePayload = rawPayload ?? threadEvent;
           const runtimePayloadRecord = asRecord(runtimePayload);
           const sessionStartedEvent =
-            extractCanonicalSessionStartedEvent(message) ??
             extractCanonicalSessionStartedEvent(runtimePayloadRecord);
-          const eventName =
-            threadEvent?.type ??
-            getString(message, "type") ??
-            getString(message, "event") ??
-            getString(runtimePayloadRecord, "type") ??
-            getString(runtimePayloadRecord, "event") ??
-            "notification";
+          const eventName = threadEvent.type;
           const timestamp = new Date().toISOString();
           const turnUsage = extractRuntimeUsage(threadEvent, runtimePayloadRecord);
           const threadId =
-            getString(message, "thread_id") ??
+            (threadEvent.type === "thread.started" ? threadEvent.thread_id : null) ??
             getString(runtimePayloadRecord, "thread_id") ??
             session.threadId;
           const canonicalEvent =
-            (threadEvent as CanonicalRuntimeEventPayload | null) ?? sessionStartedEvent;
+            (threadEvent as CanonicalRuntimeEventPayload) ?? sessionStartedEvent;
 
           if (
-            threadEvent?.type === "item.completed" &&
+            threadEvent.type === "item.completed" &&
             threadEvent.item.type === "agent_message"
           ) {
             latestCompletedAgentMessageText = threadEvent.item.text;
@@ -544,10 +535,9 @@ async function executeRun(input: {
             event: eventName,
             payload: runtimePayload,
             timestamp,
-            threadId:
-              sessionStartedEvent?.thread_id ?? threadId,
+            threadId: sessionStartedEvent?.thread_id ?? threadId,
             agentRuntimeProcessId:
-              getString(message, "agent_app_server_pid") ?? session.processId
+              getString(runtimePayloadRecord, "agent_app_server_pid") ?? session.processId
           });
           await input.workerSessionContract.recordObservation({
             sessionId: session.threadId,
@@ -581,9 +571,7 @@ async function executeRun(input: {
                 agentTurnId:
                   canonicalEvent.type === "session.started"
                     ? canonicalEvent.turn_id
-                    : getString(message, "turn_id") ??
-                      getString(runtimePayloadRecord, "turn_id") ??
-                      null
+                    : getString(runtimePayloadRecord, "turn_id") ?? null
               });
               if (canonicalEvent.type === "session.started") {
                 await input.runStore.upsertRunContext(input.runId, {
@@ -605,7 +593,6 @@ async function executeRun(input: {
                 threadId,
                 recordedAt: timestamp,
                 payload: threadEvent,
-                projectionLosses,
                 rawPayload
               });
 
@@ -639,7 +626,7 @@ async function executeRun(input: {
 
           if (
             explicitCompletionRequirement === "none" &&
-            threadEvent?.type === "item.completed" &&
+            threadEvent.type === "item.completed" &&
             threadEvent.item.type === "agent_message" &&
             input.activeRun.completionOverride === null
           ) {
@@ -675,16 +662,73 @@ async function executeRun(input: {
         }
       });
 
-      if (input.runId && persistedTurnId) {
-        const endedAt = new Date().toISOString();
-        await input.runStore.finalizeTurn(persistedTurnId, {
-          status: "completed",
-          endedAt,
-          threadId: turnResult.threadId,
-          agentTurnId: turnResult.turnId,
-          usage: turnResult.usage ?? null
+      persistedTurnId = await finalizePersistedTurnFromResult({
+        runId: input.runId,
+        persistedTurnId,
+        runStore: input.runStore,
+        turnResult
+      });
+
+      if (turnResult.kind !== "completed") {
+        const failedTurnClassification =
+          turnResult.kind === "failed"
+            ? classifyHarnessTurnFailure({
+                turnResult,
+                providerId: sessionProviderId
+              })
+            : null;
+
+        if (input.runId) {
+          const repoEnd = await captureRepoSnapshot(
+            input.launchTarget,
+            input.runtimePolicy.hooks.timeoutMs
+          );
+          await input.runStore.updateRun(input.runId, {
+            commitHashEnd: repoEnd.commitHash,
+            repoEnd: repoEnd.snapshot
+          });
+        }
+
+        await input.runtimeLogs.record({
+          level: failedTurnClassification?.level ?? "info",
+          source: "agent_runtime",
+          eventType:
+            failedTurnClassification?.eventType ??
+            "runtime_terminal_result_returned",
+          message:
+            failedTurnClassification?.message ??
+            "Agent runtime returned a non-completed terminal result.",
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          payload: {
+            terminalResultKind: turnResult.kind,
+            ...(failedTurnClassification?.payload ?? {
+              reason: turnResult.reason,
+              prompt:
+                turnResult.kind === "awaiting_input"
+                  ? turnResult.prompt
+                  : null,
+              failureClass: null,
+              detail: toJsonValue(turnResult.detail)
+            })
+          }
         });
-        persistedTurnId = null;
+
+        const completion =
+          failedTurnClassification?.completion ??
+          completionFromHarnessTurnResult(turnResult);
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion,
+          recordedAt: new Date().toISOString()
+        });
+        await input.callbacks.onComplete(input.issue.id, completion);
+        return;
       }
 
       if (explicitCompletionRequirement === "none") {
@@ -829,6 +873,10 @@ async function executeRun(input: {
 
     const reason = error instanceof Error ? error.message : String(error);
     const harnessError = error instanceof HarnessSessionError ? error : null;
+    const runtimeFailure = classifyHarnessExecutionFailure({
+      error,
+      providerId: sessionProviderId
+    });
 
     if (input.runId && persistedTurnId) {
       const endedAt = new Date().toISOString();
@@ -854,14 +902,14 @@ async function executeRun(input: {
 
     const startupFailure = classifyStartupFailure(error);
     await input.runtimeLogs.record({
-      level: "error",
+      level: runtimeFailure?.level ?? "error",
       source: "agent_runtime",
       eventType: startupFailure
         ? "runtime_startup_failed"
-        : "runtime_execution_failed",
+        : (runtimeFailure?.eventType ?? "runtime_execution_failed"),
       message: startupFailure
         ? "Agent runtime startup failed."
-        : "Agent runtime execution failed.",
+        : (runtimeFailure?.message ?? "Agent runtime execution failed."),
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -875,34 +923,21 @@ async function executeRun(input: {
         providerEnvKey: input.harnessProviderEnvKey,
         harness: input.harness.kind,
         launchTarget: describeLaunchTarget(input.launchTarget),
-        diagnostics: harnessError ? toJsonValue(harnessError.detail) : null
+        diagnostics: harnessError ? toJsonValue(harnessError.detail) : null,
+        ...(runtimeFailure?.payload ?? {})
       }
     });
 
-    await recordWorkerSessionCompletion({
-      workerSessionContract: input.workerSessionContract,
-      sessionId: workerSessionId,
-      issueId: input.issue.id,
-      runId: input.runId,
-      attempt: input.attempt,
-      runMode: input.runMode,
-      completion: {
-        kind: "failure",
-        reason
-      },
-      recordedAt: new Date().toISOString()
-    });
-
-    await input.callbacks.onComplete(input.issue.id, {
-      ...(startupFailure
-        ? {
-            kind: "startup_failure" as const,
-            reason,
-            failureStage: startupFailure.failureStage,
-            failureOrigin: startupFailure.failureOrigin,
-            launchTarget: input.launchTarget
-          }
-        : isRateLimitedError(error)
+    const completion = startupFailure
+      ? {
+          kind: "startup_failure" as const,
+          reason,
+          failureStage: startupFailure.failureStage,
+          failureOrigin: startupFailure.failureOrigin,
+          launchTarget: input.launchTarget
+        }
+      : (runtimeFailure?.completion ??
+        (isRateLimitedError(error)
           ? {
               kind: "rate_limited" as const,
               reason
@@ -912,11 +947,23 @@ async function executeRun(input: {
                 kind: "provider_transient" as const,
                 reason
               }
-          : {
-              kind: "failure" as const,
-              reason
-            })
+            : {
+                kind: "failure" as const,
+                reason
+              }));
+
+    await recordWorkerSessionCompletion({
+      workerSessionContract: input.workerSessionContract,
+      sessionId: workerSessionId,
+      issueId: input.issue.id,
+      runId: input.runId,
+      attempt: input.attempt,
+      runMode: input.runMode,
+      completion,
+      recordedAt: new Date().toISOString()
     });
+
+    await input.callbacks.onComplete(input.issue.id, completion);
   } finally {
     if (commandResourceMonitor && input.runId && persistedTurnId) {
       try {
@@ -991,6 +1038,57 @@ async function recordWorkerSessionCompletion(input: {
   });
 }
 
+async function finalizePersistedTurnFromResult(input: {
+  runId: string | null;
+  persistedTurnId: string | null;
+  runStore: SymphonyRuntimeRunStore;
+  turnResult: HarnessTurnResult;
+}): Promise<string | null> {
+  if (!input.runId || !input.persistedTurnId) {
+    return input.persistedTurnId;
+  }
+
+  const endedAt = new Date().toISOString();
+  await input.runStore.finalizeTurn(input.persistedTurnId, {
+    status:
+      input.turnResult.kind === "failed"
+        ? "failed"
+        : "completed",
+    endedAt,
+    threadId: input.turnResult.threadId,
+    agentTurnId: input.turnResult.turnId,
+    usage: input.turnResult.usage,
+    ...(input.turnResult.kind === "completed"
+      ? {}
+      : {
+          metadata: {
+            reason: input.turnResult.reason,
+            terminalResultKind: input.turnResult.kind,
+            ...(input.turnResult.kind === "awaiting_input"
+              ? {
+                  prompt: input.turnResult.prompt
+                }
+              : {}),
+            ...(input.turnResult.kind === "failed"
+              ? {
+                  failureClass: input.turnResult.failureClass
+                }
+              : {})
+          }
+        })
+  });
+
+  return null;
+}
+
+type RuntimeFailureClassification = {
+  completion: SymphonyAgentRuntimeCompletion;
+  level: "info" | "warn" | "error";
+  eventType: string;
+  message: string;
+  payload: JsonObject;
+};
+
 function completionStatusForRuntimeCompletion(
   completion: SymphonyAgentRuntimeCompletion
 ): "completed" | "failed" | "cancelled" {
@@ -999,6 +1097,7 @@ function completionStatusForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
+    case "stalled":
     case "terminal_result_failure":
       return "failed";
     default:
@@ -1014,11 +1113,340 @@ function completionReasonForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
+    case "stalled":
     case "terminal_result_failure":
       return completion.reason;
     default:
       return null;
   }
+}
+
+function classifyHarnessTurnFailure(input: {
+  turnResult: Extract<HarnessTurnResult, { kind: "failed" }>;
+  providerId: string | null;
+}): RuntimeFailureClassification {
+  return classifyPiFailure({
+    failureClass:
+      typeof input.turnResult.failureClass === "string" &&
+      piSdkRunnerFailureClassSet.has(input.turnResult.failureClass)
+        ? (input.turnResult.failureClass as PiSdkRunnerFailureClass)
+        : null,
+    reason: input.turnResult.reason,
+    detail: input.turnResult.detail,
+    providerId: input.providerId
+  });
+}
+
+function classifyHarnessExecutionFailure(input: {
+  error: unknown;
+  providerId: string | null;
+}): RuntimeFailureClassification | null {
+  const harnessError = input.error instanceof HarnessSessionError ? input.error : null;
+  if (!harnessError) {
+    return null;
+  }
+
+  if (harnessError.code === "pi_sdk_runner_transport_timeout") {
+    return classifyPiFailure({
+      failureClass: "transport_timeout",
+      reason: harnessError.message,
+      detail: harnessError.detail,
+      providerId: input.providerId
+    });
+  }
+
+  if (harnessError.code !== "pi_sdk_runner_failed") {
+    return null;
+  }
+
+  const detailRecord = asRecord(harnessError.detail);
+  const eventRecord = asRecord(detailRecord?.event);
+  const failureClass = getFailureClass(eventRecord, "failureClass");
+  return classifyPiFailure({
+    failureClass,
+    reason: harnessError.message,
+    detail: harnessError.detail,
+    providerId: input.providerId
+  });
+}
+
+function classifyPiFailure(input: {
+  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
+  reason: string;
+  detail: unknown;
+  providerId: string | null;
+}): RuntimeFailureClassification {
+  const payload = buildRuntimeFailurePayload({
+    failureClass: input.failureClass,
+    reason: input.reason,
+    detail: input.detail
+  });
+  const failureError = new HarnessSessionError(
+    "pi_sdk_runner_failed",
+    input.reason,
+    input.detail
+  );
+
+  switch (input.failureClass) {
+    case "model_idle_timeout":
+      return {
+        completion: {
+          kind: "stalled",
+          reason: input.reason
+        },
+        level: "warn",
+        eventType: "runtime_idle_timeout",
+        message: "Agent runtime idled without visible activity.",
+        payload
+      };
+    case "run_timeout":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_run_timeout",
+        message: "Agent runtime exceeded the configured turn timeout.",
+        payload
+      };
+    case "tool_timeout":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_tool_timeout",
+        message: "Agent runtime exceeded the configured tool timeout.",
+        payload
+      };
+    case "transport_timeout":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_transport_timeout",
+        message: "Agent runtime transport timed out while waiting for Pi SDK bridge output.",
+        payload
+      };
+    case "provider_error":
+      if (isRateLimitedError(failureError)) {
+        return {
+          completion: {
+            kind: "rate_limited",
+            reason: input.reason
+          },
+          level: "warn",
+          eventType: "runtime_rate_limited",
+          message: "Agent runtime hit a provider rate limit.",
+          payload
+        };
+      }
+      if (isTransientProviderError(failureError, input.providerId)) {
+        return {
+          completion: {
+            kind: "provider_transient",
+            reason: input.reason
+          },
+          level: "warn",
+          eventType: "runtime_provider_transient",
+          message: "Agent runtime hit a transient provider failure.",
+          payload
+        };
+      }
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_provider_error",
+        message: "Agent runtime failed because the provider returned an error.",
+        payload
+      };
+    case "terminal_result_missing":
+      return {
+        completion: {
+          kind: "terminal_result_failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_terminal_result_missing",
+        message: "Agent runtime ended without a terminal result.",
+        payload
+      };
+    case "terminal_result_invalid":
+      return {
+        completion: {
+          kind: "terminal_result_failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_terminal_result_invalid",
+        message: "Agent runtime produced an invalid terminal result.",
+        payload
+      };
+    case "bridge_protocol_failure":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_bridge_protocol_failure",
+        message: "Agent runtime bridge protocol failed.",
+        payload
+      };
+    case "runtime_crash":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_runner_crash",
+        message: "Agent runtime process crashed during execution.",
+        payload
+      };
+    case "runner_startup_failure":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_runner_startup_failure",
+        message: "Agent runtime process failed during startup.",
+        payload
+      };
+    case "operator_input_required":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "warn",
+        eventType: "runtime_operator_input_required",
+        message: "Agent runtime required operator input that Symphony does not support automatically.",
+        payload
+      };
+    default:
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_execution_failed",
+        message: "Agent runtime execution failed.",
+        payload
+      };
+  }
+}
+
+function buildRuntimeFailurePayload(input: {
+  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
+  reason: string;
+  detail: unknown;
+}): JsonObject {
+  const detailRecord = asRecord(input.detail);
+  const resultRecord = asRecord(detailRecord?.result) ?? detailRecord;
+  const timeoutTriggerRecord = asRecord(detailRecord?.timeoutTriggerEvent);
+  const eventRecord = asRecord(detailRecord?.event);
+  const diagnosticsValue =
+    detailRecord && "diagnostics" in detailRecord
+      ? toJsonValue(detailRecord.diagnostics)
+      : null;
+
+  return {
+    failureClass: input.failureClass,
+    reason: input.reason,
+    thresholdMs:
+      getNumber(timeoutTriggerRecord, "thresholdMs") ??
+      getNumber(detailRecord, "transportTimeoutMs"),
+    lastActivityAt:
+      getString(timeoutTriggerRecord, "lastActivityAt") ??
+      getString(resultRecord, "lastActivityAt"),
+    lastActivityType:
+      getString(timeoutTriggerRecord, "lastActivityType") ??
+      getString(resultRecord, "lastActivityType"),
+    stopReason: getString(resultRecord, "stopReason"),
+    providerStopReason: getString(resultRecord, "providerStopReason"),
+    runnerEventType: getString(eventRecord, "eventType"),
+    diagnostics: diagnosticsValue,
+    detail: toJsonValue(input.detail)
+  };
+}
+
+function getFailureClass(
+  value: Record<string, unknown> | null | undefined,
+  key: string
+): PiSdkRunnerFailureClass | null {
+  const nested = value?.[key];
+  return typeof nested === "string" && piSdkRunnerFailureClassSet.has(nested)
+    ? (nested as PiSdkRunnerFailureClass)
+    : null;
+}
+
+function completionFromHarnessTurnResult(
+  turnResult: Exclude<HarnessTurnResult, { kind: "completed" }>
+): SymphonyAgentRuntimeCompletion {
+  switch (turnResult.kind) {
+    case "awaiting_input": {
+      const moduleResult = extractHarnessModuleResult(turnResult.detail, "awaiting_input");
+      return moduleResult
+        ? {
+            kind: "awaiting_input",
+            reason: turnResult.reason,
+            prompt: turnResult.prompt,
+            moduleResult
+          }
+        : {
+            kind: "failure",
+            reason:
+              "Runtime requested user input without emitting a valid awaiting_input module result."
+          };
+    }
+    case "blocked": {
+      const moduleResult = extractHarnessModuleResult(turnResult.detail, "blocked");
+      return {
+        kind: "blocked",
+        reason: turnResult.reason,
+        moduleResult
+      };
+    }
+    case "failed":
+      return {
+        kind: "failure",
+        reason: turnResult.reason
+      };
+  }
+}
+
+function extractHarnessModuleResult(
+  detail: unknown,
+  expectedOutcome: "awaiting_input" | "blocked"
+) {
+  const detailRecord = asRecord(detail);
+  const finalAssistantMessage = getString(detailRecord, "finalAssistantMessage");
+  if (!finalAssistantMessage) {
+    return null;
+  }
+
+  const parsed = parseSymphonyImplementationModuleResultMessage({
+    messageText: finalAssistantMessage
+  });
+  if (
+    parsed.kind !== "parsed" ||
+    parsed.result.outcome !== expectedOutcome
+  ) {
+    return null;
+  }
+
+  return parsed.result;
 }
 
 function asJsonObject(value: unknown): JsonObject | null {
@@ -1282,6 +1710,9 @@ function classifyStartupFailure(error: unknown): {
         "invalid_turn_payload",
         "invalid_issue_label_override",
         "pi_launch_unsupported",
+        "pi_sdk_runner_launch_unsupported",
+        "pi_sdk_runner_initialize_failed",
+        "pi_sdk_runner_initialize_timeout",
         "pi_session_start_failed",
         "pi_turn_start_failed"
       ].includes(harnessError.code)
@@ -1294,9 +1725,7 @@ function classifyStartupFailure(error: unknown): {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  if (
-    message.includes("Pi RPC")
-  ) {
+  if (message.includes("Pi SDK runner")) {
     return {
       failureStage: "runtime_session_start",
       failureOrigin: "pi_startup"
@@ -1408,23 +1837,6 @@ function extractRuntimeUsage(
   const eventUsage = threadEvent ? extractUsage(threadEvent) : null;
   if (eventUsage) {
     return eventUsage;
-  }
-
-  const decodedPiEvent =
-    decodePiRuntimeEvent(payload) ??
-    decodePiRuntimeEvent(asRecord(asRecord(payload?.params)?.msg));
-  const piUsage =
-    decodedPiEvent &&
-    (decodedPiEvent.type === "message_end" || decodedPiEvent.type === "turn_end")
-      ? extractPiRuntimeUsage(decodedPiEvent)
-      : null;
-
-  if (piUsage) {
-    return {
-      input_tokens: piUsage.input,
-      cached_input_tokens: piUsage.cacheRead,
-      output_tokens: piUsage.output
-    };
   }
 
   const directUsage =
@@ -1579,20 +1991,3 @@ async function finalizeTurnForDetectedCompletion(
     }
   });
 }
-
-const unsupportedRuntimeToolExecutor: HarnessToolExecutor = async () => {
-  return {
-    success: false,
-    output: JSON.stringify(
-      {
-        error: {
-          message:
-            "Symphony runtime-injected tools are disabled. Use the workspace CLI instead."
-        }
-      },
-      null,
-      2
-    ),
-    contentItems: []
-  };
-};

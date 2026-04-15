@@ -116,9 +116,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       matchedProfileDefaults: matchedPiProfileDefaults
     }),
     agentRuntime: {
-      // `pi app-server` is not a real command in the currently installed Pi CLI.
-      // Keep the production default on the supported RPC-compatible `pi` path
-      // until Symphony has a verified app-server transport.
       command: "pi",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",

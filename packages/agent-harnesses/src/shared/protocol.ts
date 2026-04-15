@@ -147,7 +147,7 @@ export function logNonJsonStreamLine(
   line: string,
   stream: "stdout" | "stderr"
 ): void {
-  const message = `Agent app-server ${stream} output`;
+  const message = `Agent harness ${stream} output`;
 
   if (streamLogWarningPattern.test(line)) {
     logger.warn(message, {
