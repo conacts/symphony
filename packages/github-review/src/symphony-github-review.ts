@@ -1,12 +1,7 @@
 import {
-  isSymphonyAutoReworkDisabled,
   isSymphonyWorkflowDisabled,
   type SymphonyTracker
 } from "@symphony/tracker";
-import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
-import {
-  buildSymphonyGitHubReviewContextUrl
-} from "./symphony-github-review-comments.js";
 import {
   extractSymphonyGithubReviewSignal,
   issueIdentifierFromBranch
@@ -54,7 +49,7 @@ export class SymphonyGithubReviewProcessor {
 
   async #processReviewComment(
     signal: Extract<SymphonyGitHubReviewSignal, { kind: "review_comment" }>
-  ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "requeued" | "skipped" }>> {
+  ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "matched" | "skipped" }>> {
     if (!signal.pullRequestUrl) {
       return {
         status: "skipped",
@@ -91,7 +86,7 @@ export class SymphonyGithubReviewProcessor {
   async #processSignalWithIssueIdentifier(
     signal: SymphonyGitHubReviewSignal,
     issueIdentifier: string | null
-  ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "requeued" | "skipped" }>> {
+  ): Promise<Extract<SymphonyGitHubReviewProcessResult, { status: "matched" | "skipped" }>> {
     if (!issueIdentifier) {
       return {
         status: "skipped",
@@ -129,32 +124,9 @@ export class SymphonyGithubReviewProcessor {
       };
     }
 
-    if (signal.kind !== "review_comment" && isSymphonyAutoReworkDisabled(issue)) {
-      return {
-        status: "skipped",
-        issueIdentifier,
-        reason: "auto_rework_disabled"
-      };
-    }
-
     return {
-      status: "requeued",
-      issueIdentifier,
-      handoff: buildReworkHandoff(signal)
+      status: "matched",
+      issueIdentifier
     };
   }
-}
-
-function buildReworkHandoff(
-  signal: SymphonyGitHubReviewSignal
-): SymphonyReworkHandoff {
-  return {
-    source: "github_review",
-    triggerKind: signal.kind,
-    reviewContextUrl: buildSymphonyGitHubReviewContextUrl(signal),
-    pullRequestUrl: signal.pullRequestUrl ?? null,
-    actorLogin: signal.authorLogin ?? null,
-    feedbackBody: signal.feedbackBody ?? null,
-    recordedAt: new Date().toISOString()
-  };
 }

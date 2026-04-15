@@ -90,10 +90,7 @@ export function createWorkflowCapabilityPlanner<
         resolvedPolicy,
         projection
       });
-      if (
-        completionGate.result === "ready_for_manual_completion" ||
-        completionGate.result === "ready_for_auto_completion"
-      ) {
+      if (completionGate.result === "ready_for_completion") {
         return {
           kind: completionGate.result,
           evaluation: completionGate
@@ -148,10 +145,8 @@ function createContractPolicyOverrides<
     forbiddenCapabilityIds: contract.routingDirectives.forbiddenCapabilityIds,
     requiredEvidenceIds: contract.routingDirectives.requiredEvidenceIds,
     allowedModelProfileIds: contract.routingDirectives.allowedModelProfileIds,
-    completionPolicy: contract.routingDirectives.completionPolicy,
     clarificationPolicy: contract.routingDirectives.clarificationPolicy,
     reviewStrictness: contract.routingDirectives.reviewStrictness,
-    maxRetryCount: contract.routingDirectives.maxRetryCount,
-    mergePolicy: contract.mergePolicy
+    maxRetryCount: contract.routingDirectives.maxRetryCount
   };
 }

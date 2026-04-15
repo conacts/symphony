@@ -27,16 +27,12 @@ describe("Symphony capability contract", () => {
       objective: "Add additive capability types without changing live routing.",
       doneDefinition:
         "The router package exports strict capability-layer types and validation helpers.",
-      mergePolicy: "manual",
       routingDirectives: {
         requiredCapabilityIds: ["implement.spec", "critic.code_review"],
         preferredCapabilityIds: ["critic.adversarial_tests"],
         forbiddenCapabilityIds: ["critic.browser_test"],
         requiredEvidenceIds: ["change_set", "code_review_report"],
         allowedModelProfileIds: ["builder_fast", "critic_strict"],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
@@ -59,16 +55,12 @@ describe("Symphony capability contract", () => {
       summary: "Run the implementation capability.",
       objective: "Dispatch the first planner-selected capability command.",
       doneDefinition: "One strict capability.execute command shape exists.",
-      mergePolicy: "manual",
       routingDirectives: {
         requiredCapabilityIds: ["implement.spec"],
         preferredCapabilityIds: [],
         forbiddenCapabilityIds: [],
         requiredEvidenceIds: ["change_set"],
         allowedModelProfileIds: ["builder_fast"],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
@@ -103,16 +95,12 @@ describe("Symphony capability contract", () => {
         repositoryKey: "symphony",
         summary: "Broken contract",
         objective: "Missing done definition",
-        mergePolicy: "manual",
         routingDirectives: {
           requiredCapabilityIds: ["implement.spec"],
           preferredCapabilityIds: [],
           forbiddenCapabilityIds: [],
           requiredEvidenceIds: ["change_set"],
           allowedModelProfileIds: ["builder_fast"],
-          completionPolicy: {
-            mode: "manual"
-          },
           clarificationPolicy: {
             mode: "required"
           },
@@ -135,16 +123,12 @@ describe("Symphony capability contract", () => {
         summary: "Broken directives",
         objective: "Duplicate capability ids should be rejected.",
         doneDefinition: "The contract parser fails immediately.",
-        mergePolicy: "manual",
         routingDirectives: {
           requiredCapabilityIds: ["implement.spec", "implement.spec"],
           preferredCapabilityIds: [],
           forbiddenCapabilityIds: [],
           requiredEvidenceIds: ["change_set"],
           allowedModelProfileIds: ["builder_fast"],
-          completionPolicy: {
-            mode: "manual"
-          },
           clarificationPolicy: {
             mode: "required"
           },
@@ -174,16 +158,12 @@ describe("Symphony capability contract", () => {
             summary: "Broken command",
             objective: "Missing model profile id",
             doneDefinition: "The command parser fails immediately.",
-            mergePolicy: "manual",
             routingDirectives: {
               requiredCapabilityIds: ["implement.spec"],
               preferredCapabilityIds: [],
               forbiddenCapabilityIds: [],
               requiredEvidenceIds: ["change_set"],
               allowedModelProfileIds: ["builder_fast"],
-              completionPolicy: {
-                mode: "manual"
-              },
               clarificationPolicy: {
                 mode: "required"
               },

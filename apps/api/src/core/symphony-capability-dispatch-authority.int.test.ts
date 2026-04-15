@@ -339,7 +339,6 @@ async function createHarness(input: {
 function buildCapabilityTicketDescription(input: {
   objective?: string | null;
   doneDefinition?: string | null;
-  mergePolicy?: string | null;
 } = {}): string {
   const sections: string[] = [];
 
@@ -362,11 +361,6 @@ function buildCapabilityTicketDescription(input: {
         ].join("\n")
     );
     sections.push("");
-  }
-
-  if (input.mergePolicy !== null) {
-    sections.push("## Merge Policy");
-    sections.push(input.mergePolicy ?? "manual");
   }
 
   return sections.join("\n");

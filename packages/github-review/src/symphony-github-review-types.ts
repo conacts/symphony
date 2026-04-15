@@ -1,5 +1,4 @@
 import type { SymphonyTrackerConfig } from "@symphony/tracker";
-import type { SymphonyReworkHandoff } from "@symphony/runtime-contract";
 
 export type SymphonyGitHubReviewConfig = {
   allowedReviewLogins: string[];
@@ -91,8 +90,7 @@ export type SymphonyGitHubPullRequestResolver = {
 export type SymphonyGitHubReviewProcessResult =
   | { status: "ignored" }
   | {
-      status: "requeued";
+      status: "matched";
       issueIdentifier: string;
-      handoff: SymphonyReworkHandoff;
     }
   | { status: "skipped"; issueIdentifier: string | null; reason: string };

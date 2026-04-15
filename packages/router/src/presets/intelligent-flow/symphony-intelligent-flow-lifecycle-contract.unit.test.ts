@@ -134,8 +134,8 @@ describe("Symphony intelligent-flow lifecycle contract", () => {
       dedupeKey: null
     });
     const dispatch = createSymphonyIntelligentFlowDispatchCommand({
-      id: "command_dispatch_rework",
-      runMode: "rework",
+      id: "command_dispatch_implementation",
+      runMode: "implementation",
       dedupeKey: null
     });
 

@@ -100,14 +100,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         commands: ({ signal }) => buildClaimCommands(signal)
       }),
       new WorkflowEdge({
-        id: "queued_rework_to_claimed",
-        from: "queued",
-        to: "claimed",
-        reasonCode: "queued_claimed_from_rework",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Rework"),
-        commands: ({ signal }) => buildClaimCommands(signal)
-      }),
-      new WorkflowEdge({
         id: "queued_bootstrapping_to_claimed",
         from: "queued",
         to: "claimed",
@@ -232,14 +224,6 @@ export function createSymphonyIntelligentFlowRouterDefinition(): WorkflowRouterD
         to: "claimed",
         reasonCode: "awaiting_input_requeued_from_todo",
         guard: ({ signal }) => isObservedTrackerState(signal, "Todo"),
-        commands: ({ signal }) => buildClaimCommands(signal)
-      }),
-      new WorkflowEdge({
-        id: "awaiting_input_rework_to_claimed",
-        from: "awaiting_input",
-        to: "claimed",
-        reasonCode: "awaiting_input_requeued_from_rework",
-        guard: ({ signal }) => isObservedTrackerState(signal, "Rework"),
         commands: ({ signal }) => buildClaimCommands(signal)
       }),
       new WorkflowEdge({
@@ -467,14 +451,6 @@ function buildTerminalReentryEdges(
       to: "claimed",
       reasonCode: `${from}_reopened_from_todo`,
       guard: ({ signal }) => isObservedTrackerState(signal, "Todo"),
-      commands: ({ signal }) => buildClaimCommands(signal)
-    }),
-    new WorkflowEdge({
-      id: `${from}_rework_to_claimed`,
-      from,
-      to: "claimed",
-      reasonCode: `${from}_reopened_from_rework`,
-      guard: ({ signal }) => isObservedTrackerState(signal, "Rework"),
       commands: ({ signal }) => buildClaimCommands(signal)
     }),
     new WorkflowEdge({

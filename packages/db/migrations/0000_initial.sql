@@ -69,8 +69,7 @@ CREATE TABLE IF NOT EXISTS symphony_runs (
   attempt INTEGER,
   run_mode TEXT NOT NULL CHECK (
     run_mode IN (
-      'implementation',
-      'rework'
+      'implementation'
     )
   ),
   status TEXT NOT NULL CHECK (

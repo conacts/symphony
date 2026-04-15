@@ -281,7 +281,7 @@ export class CapabilityRouterProofHarness {
     recordedAt: string;
     state: SymphonyIntelligentFlowTrackerState;
     runId?: string | null;
-    runMode?: "implementation" | "rework" | null;
+    runMode?: "implementation" | null;
   }) {
     const resumed = await this.runtime().sessionLoader.resumeByWorkflowId({
       workflowId: this.workflowId

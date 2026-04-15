@@ -206,9 +206,9 @@ describe("capability planner", () => {
     });
 
     expect(plan).toEqual({
-      kind: "ready_for_manual_completion",
+      kind: "ready_for_completion",
       evaluation: expect.objectContaining({
-        result: "ready_for_manual_completion",
+        result: "ready_for_completion",
         missingCapabilityIds: [],
         missingEvidenceIds: []
       })
@@ -338,15 +338,11 @@ function createPresetPolicy(): WorkflowResolvedRoutingPolicy<
       "critic_adversarial",
       "critic_browser"
     ],
-    completionPolicy: {
-      mode: "manual"
-    },
     clarificationPolicy: {
       mode: "required"
     },
     reviewStrictness: "strict",
-    maxRetryCount: 2,
-    mergePolicy: "manual"
+    maxRetryCount: 2
   };
 }
 
@@ -365,7 +361,6 @@ function createContract(input?: {
     summary: "Implement the capability planner.",
     objective: "Produce the next authoritative capability plan.",
     doneDefinition: "Planner emits execute, blocked, awaiting_input, or ready.",
-    mergePolicy: "manual",
     routingDirectives: {
       requiredCapabilityIds: [],
       preferredCapabilityIds: [],
@@ -378,9 +373,6 @@ function createContract(input?: {
         "critic_adversarial",
         "critic_browser"
       ],
-      completionPolicy: {
-        mode: "manual"
-      },
       clarificationPolicy: {
         mode: "required"
       },

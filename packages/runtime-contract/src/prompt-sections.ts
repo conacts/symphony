@@ -8,15 +8,12 @@ export function buildSymphonyRunModeSection(
   completionContract: SymphonyPromptCompletionContract = "module_result"
 ): string {
   void runMode;
+  void completionContract;
   return [
     "Current run mode: Implementation",
     "- Complete the requested ticket work in the current workspace.",
     "- Keep the patch targeted and move directly toward a review-ready result.",
-    ...(completionContract === "module_result"
-      ? [
-          "- End the run with a structured terminal module result."
-        ]
-      : [])
+    "- End the run with a structured terminal module result."
   ].join("\n");
 }
 
@@ -24,31 +21,25 @@ export function buildSymphonyContinuationCompletionGuidance(
   runMode: SymphonyRunMode,
   completionContract: SymphonyPromptCompletionContract = "module_result"
 ): string[] {
-  if (completionContract === "module_result") {
-    return [
-      "- End the run by emitting exactly one final fenced `json` block and nothing after it.",
-      "- The terminal result object must include `schemaVersion`, `moduleId`, `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers`.",
-      "- Use `moduleId: \"implement.spec\"` for this phase of intelligent-flow.",
-      "- Use `outcome: \"completed\"` with `requestedState: \"done\"` when the implementation work is finished.",
-      "- Use `outcome: \"awaiting_input\"` with `requestedState: \"awaiting_input\"` and a non-empty `nextInputPrompt` when explicit user input is required.",
-      "- Use `outcome: \"blocked\"` with `requestedState: \"blocked\"` and non-empty `blockers` when an external blocker stops progress."
-    ];
-  }
-
-  return [];
+  void runMode;
+  void completionContract;
+  return [
+    "- End the run by emitting exactly one final fenced `json` block and nothing after it.",
+    "- The terminal result object must include `schemaVersion`, `moduleId`, `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers`.",
+    "- Use `moduleId: \"implement.spec\"` for this phase of intelligent-flow.",
+    "- Use `outcome: \"completed\"` with `requestedState: \"done\"` when the implementation work is finished.",
+    "- Use `outcome: \"awaiting_input\"` with `requestedState: \"awaiting_input\"` and a non-empty `nextInputPrompt` when explicit user input is required.",
+    "- Use `outcome: \"blocked\"` with `requestedState: \"blocked\"` and non-empty `blockers` when an external blocker stops progress."
+  ];
 }
 
 export function buildSymphonyHarnessPromptAppendix(input?: {
   completionContract?: SymphonyPromptCompletionContract;
 }): string {
-  const completionContract = input?.completionContract ?? "module_result";
-  const projectRuntimeTools =
-    completionContract === "module_result"
-      ? [
-          "No legacy Symphony CLI completion command is available in this runtime.",
-          "Runs complete only through a structured terminal module result."
-        ]
-      : [];
+  void input;
+  const projectRuntimeTools = [
+    "Runs complete only through a structured terminal module result."
+  ];
   const runtimeExpectations = [
     "The active Linear workspace for this repository is `symphony-harness`.",
     "Treat Linear as the source of truth for issue status, review feedback, and delivery state.",

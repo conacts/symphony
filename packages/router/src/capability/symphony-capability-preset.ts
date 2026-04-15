@@ -133,15 +133,11 @@ function createPresetRoutingPolicy(
           "critic_strict",
           "critic_adversarial"
         ],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
         reviewStrictness: "strict",
-        maxRetryCount: 2,
-        mergePolicy: "manual"
+        maxRetryCount: 2
       };
     case "backend_strict":
       return {
@@ -159,15 +155,11 @@ function createPresetRoutingPolicy(
           "critic_strict",
           "critic_adversarial"
         ],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
         reviewStrictness: "adversarial",
-        maxRetryCount: 2,
-        mergePolicy: "manual"
+        maxRetryCount: 2
       };
   }
 }

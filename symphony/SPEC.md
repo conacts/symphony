@@ -218,10 +218,6 @@ It validates the repo contract in redacted form:
 - `Todo`
 - `Bootstrapping`
 - `In Progress`
-- `Rework`
-- `Approved`
-
-`Approved` is active only for merge execution.
 
 ### 8.2 Non-Dispatch States
 

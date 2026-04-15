@@ -319,7 +319,6 @@ function createCommand(input: {
     summary: "Execute a capability command through the engine seam.",
     objective: "Prove the execution engine contract.",
     doneDefinition: "Engine accepts capability.execute and returns a typed result.",
-    mergePolicy: "manual",
     routingDirectives: {
       requiredCapabilityIds: [],
       preferredCapabilityIds: [],
@@ -332,9 +331,6 @@ function createCommand(input: {
         "critic_adversarial",
         "critic_browser"
       ],
-      completionPolicy: {
-        mode: "manual"
-      },
       clarificationPolicy: {
         mode: "required"
       },

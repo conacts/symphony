@@ -23,11 +23,11 @@ describe("symphony continuation prompt", () => {
     expect(prompt).toContain("final fenced `json` block");
   });
 
-  it("uses rework-specific continuation guidance on rework turns", () => {
+  it("keeps review-feedback guidance in implementation turns", () => {
     const prompt = buildSymphonyContinuationPrompt({
       turnNumber: 2,
       maxTurns: 20,
-      runMode: "rework"
+      runMode: "implementation"
     });
 
     expect(prompt).toContain("read the latest Linear comment context");

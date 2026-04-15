@@ -203,7 +203,7 @@ function createContract() {
   const preset = createSymphonyCapabilityPreset({
     policyId: "backend_strict"
   });
-  const { mergePolicy, ...routingDirectives } = preset.defaultPolicy;
+  const routingDirectives = preset.defaultPolicy;
 
   return createSymphonyTicketExecutionContract({
     contractId: "contract_selector_test",
@@ -213,7 +213,6 @@ function createContract() {
     summary: "Select the next module.",
     objective: "Choose the next intelligent-flow module.",
     doneDefinition: "The router chooses one executable module from the admissible set.",
-    mergePolicy,
     routingDirectives,
     createdAt: "2026-04-13T23:45:00.000Z",
     updatedAt: "2026-04-13T23:45:00.000Z"

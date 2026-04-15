@@ -58,12 +58,7 @@ export function evaluateWorkflowCompletionGate<
 
   return {
     workEpoch: input.projection.workEpoch,
-    result:
-      reasons.length === 0
-        ? input.resolvedPolicy.completionPolicy.mode === "manual"
-          ? "ready_for_manual_completion"
-          : "ready_for_auto_completion"
-        : "not_ready",
+    result: reasons.length === 0 ? "ready_for_completion" : "not_ready",
     satisfiedCapabilityIds,
     missingCapabilityIds,
     satisfiedEvidenceIds,

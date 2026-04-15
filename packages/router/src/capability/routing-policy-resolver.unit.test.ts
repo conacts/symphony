@@ -172,15 +172,11 @@ describe("routing policy resolver", () => {
         requiredCapabilityIds: ["implement.spec", "critic.code_review"],
         requiredEvidenceIds: ["change_set", "code_review_report"],
         allowedModelProfileIds: ["builder_deep", "critic_strict"],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
         reviewStrictness: "strict",
-        maxRetryCount: 2,
-        mergePolicy: "manual"
+        maxRetryCount: 2
       }),
       ticketDirectives: {
         allowedModelProfileIds: [
@@ -189,15 +185,11 @@ describe("routing policy resolver", () => {
           "critic_strict",
           "critic_adversarial"
         ],
-        completionPolicy: {
-          mode: "auto"
-        },
         clarificationPolicy: {
           mode: "best_effort"
         },
         reviewStrictness: "standard",
-        maxRetryCount: 5,
-        mergePolicy: "auto_merge"
+        maxRetryCount: 5
       }
     });
 
@@ -213,11 +205,9 @@ describe("routing policy resolver", () => {
       "builder_deep",
       "critic_strict"
     ]);
-    expect(resolved.completionPolicy.mode).toBe("manual");
     expect(resolved.clarificationPolicy.mode).toBe("required");
     expect(resolved.reviewStrictness).toBe("strict");
     expect(resolved.maxRetryCount).toBe(2);
-    expect(resolved.mergePolicy).toBe("manual");
   });
 
   it("applies strict overrides and specific preferences without creating contradictions", () => {
@@ -231,15 +221,11 @@ describe("routing policy resolver", () => {
           "critic_strict",
           "critic_adversarial"
         ],
-        completionPolicy: {
-          mode: "auto"
-        },
         clarificationPolicy: {
           mode: "best_effort"
         },
         reviewStrictness: "standard",
-        maxRetryCount: 4,
-        mergePolicy: "auto_merge"
+        maxRetryCount: 4
       }),
       userDefaults: {
         reviewStrictness: "strict",
@@ -249,9 +235,6 @@ describe("routing policy resolver", () => {
         preferredCapabilityIds: ["critic.adversarial_tests"],
         requiredEvidenceIds: ["adversarial_test_report"],
         allowedModelProfileIds: ["builder_fast", "critic_adversarial"],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
@@ -272,11 +255,9 @@ describe("routing policy resolver", () => {
       "code_review_report",
       "adversarial_test_report"
     ]);
-    expect(resolved.completionPolicy.mode).toBe("manual");
     expect(resolved.clarificationPolicy.mode).toBe("required");
     expect(resolved.reviewStrictness).toBe("adversarial");
     expect(resolved.maxRetryCount).toBe(2);
-    expect(resolved.mergePolicy).toBe("auto_merge");
   });
 });
 
@@ -295,15 +276,11 @@ function createPresetPolicy(
     forbiddenCapabilityIds: [],
     requiredEvidenceIds: ["change_set", "code_review_report"],
     allowedModelProfileIds: ["builder_fast", "critic_strict"],
-    completionPolicy: {
-      mode: "auto"
-    },
     clarificationPolicy: {
       mode: "best_effort"
     },
     reviewStrictness: "standard",
     maxRetryCount: 3,
-    mergePolicy: "auto_merge",
     ...overrides
   };
 }

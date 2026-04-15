@@ -102,11 +102,16 @@ describe("runtime orchestrator port", () => {
       workflowId: "workflow-123",
       commandId: "command-123",
       trackerIssue: issue,
-      runMode: "rework",
+      runMode: "implementation",
       recordedAt: "2026-04-10T18:00:00.000Z"
     });
 
-    expect(runtime.dispatchIssue).toHaveBeenCalledWith(issue, 1, null, "rework");
+    expect(runtime.dispatchIssue).toHaveBeenCalledWith(
+      issue,
+      1,
+      null,
+      "implementation"
+    );
   });
 
   it("skips routed dispatch when the issue is already claimed", async () => {

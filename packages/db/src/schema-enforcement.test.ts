@@ -817,7 +817,7 @@ describe("db schema enforcement", () => {
               causationId: null,
               correlationId: null,
               payload: {
-                state: "Rework"
+                state: "Todo"
               }
             }
           }),

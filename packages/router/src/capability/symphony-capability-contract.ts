@@ -55,11 +55,6 @@ const symphonyCapabilityModelProfileIds = [
   "critic_browser"
 ] as const;
 
-const symphonyCapabilityCompletionModes = [
-  "manual",
-  "auto"
-] as const;
-
 const symphonyCapabilityClarificationModes = [
   "required",
   "best_effort"
@@ -71,25 +66,16 @@ const symphonyCapabilityReviewStrictnesses = [
   "adversarial"
 ] as const;
 
-const symphonyCapabilityMergePolicies = [
-  "manual",
-  "auto_merge"
-] as const;
-
 export type SymphonyCapabilityPhase = (typeof symphonyCapabilityPhases)[number];
 export type SymphonyCapabilityId = (typeof symphonyCapabilityIds)[number];
 export type SymphonyCapabilityEvidenceId =
   (typeof symphonyCapabilityEvidenceIds)[number];
 export type SymphonyCapabilityModelProfileId =
   (typeof symphonyCapabilityModelProfileIds)[number];
-export type SymphonyCapabilityCompletionMode =
-  (typeof symphonyCapabilityCompletionModes)[number];
 export type SymphonyCapabilityClarificationMode =
   (typeof symphonyCapabilityClarificationModes)[number];
 export type SymphonyCapabilityReviewStrictness =
   (typeof symphonyCapabilityReviewStrictnesses)[number];
-export type SymphonyCapabilityMergePolicy =
-  (typeof symphonyCapabilityMergePolicies)[number];
 
 const symphonyCapabilityPhaseSchema = z.enum(symphonyCapabilityPhases);
 const symphonyCapabilityIdSchema = z.enum(symphonyCapabilityIds);
@@ -99,17 +85,11 @@ const symphonyCapabilityEvidenceIdSchema = z.enum(
 const symphonyCapabilityModelProfileIdSchema = z.enum(
   symphonyCapabilityModelProfileIds
 );
-const symphonyCapabilityCompletionModeSchema = z.enum(
-  symphonyCapabilityCompletionModes
-);
 const symphonyCapabilityClarificationModeSchema = z.enum(
   symphonyCapabilityClarificationModes
 );
 const symphonyCapabilityReviewStrictnessSchema = z.enum(
   symphonyCapabilityReviewStrictnesses
-);
-const symphonyCapabilityMergePolicySchema = z.enum(
-  symphonyCapabilityMergePolicies
 );
 
 function createUniqueEnumArraySchema<const Values extends readonly [string, ...string[]]>(
@@ -130,12 +110,6 @@ function createUniqueEnumArraySchema<const Values extends readonly [string, ...s
     }
   });
 }
-
-const symphonyCapabilityCompletionPolicySchema = z
-  .object({
-    mode: symphonyCapabilityCompletionModeSchema
-  })
-  .strict();
 
 const symphonyCapabilityClarificationPolicySchema = z
   .object({
@@ -165,7 +139,6 @@ const symphonyCapabilityRoutingDirectivesSchema = z
       symphonyCapabilityModelProfileIds,
       "allowed model profile id"
     ),
-    completionPolicy: symphonyCapabilityCompletionPolicySchema,
     clarificationPolicy: symphonyCapabilityClarificationPolicySchema,
     reviewStrictness: symphonyCapabilityReviewStrictnessSchema,
     maxRetryCount: z.number().int().nonnegative()
@@ -206,7 +179,6 @@ const symphonyTicketExecutionContractSchema = z
     summary: workflowRequiredTextSchema,
     objective: workflowRequiredTextSchema,
     doneDefinition: workflowRequiredTextSchema,
-    mergePolicy: symphonyCapabilityMergePolicySchema,
     routingDirectives: symphonyCapabilityRoutingDirectivesSchema,
     createdAt: workflowTimestampSchema,
     updatedAt: workflowTimestampSchema
@@ -260,8 +232,7 @@ const symphonyCapabilityCompletionGateSignalSourceSchema = z.union([
 
 const symphonyCapabilityCompletionReadinessSchema = z.enum([
   "not_ready",
-  "ready_for_manual_completion",
-  "ready_for_auto_completion"
+  "ready_for_completion"
 ]);
 
 const symphonyCapabilityEvidenceArtifactReferenceSchema = z
@@ -496,7 +467,6 @@ export function createSymphonyTicketExecutionContract(input: {
   summary: string;
   objective: string;
   doneDefinition: string;
-  mergePolicy: SymphonyCapabilityMergePolicy;
   routingDirectives: SymphonyWorkflowRoutingDirectives;
   createdAt: string;
   updatedAt: string;
@@ -783,7 +753,7 @@ export function createSymphonyWorkflowCompletionGateEvaluatedSignal(input: {
   source: "router" | "operator";
   workflowId: string;
   workEpoch: number;
-  result: "not_ready" | "ready_for_manual_completion" | "ready_for_auto_completion";
+  result: "not_ready" | "ready_for_completion";
   satisfiedEvidenceIds: SymphonyCapabilityEvidenceId[];
   missingEvidenceIds: SymphonyCapabilityEvidenceId[];
   reasons: string[];
@@ -992,7 +962,6 @@ export {
   symphonyCapabilityChangesRequestedSignalSchema,
   symphonyCapabilityClarificationQuestionSchema,
   symphonyCapabilityClarificationModeSchema,
-  symphonyCapabilityCompletionModeSchema,
   symphonyCapabilityCompletionReadinessSchema,
   symphonyCapabilityCompletedSignalSchema,
   symphonyCapabilityDefinitionSchema,
@@ -1003,7 +972,6 @@ export {
   symphonyCapabilityExecutionIdentityPayloadSchema,
   symphonyCapabilityFailedSignalSchema,
   symphonyCapabilityIdSchema,
-  symphonyCapabilityMergePolicySchema,
   symphonyCapabilityModelProfileIdSchema,
   symphonyCapabilityPhaseSchema,
   symphonyCapabilityReviewStrictnessSchema,

@@ -68,7 +68,7 @@ describe("Symphony intelligent-flow deterministic planner", () => {
 
 function createContract() {
   const preset = createSymphonyCapabilityPreset();
-  const { mergePolicy, ...routingDirectives } = preset.defaultPolicy;
+  const routingDirectives = preset.defaultPolicy;
 
   return createSymphonyTicketExecutionContract({
     contractId: "contract_intelligent_flow_plan",
@@ -78,7 +78,6 @@ function createContract() {
     summary: "Plan the next intelligent-flow capability.",
     objective: "Select the next admissible module deterministically.",
     doneDefinition: "The planner picks the correct next capability.",
-    mergePolicy,
     routingDirectives,
     createdAt: "2026-04-13T23:29:00.000Z",
     updatedAt: "2026-04-13T23:29:00.000Z"

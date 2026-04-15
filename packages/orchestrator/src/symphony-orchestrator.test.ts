@@ -141,7 +141,7 @@ describe("symphony orchestrator", () => {
   it("transitions configured source states before dispatch and leaves a tracker comment", async () => {
     const config = buildSymphonyOrchestratorConfig();
     const issue = buildSymphonyTrackerIssue({
-      state: "Rework"
+      state: "Todo"
     });
     const tracker = createMemorySymphonyTracker([issue]);
 
@@ -157,7 +157,7 @@ describe("symphony orchestrator", () => {
       {
         kind: "comment",
         issueId: "issue-123",
-        body: expect.stringContaining("moved it from `Rework` to `Bootstrapping`")
+        body: expect.stringContaining("moved it from `Todo` to `Bootstrapping`")
       }
     ]);
   });
@@ -203,7 +203,7 @@ describe("symphony orchestrator", () => {
               ...issue,
               state: "Bootstrapping"
             },
-            runMode: "rework",
+            runMode: "implementation",
             dispatchHandling: "external_run"
           };
         }
@@ -216,7 +216,7 @@ describe("symphony orchestrator", () => {
 
     await orchestrator.dispatchIssue(issue, 1);
 
-    expect(startRuns).toEqual(["rework"]);
+    expect(startRuns).toEqual(["implementation"]);
     expect(orchestrator.snapshot().running[0]?.issue.state).toBe("In Progress");
   });
 
@@ -275,7 +275,7 @@ describe("symphony orchestrator", () => {
 
   it("bypasses the dispatch bootstrap router when a run mode override is provided", async () => {
     const issue = buildSymphonyTrackerIssue({
-      state: "Rework"
+      state: "Todo"
     });
     const tracker = createMemorySymphonyTracker([issue]);
     const startRuns: SymphonyRunMode[] = [];
@@ -311,9 +311,9 @@ describe("symphony orchestrator", () => {
       }
     });
 
-    await orchestrator.dispatchIssue(issue, 1, null, "rework");
+    await orchestrator.dispatchIssue(issue, 1, null, "implementation");
 
-    expect(startRuns).toEqual(["rework"]);
+    expect(startRuns).toEqual(["implementation"]);
     expect(tracker.getIssue(issue.id)?.state).toBe("In Progress");
   });
 
@@ -2880,10 +2880,10 @@ describe("symphony orchestrator", () => {
       expect(harness.lifecycleEvents).toContain("docker_container_removed");
     });
 
-    it("re-dispatches Rework issues through Bootstrapping and leaves a handoff comment", async () => {
+    it("dispatches Todo issues through Bootstrapping and leaves a handoff comment", async () => {
       const harness = createFlowHarness({
         issue: {
-          state: "Rework"
+          state: "Todo"
         }
       });
 
@@ -2900,7 +2900,7 @@ describe("symphony orchestrator", () => {
           {
             kind: "comment",
             issueId: harness.issue.id,
-            body: expect.stringContaining("moved it from `Rework` to `Bootstrapping`")
+            body: expect.stringContaining("moved it from `Todo` to `Bootstrapping`")
           },
           {
             kind: "update_state",

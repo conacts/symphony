@@ -18,7 +18,7 @@ type TestNode =
   | "queued"
   | "implementation"
   | "review"
-  | "rework"
+  | "changes_requested"
   | "done";
 
 type TestData = {
@@ -51,7 +51,7 @@ async function createTestRouter() {
         ]
       })
       .withNode("review")
-      .withNode("rework")
+      .withNode("changes_requested")
       .withNode("done", {
         terminal: true
       })
@@ -86,9 +86,9 @@ async function createTestRouter() {
           signal.type === "review.approved"
       })
       .withEdge({
-        id: "review_to_rework",
+        id: "review_to_changes_requested",
         from: "review",
-        to: "rework",
+        to: "changes_requested",
         reasonCode: "changes_requested",
         guard: ({ signal }) => signal.type === "review.changes_requested"
       })
@@ -376,7 +376,7 @@ describe("WorkflowRouter", () => {
         .withNode("queued")
         .withNode("implementation")
         .withNode("review")
-        .withNode("rework")
+        .withNode("changes_requested")
         .withNode("done", {
           terminal: true
         })

@@ -204,22 +204,18 @@ function serializeCapabilityState(input: {
         pendingClarification: null,
         completion: null
       };
-    case "ready_for_manual_completion":
-    case "ready_for_auto_completion":
+    case "ready_for_completion":
       return {
         ...baseState,
-        planKind: input.planning.plan.kind,
-        summary:
-          input.planning.plan.kind === "ready_for_manual_completion"
-            ? "Workflow is ready for manual completion."
-            : "Workflow is ready for automatic completion.",
+        planKind: "ready_for_completion",
+        summary: "Workflow is ready for completion.",
         capabilityId: null,
         modelProfileId: null,
         workEpoch: input.planning.plan.evaluation.workEpoch,
         pendingClarification: null,
         completion: {
           ...input.planning.plan.evaluation,
-          result: input.planning.plan.kind
+          result: "ready_for_completion"
         }
       };
   }

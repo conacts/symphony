@@ -206,33 +206,16 @@ describe("completion gate", () => {
     );
   });
 
-  it("returns ready_for_manual_completion when proof requirements are satisfied under manual policy", () => {
+  it("returns ready_for_completion when proof requirements are satisfied", () => {
     const evaluation = evaluateWorkflowCompletionGate({
       resolvedPolicy: createResolvedPolicy({
         requiredCapabilityIds: ["implement.spec", "critic.code_review"],
-        requiredEvidenceIds: ["change_set", "code_review_report"],
-        completionPolicy: { mode: "manual" }
+        requiredEvidenceIds: ["change_set", "code_review_report"]
       }),
       projection: createReadyProjection()
     });
 
-    expect(evaluation.result).toBe("ready_for_manual_completion");
-    expect(evaluation.missingCapabilityIds).toEqual([]);
-    expect(evaluation.missingEvidenceIds).toEqual([]);
-    expect(evaluation.reasons).toEqual([]);
-  });
-
-  it("returns ready_for_auto_completion when proof requirements are satisfied under auto policy", () => {
-    const evaluation = evaluateWorkflowCompletionGate({
-      resolvedPolicy: createResolvedPolicy({
-        requiredCapabilityIds: ["implement.spec", "critic.code_review"],
-        requiredEvidenceIds: ["change_set", "code_review_report"],
-        completionPolicy: { mode: "auto" }
-      }),
-      projection: createReadyProjection()
-    });
-
-    expect(evaluation.result).toBe("ready_for_auto_completion");
+    expect(evaluation.result).toBe("ready_for_completion");
     expect(evaluation.missingCapabilityIds).toEqual([]);
     expect(evaluation.missingEvidenceIds).toEqual([]);
     expect(evaluation.reasons).toEqual([]);
@@ -248,17 +231,14 @@ function createResolvedPolicy(
     forbiddenCapabilityIds: [],
     requiredEvidenceIds: [],
     allowedModelProfileIds: ["builder_fast", "critic_strict"],
-    completionPolicy: { mode: "manual" },
     clarificationPolicy: { mode: "required" },
     reviewStrictness: "strict",
-    maxRetryCount: 1,
-    mergePolicy: "manual"
+    maxRetryCount: 1
   };
 
   return {
     ...base,
     ...overrides,
-    completionPolicy: overrides.completionPolicy ?? base.completionPolicy,
     clarificationPolicy:
       overrides.clarificationPolicy ?? base.clarificationPolicy
   };

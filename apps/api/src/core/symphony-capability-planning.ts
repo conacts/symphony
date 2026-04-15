@@ -537,16 +537,12 @@ function toExecutionCommandContract(
     summary: contract.summary,
     objective: contract.objective,
     doneDefinition: contract.doneDefinition,
-    mergePolicy: contract.mergePolicy,
     routingDirectives: {
       requiredCapabilityIds: [...contract.routingDirectives.requiredCapabilityIds],
       preferredCapabilityIds: [...contract.routingDirectives.preferredCapabilityIds],
       forbiddenCapabilityIds: [...contract.routingDirectives.forbiddenCapabilityIds],
       requiredEvidenceIds: [...contract.routingDirectives.requiredEvidenceIds],
       allowedModelProfileIds: [...contract.routingDirectives.allowedModelProfileIds],
-      completionPolicy: {
-        mode: contract.routingDirectives.completionPolicy.mode
-      },
       clarificationPolicy: {
         mode: contract.routingDirectives.clarificationPolicy.mode
       },

@@ -155,7 +155,7 @@ describe("runtime run delivery projections", () => {
         repositoryKey: testRepositoryKey,
         trackerIssueId: "issue-1",
         issueIdentifier: "COL-200",
-        runMode: "rework",
+        runMode: "implementation",
         metadata: {
           source: "test"
         },
@@ -169,7 +169,7 @@ describe("runtime run delivery projections", () => {
         .where(eq(symphonyRunsTable.runId, runId))
         .get();
 
-      expect(storedRun?.runMode).toBe("rework");
+      expect(storedRun?.runMode).toBe("implementation");
       expect(storedRun?.metadata).toEqual({
         source: "test"
       });

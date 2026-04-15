@@ -18,7 +18,6 @@ const trackerStates = [
   "Bootstrapping",
   "In Progress",
   "In Review",
-  "Rework",
   "Done",
   "Canceled",
   "Paused",
@@ -26,10 +25,7 @@ const trackerStates = [
   "Failed"
 ] as const;
 
-const runModes = [
-  "implementation",
-  "rework"
-] as const;
+const runModes = ["implementation"] as const;
 
 const deliveryStatuses = [
   "completed",

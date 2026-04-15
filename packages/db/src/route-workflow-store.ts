@@ -98,13 +98,12 @@ type RouteWorkflowExecutionContractRow = {
   summary: string;
   objective: string;
   doneDefinition: string;
-  mergePolicy: string;
   requiredCapabilityIdsJson: unknown;
   preferredCapabilityIdsJson: unknown;
   forbiddenCapabilityIdsJson: unknown;
   requiredEvidenceIdsJson: unknown;
   allowedModelProfileIdsJson: unknown;
-  completionMode: string;
+  legacyCompletionMode: string;
   clarificationMode: string;
   reviewStrictness: string;
   maxRetryCount: number;
@@ -211,8 +210,7 @@ export type RouteWorkflowCapabilityPlannerPlanKind =
   | "execute"
   | "awaiting_input"
   | "blocked"
-  | "ready_for_manual_completion"
-  | "ready_for_auto_completion";
+  | "ready_for_completion";
 
 export type RouteWorkflowCapabilityPlannerDecisionRecord<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
@@ -1068,13 +1066,13 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           summary,
           objective,
           doneDefinition,
-          mergePolicy: contract.mergePolicy,
+          legacyMergePolicy: "manual",
           requiredCapabilityIdsJson: requiredCapabilityIds,
           preferredCapabilityIdsJson: preferredCapabilityIds,
           forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
           requiredEvidenceIdsJson: requiredEvidenceIds,
           allowedModelProfileIdsJson: allowedModelProfileIds,
-          completionMode: contract.routingDirectives.completionPolicy.mode,
+          legacyCompletionMode: "manual",
           clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
           reviewStrictness: contract.routingDirectives.reviewStrictness,
           maxRetryCount,
@@ -1087,13 +1085,13 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
             summary,
             objective,
             doneDefinition,
-            mergePolicy: contract.mergePolicy,
+            legacyMergePolicy: "manual",
             requiredCapabilityIdsJson: requiredCapabilityIds,
             preferredCapabilityIdsJson: preferredCapabilityIds,
             forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
             requiredEvidenceIdsJson: requiredEvidenceIds,
             allowedModelProfileIdsJson: allowedModelProfileIds,
-            completionMode: contract.routingDirectives.completionPolicy.mode,
+            legacyCompletionMode: "manual",
             clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
             reviewStrictness: contract.routingDirectives.reviewStrictness,
             maxRetryCount,
@@ -1604,7 +1602,6 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         summary: routeWorkflowExecutionContractsTable.summary,
         objective: routeWorkflowExecutionContractsTable.objective,
         doneDefinition: routeWorkflowExecutionContractsTable.doneDefinition,
-        mergePolicy: routeWorkflowExecutionContractsTable.mergePolicy,
         requiredCapabilityIdsJson:
           routeWorkflowExecutionContractsTable.requiredCapabilityIdsJson,
         preferredCapabilityIdsJson:
@@ -1615,7 +1612,8 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
           routeWorkflowExecutionContractsTable.requiredEvidenceIdsJson,
         allowedModelProfileIdsJson:
           routeWorkflowExecutionContractsTable.allowedModelProfileIdsJson,
-        completionMode: routeWorkflowExecutionContractsTable.completionMode,
+        legacyCompletionMode:
+          routeWorkflowExecutionContractsTable.legacyCompletionMode,
         clarificationMode: routeWorkflowExecutionContractsTable.clarificationMode,
         reviewStrictness: routeWorkflowExecutionContractsTable.reviewStrictness,
         maxRetryCount: routeWorkflowExecutionContractsTable.maxRetryCount,
@@ -2072,11 +2070,6 @@ function mapExecutionContractRow<
     summary: row.summary,
     objective: row.objective,
     doneDefinition: row.doneDefinition,
-    mergePolicy: row.mergePolicy as RouteWorkflowExecutionContractRecord<
-      CapabilityId,
-      EvidenceId,
-      ProfileId
-    >["mergePolicy"],
     routingDirectives: {
       requiredCapabilityIds: requireJsonStringArray<CapabilityId>(
         row.requiredCapabilityIdsJson,
@@ -2098,13 +2091,6 @@ function mapExecutionContractRow<
         row.allowedModelProfileIdsJson,
         "allowedModelProfileIdsJson"
       ),
-      completionPolicy: {
-        mode: row.completionMode as RouteWorkflowExecutionContractRecord<
-          CapabilityId,
-          EvidenceId,
-          ProfileId
-        >["routingDirectives"]["completionPolicy"]["mode"]
-      },
       clarificationPolicy: {
         mode: row.clarificationMode as RouteWorkflowExecutionContractRecord<
           CapabilityId,
@@ -2474,8 +2460,7 @@ function sanitizeCapabilityPlannerPlanKind(
     case "execute":
     case "awaiting_input":
     case "blocked":
-    case "ready_for_manual_completion":
-    case "ready_for_auto_completion":
+    case "ready_for_completion":
       return value;
     default:
       throw new TypeError(`Unknown capability planner plan kind: ${value}`);

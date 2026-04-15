@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS route_workflow_capability_planner_decisions (
       'execute',
       'awaiting_input',
       'blocked',
-      'ready_for_manual_completion',
-      'ready_for_auto_completion'
+      'ready_for_completion'
     )
   ),
   plan_json TEXT NOT NULL,

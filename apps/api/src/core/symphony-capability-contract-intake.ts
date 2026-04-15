@@ -8,8 +8,6 @@ import {
   parseSymphonyCapabilityId,
   parseSymphonyCapabilityModelProfileId,
   symphonyCapabilityClarificationModeSchema,
-  symphonyCapabilityCompletionModeSchema,
-  symphonyCapabilityMergePolicySchema,
   symphonyCapabilityReviewStrictnessSchema,
   type SymphonyCapabilityPresetPolicyId,
   type SymphonyCapabilityEvidenceId,
@@ -134,9 +132,6 @@ function buildExecutionContract(input: {
       "done definition",
       "done definition"
     );
-    const mergePolicy = parseMergePolicy(
-      requireSection(input.sections, "merge policy", "merge policy")
-    );
 
     return createSymphonyTicketExecutionContract({
       contractId: input.existingContractId ?? buildContractId(input.workflowId),
@@ -146,7 +141,6 @@ function buildExecutionContract(input: {
       summary: input.summary,
       objective,
       doneDefinition,
-      mergePolicy,
       routingDirectives: {
         requiredCapabilityIds: parseCapabilityIdListSection(
           input.sections,
@@ -173,13 +167,6 @@ function buildExecutionContract(input: {
           "allowed model profiles",
           input.preset.defaultPolicy.allowedModelProfileIds
         ),
-        completionPolicy: {
-          mode: parseCompletionModeSection(
-            input.sections,
-            "completion mode",
-            input.preset.defaultPolicy.completionPolicy.mode
-          )
-        },
         clarificationPolicy: {
           mode: parseClarificationModeSection(
             input.sections,
@@ -262,33 +249,6 @@ function parseModelProfileIdListSection(
 
   return parseListBody(body).map((token) =>
     parseSymphonyCapabilityModelProfileId(normalizeDirectiveToken(token))
-  );
-}
-
-function parseMergePolicy(value: string) {
-  return parseSchemaValue(
-    symphonyCapabilityMergePolicySchema,
-    value,
-    "merge policy"
-  );
-}
-
-function parseCompletionModeSection(
-  sections: Map<string, string>,
-  sectionName: string,
-  defaultValue:
-    | "manual"
-    | "auto"
-) {
-  const body = sections.get(sectionName);
-  if (body === undefined) {
-    return defaultValue;
-  }
-
-  return parseSchemaValue(
-    symphonyCapabilityCompletionModeSchema,
-    body,
-    "completion mode"
   );
 }
 

@@ -203,10 +203,7 @@ export function prepareSymphonyIntelligentFlowPlanning(
     resolvedPolicy,
     projection
   });
-  if (
-    completionGate.result === "ready_for_manual_completion" ||
-    completionGate.result === "ready_for_auto_completion"
-  ) {
+  if (completionGate.result === "ready_for_completion") {
     return {
       kind: "terminal",
       plan: {
@@ -409,11 +406,9 @@ function createContractPolicyOverrides(
     forbiddenCapabilityIds: contract.routingDirectives.forbiddenCapabilityIds,
     requiredEvidenceIds: contract.routingDirectives.requiredEvidenceIds,
     allowedModelProfileIds: contract.routingDirectives.allowedModelProfileIds,
-    completionPolicy: contract.routingDirectives.completionPolicy,
     clarificationPolicy: contract.routingDirectives.clarificationPolicy,
     reviewStrictness: contract.routingDirectives.reviewStrictness,
-    maxRetryCount: contract.routingDirectives.maxRetryCount,
-    mergePolicy: contract.mergePolicy
+    maxRetryCount: contract.routingDirectives.maxRetryCount
   };
 }
 
@@ -649,7 +644,6 @@ function buildProjectionFingerprint(input: {
       forbiddenCapabilityIds: input.resolvedPolicy.forbiddenCapabilityIds,
       requiredEvidenceIds: input.resolvedPolicy.requiredEvidenceIds,
       allowedModelProfileIds: input.resolvedPolicy.allowedModelProfileIds,
-      completionMode: input.resolvedPolicy.completionPolicy.mode,
       clarificationMode: input.resolvedPolicy.clarificationPolicy.mode,
       reviewStrictness: input.resolvedPolicy.reviewStrictness,
       maxRetryCount: input.resolvedPolicy.maxRetryCount

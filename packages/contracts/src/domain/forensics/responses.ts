@@ -139,7 +139,7 @@ export const symphonyForensicsRunSummarySchema = z.strictObject({
   trackerIssueId: nonEmptyStringSchema,
   issueIdentifier: nonEmptyStringSchema,
   attempt: z.number().int().nonnegative().nullable(),
-  runMode: z.enum(["implementation", "rework"]),
+  runMode: z.enum(["implementation"]),
   status: symphonyForensicsRuntimeRunStatusSchema,
   outcome: symphonyForensicsRunOutcomeSchema.nullable(),
   agentHarness: symphonyForensicsActiveHarnessSchema.nullable().default(null),

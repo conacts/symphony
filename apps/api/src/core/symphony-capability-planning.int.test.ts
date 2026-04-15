@@ -235,7 +235,7 @@ describe("Symphony capability planning", () => {
         });
 
       expect(defaultPlan.reused).toBe(false);
-      expect(defaultPlan.plan.kind).toBe("ready_for_manual_completion");
+      expect(defaultPlan.plan.kind).toBe("ready_for_completion");
       expect(defaultPlan.command).toBeNull();
       expect(defaultPlan.decision.policyId).toBe("default");
 

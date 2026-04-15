@@ -1,9 +1,7 @@
 import type {
   WorkflowCapabilityDefinition,
   WorkflowCapabilityId,
-  WorkflowCompletionMode,
   WorkflowEvidenceId,
-  WorkflowMergePolicy,
   WorkflowModelProfileDefinition,
   WorkflowModelProfileId,
   WorkflowResolvedRoutingPolicy,
@@ -12,11 +10,6 @@ import type {
   WorkflowRoutingPolicyResolutionInput,
   WorkflowClarificationMode
 } from "../types/index.js";
-
-const completionModeRank: Record<WorkflowCompletionMode, number> = {
-  auto: 0,
-  manual: 1
-};
 
 const clarificationModeRank: Record<WorkflowClarificationMode, number> = {
   best_effort: 0,
@@ -27,11 +20,6 @@ const reviewStrictnessRank: Record<WorkflowReviewStrictness, number> = {
   standard: 0,
   strict: 1,
   adversarial: 2
-};
-
-const mergePolicyRank: Record<WorkflowMergePolicy, number> = {
-  auto_merge: 0,
-  manual: 1
 };
 
 export function resolveWorkflowRoutingPolicy<
@@ -174,13 +162,6 @@ export function resolveWorkflowRoutingPolicy<
     forbiddenCapabilityIds,
     requiredEvidenceIds,
     allowedModelProfileIds,
-    completionPolicy: {
-      mode: resolveStrictestCompletionMode([
-        presetPolicy.completionPolicy.mode,
-        userDefaults?.completionPolicy?.mode,
-        ticketDirectives?.completionPolicy?.mode
-      ])
-    },
     clarificationPolicy: {
       mode: resolveStrictestClarificationMode([
         presetPolicy.clarificationPolicy.mode,
@@ -197,11 +178,6 @@ export function resolveWorkflowRoutingPolicy<
       presetPolicy.maxRetryCount,
       userDefaults?.maxRetryCount,
       ticketDirectives?.maxRetryCount
-    ]),
-    mergePolicy: resolveStrictestMergePolicy([
-      presetPolicy.mergePolicy,
-      userDefaults?.mergePolicy,
-      ticketDirectives?.mergePolicy
     ])
   };
 }
@@ -362,12 +338,6 @@ function mergeUniqueList<Value>(sources: Array<Value[] | null | undefined>): Val
   return mergedValues;
 }
 
-function resolveStrictestCompletionMode(
-  modes: Array<WorkflowCompletionMode | null | undefined>
-): WorkflowCompletionMode {
-  return resolveStrictestValue(modes, completionModeRank);
-}
-
 function resolveStrictestClarificationMode(
   modes: Array<WorkflowClarificationMode | null | undefined>
 ): WorkflowClarificationMode {
@@ -378,12 +348,6 @@ function resolveStrictestReviewStrictness(
   values: Array<WorkflowReviewStrictness | null | undefined>
 ): WorkflowReviewStrictness {
   return resolveStrictestValue(values, reviewStrictnessRank);
-}
-
-function resolveStrictestMergePolicy(
-  values: Array<WorkflowMergePolicy | null | undefined>
-): WorkflowMergePolicy {
-  return resolveStrictestValue(values, mergePolicyRank);
 }
 
 function resolveStrictestRetryCeiling(

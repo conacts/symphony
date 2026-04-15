@@ -1,6 +1,4 @@
-export type SymphonyPromptCompletionContract =
-  | "finish_tool"
-  | "module_result";
+export type SymphonyPromptCompletionContract = "module_result";
 
 export type SymphonyImplementationModuleOutcome =
   | "completed"

@@ -27,7 +27,7 @@ export type SymphonyIssueRecord = {
   updatedAt: SymphonyIsoTimestamp;
 };
 
-export type SymphonyRunMode = "implementation" | "rework";
+export type SymphonyRunMode = "implementation";
 export type SymphonyRunStatus =
   | "dispatching"
   | "running"

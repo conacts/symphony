@@ -207,10 +207,10 @@ function buildRuntimePolicy(
       teamKey: "SYM",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
-      claimTransitionFromStates: ["Todo", "Rework"],
+      claimTransitionFromStates: ["Todo"],
       startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused",
       blockedTransitionToState: "Blocked"

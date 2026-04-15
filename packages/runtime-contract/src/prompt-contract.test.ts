@@ -86,9 +86,6 @@ describe("prompt contract", () => {
       "Prefer built-in Pi tools for reading, searching, and editing files."
     );
     expect(symphonyHarnessPromptAppendix).toContain(
-      "No legacy Symphony CLI completion command is available in this runtime."
-    );
-    expect(symphonyHarnessPromptAppendix).toContain(
       "Runs complete through a structured terminal module result."
     );
   });
@@ -152,7 +149,7 @@ describe("prompt contract", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
       handoff_section: [
-        "Rework handoff:",
+        "Prior context:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456"
       ].join("\n")
     };
@@ -166,7 +163,7 @@ describe("prompt contract", () => {
       [
         "Issue ENG-123",
         "",
-        "Rework handoff:",
+        "Prior context:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456",
         "",
         symphonyHarnessPromptAppendix,
@@ -179,7 +176,7 @@ describe("prompt contract", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
       handoff_section: [
-        "Rework handoff:",
+        "Prior context:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456"
       ].join("\n")
     };
@@ -193,7 +190,7 @@ describe("prompt contract", () => {
       [
         "Issue ENG-123",
         "",
-        "Rework handoff:",
+        "Prior context:",
         "- Review context: https://github.com/openai/symphony/pull/123#issuecomment-456",
         "",
         symphonyHarnessPromptAppendix,
@@ -202,14 +199,9 @@ describe("prompt contract", () => {
     );
   });
 
-  it("renders the implementation run-mode section even when the issue is in Rework", () => {
+  it("renders the implementation run-mode section for the active flow", () => {
     const payload = {
-      ...buildMockSymphonyPromptContractPayload(),
-      run_mode: "rework" as const,
-      issue: {
-        ...buildMockSymphonyPromptContractPayload().issue,
-        state: "Rework"
-      }
+      ...buildMockSymphonyPromptContractPayload()
     };
 
     expect(
@@ -247,15 +239,12 @@ describe("prompt contract", () => {
     expect(rendered).toContain(
       "Runs complete through a structured terminal module result."
     );
-    expect(rendered).not.toContain(
-      "`pnpm exec symphony tool finish ...`: Record delivery for implementation or rework runs"
-    );
   });
 
-  it("renders the implementation run-mode section when the payload requests rework", () => {
+  it("renders the implementation run-mode section when the payload requests implementation", () => {
     const payload = {
       ...buildMockSymphonyPromptContractPayload(),
-      run_mode: "rework" as const
+      run_mode: "implementation" as const
     };
 
     expect(

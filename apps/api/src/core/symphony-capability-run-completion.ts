@@ -179,8 +179,7 @@ export function createSymphonyCapabilityRunCompletionService(input: {
                 nextPlanning,
                 continueWithRunMode: completionInput.runMode
               };
-            case "ready_for_manual_completion":
-            case "ready_for_auto_completion":
+            case "ready_for_completion":
               return {
                 kind: "ready_for_completion",
                 nextPlanning

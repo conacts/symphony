@@ -703,13 +703,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       });
       const issueIdentifier =
         "issueIdentifier" in result ? result.issueIdentifier : null;
-      const requeuedHandoff =
-        result.status === "requeued" &&
-        "handoff" in result &&
-        result.handoff &&
-        typeof result.handoff === "object"
-          ? result.handoff
-          : null;
       const seededTrackedIssue =
         issueIdentifier
           ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
@@ -719,16 +712,17 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         await seedTrackedIssueIdentity(seededTrackedIssue);
       }
 
-      if (result.status !== "ignored" && issueIdentifier) {
-        if (result.status === "requeued") {
-          logger.info(
-            "Ignoring GitHub review ingress requeue for intelligent-flow runtime",
-            {
-              issueIdentifier,
-              recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString()
-            }
-          );
-        }
+      if (
+        result.status !== "ignored" &&
+        result.status !== "skipped" &&
+        issueIdentifier
+      ) {
+        logger.info(
+          "Recorded GitHub review ingress feedback for an intelligent-flow issue.",
+          {
+            issueIdentifier
+          }
+        );
       }
 
       const trackedIssue =

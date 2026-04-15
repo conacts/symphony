@@ -262,7 +262,7 @@ describe("symphony github review policy", () => {
     expect(signal).toBeNull();
   });
 
-  it("emits a rework handoff for issues already in review without mutating tracker state", async () => {
+  it("matches issues already in review without mutating tracker state", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
       github: {
@@ -292,57 +292,14 @@ describe("symphony github review policy", () => {
 
     const result = await processor.processEvent(buildSymphonyGithubReviewEvent());
     expect(result).toMatchObject({
-      status: "requeued",
-      issueIdentifier: "COL-123",
-      handoff: {
-        source: "github_review",
-        triggerKind: "changes_requested_review",
-        actorLogin: "reviewer",
-        pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-        reviewContextUrl:
-          "https://github.com/openai/symphony/pull/123#pullrequestreview-1",
-        feedbackBody: "The current implementation needs one more pass."
-      }
+      status: "matched",
+      issueIdentifier: "COL-123"
     });
 
     expect(tracker.listOperations()).toEqual([]);
   });
 
-  it("skips auto requeue when the issue is opted out", async () => {
-    const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
-    const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
-      github: {
-        ...baseConfig.github,
-        allowedReviewLogins: ["reviewer"]
-      }
-    });
-
-    const tracker = createMemorySymphonyTracker([
-      buildSymphonyTrackerIssue({
-        state: "In Review",
-        labels: ["symphony:no-auto-rework"]
-      })
-    ]);
-
-    const processor = new SymphonyGithubReviewProcessor({
-      policyConfig,
-      tracker,
-      pullRequestResolver: {
-        async fetchPullRequest() {
-          return null;
-        }
-      }
-    });
-
-    const result = await processor.processEvent(buildSymphonyGithubReviewEvent());
-    expect(result).toEqual({
-      status: "skipped",
-      issueIdentifier: "COL-123",
-      reason: "auto_rework_disabled"
-    });
-  });
-
-  it("requeues issues in review from allowed review-comment logins", async () => {
+  it("matches issues in review from allowed review-comment logins", async () => {
     const baseConfig = buildSymphonyGitHubReviewPolicyConfig();
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig({
       github: {
@@ -384,22 +341,14 @@ describe("symphony github review policy", () => {
     );
 
     expect(result).toMatchObject({
-      status: "requeued",
-      issueIdentifier: "COL-123",
-      handoff: {
-        source: "github_review",
-        triggerKind: "review_comment",
-        actorLogin: "chatgpt-codex-connector",
-        reviewContextUrl:
-          "https://github.com/openai/symphony/pull/123#issuecomment-789",
-        feedbackBody: "Please address the API naming issues before merge."
-      }
+      status: "matched",
+      issueIdentifier: "COL-123"
     });
 
     expect(tracker.listOperations()).toEqual([]);
   });
 
-  it("requeues issues in review from Codex connector PR comments when no review-comment allowlist is configured", async () => {
+  it("matches issues in review from Codex connector PR comments when no review-comment allowlist is configured", async () => {
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
 
     const tracker = createMemorySymphonyTracker([
@@ -435,22 +384,14 @@ describe("symphony github review policy", () => {
     );
 
     expect(result).toMatchObject({
-      status: "requeued",
-      issueIdentifier: "COL-123",
-      handoff: {
-        source: "github_review",
-        triggerKind: "review_comment",
-        actorLogin: "chatgpt-codex-connector",
-        reviewContextUrl:
-          "https://github.com/openai/symphony/pull/123#issuecomment-792",
-        feedbackBody: "Please tighten the validation logic before merge."
-      }
+      status: "matched",
+      issueIdentifier: "COL-123"
     });
 
     expect(tracker.listOperations()).toEqual([]);
   });
 
-  it("requeues issues in review from Codex pull_request_review_comment events", async () => {
+  it("matches issues in review from Codex pull_request_review_comment events", async () => {
     const policyConfig = buildSymphonyGitHubReviewPolicyConfig();
 
     const tracker = createMemorySymphonyTracker([
@@ -477,15 +418,8 @@ describe("symphony github review policy", () => {
     );
 
     expect(result).toMatchObject({
-      status: "requeued",
-      issueIdentifier: "COL-123",
-      handoff: {
-        source: "github_review",
-        triggerKind: "review_comment",
-        actorLogin: "chatgpt-codex-connector[bot]",
-        reviewContextUrl: "https://github.com/openai/symphony/pull/123#discussion_r789",
-        feedbackBody: "Please address this inline issue before merge."
-      }
+      status: "matched",
+      issueIdentifier: "COL-123"
     });
     expect(tracker.listOperations()).toEqual([]);
   });

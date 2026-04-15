@@ -575,12 +575,11 @@ describe("PiRpcClient", () => {
     expect(getStateCount).toBe(2);
   });
 
-  it("preserves shell-based Symphony completion commands as command executions", async () => {
+  it("preserves shell command executions in runtime turn events", async () => {
     const stdout = new PassThrough();
     const stderr = new PassThrough();
     const stdin = new PassThrough();
-    const completionCommand =
-      'pnpm exec symphony tool finish --status partial --summary "Partial delivery."';
+    const shellCommand = "pnpm exec tsc --noEmit";
     let buffer = "";
 
     stdin.on("data", (chunk: Buffer | string) => {
@@ -629,20 +628,20 @@ describe("PiRpcClient", () => {
           stdout.write(
             `${JSON.stringify({
               type: "tool_execution_start",
-              toolCallId: "call-finish",
+              toolCallId: "call-shell",
               toolName: "bash",
               args: {
-                command: completionCommand
+                command: shellCommand
               }
             })}\n`
           );
           stdout.write(
             `${JSON.stringify({
               type: "tool_execution_end",
-              toolCallId: "call-finish",
+              toolCallId: "call-shell",
               toolName: "bash",
               args: {
-                command: completionCommand
+                command: shellCommand
               },
               result: {
                 content: [
@@ -751,14 +750,14 @@ describe("PiRpcClient", () => {
           type: "item.started",
           item: expect.objectContaining({
             type: "command_execution",
-            command: completionCommand
+            command: shellCommand
           })
         }),
         expect.objectContaining({
           type: "item.completed",
           item: expect.objectContaining({
             type: "command_execution",
-            command: completionCommand,
+            command: shellCommand,
             status: "completed"
           })
         })

@@ -3,20 +3,18 @@ import { createLinearSymphonyTracker } from "./linear-symphony-tracker.js";
 import {
   createMemorySymphonyTracker,
   isLinearIssueInScope,
-  isSymphonyAutoReworkDisabled,
   isSymphonyWorkflowDisabled
 } from "./symphony-tracker.js";
 import { buildSymphonyTrackerIssue } from "./build-symphony-tracker-issue.js";
 import { buildSymphonyTrackerConfig } from "./build-symphony-tracker-config.js";
 
 describe("symphony tracker helpers", () => {
-  it("evaluates workflow and auto-rework labels", () => {
+  it("evaluates workflow-disabled labels", () => {
     const issue = buildSymphonyTrackerIssue({
-      labels: ["symPhony:Disabled", "symphony:no-auto-rework"]
+      labels: ["symPhony:Disabled"]
     });
 
     expect(isSymphonyWorkflowDisabled(issue)).toBe(true);
-    expect(isSymphonyAutoReworkDisabled(issue)).toBe(true);
   });
 
   it("evaluates linear team scope rules", () => {
@@ -122,7 +120,7 @@ describe("symphony tracker helpers", () => {
       id: "issue-123",
       identifier: "COL-123",
       blockedBy: ["issue-blocker"],
-      labels: ["symphony:no-auto-rework"],
+      labels: ["symphony:observed"],
       assignedToWorker: true
     });
     expect(issues[1]).toMatchObject({
@@ -271,7 +269,7 @@ function buildLinearIssueNode(input: {
     labels: {
       nodes: [
         {
-          name: "symphony:no-auto-rework"
+          name: "symphony:observed"
         }
       ]
     },

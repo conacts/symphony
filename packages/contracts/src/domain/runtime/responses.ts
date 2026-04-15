@@ -673,7 +673,7 @@ const symphonyRuntimeIssuePendingClarificationSchema = z.strictObject({
 
 const symphonyRuntimeIssueCapabilityCompletionSchema = z.strictObject({
   workEpoch: z.number().int().positive(),
-  result: z.enum(["ready_for_manual_completion", "ready_for_auto_completion"]),
+  result: z.literal("ready_for_completion"),
   satisfiedCapabilityIds: z.array(nonEmptyStringSchema),
   missingCapabilityIds: z.array(nonEmptyStringSchema),
   satisfiedEvidenceIds: z.array(nonEmptyStringSchema),
@@ -689,8 +689,7 @@ export const symphonyRuntimeIssueCapabilityStateSchema = z.strictObject({
     "execute",
     "awaiting_input",
     "blocked",
-    "ready_for_manual_completion",
-    "ready_for_auto_completion"
+    "ready_for_completion"
   ]),
   summary: nonEmptyStringSchema,
   decidedAt: isoTimestampSchema,

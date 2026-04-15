@@ -132,7 +132,7 @@ describe("capability projection", () => {
             id: "signal_gate_epoch_1",
             occurredAt: "2026-04-12T23:24:00.000Z",
             workEpoch: 1,
-            result: "ready_for_manual_completion"
+            result: "ready_for_completion"
           })
         ),
         signalRecorded(
@@ -321,7 +321,7 @@ describe("capability projection", () => {
             id: "signal_gate_ready",
             occurredAt: "2026-04-12T23:52:00.000Z",
             workEpoch: 1,
-            result: "ready_for_manual_completion"
+            result: "ready_for_completion"
           })
         ),
         signalRecorded(
@@ -552,7 +552,7 @@ function completionGateEvaluated(input: {
   id: string;
   occurredAt: string;
   workEpoch: number;
-  result: "not_ready" | "ready_for_manual_completion" | "ready_for_auto_completion";
+  result: "not_ready" | "ready_for_completion";
 }): WorkflowSignal {
   return {
     id: input.id,

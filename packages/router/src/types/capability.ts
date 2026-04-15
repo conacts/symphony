@@ -19,17 +19,9 @@ export type WorkflowCapabilityPhase =
 
 export type WorkflowCapabilityId = string;
 
-export type WorkflowMergePolicy = "manual" | "auto_merge";
-
-export type WorkflowCompletionMode = "manual" | "auto";
-
 export type WorkflowClarificationMode = "required" | "best_effort";
 
 export type WorkflowReviewStrictness = "standard" | "strict" | "adversarial";
-
-export type WorkflowCompletionPolicy = {
-  mode: WorkflowCompletionMode;
-};
 
 export type WorkflowClarificationPolicy = {
   mode: WorkflowClarificationMode;
@@ -61,7 +53,6 @@ export type WorkflowRoutingDirectives<
   forbiddenCapabilityIds: CapabilityId[];
   requiredEvidenceIds: EvidenceId[];
   allowedModelProfileIds: ProfileId[];
-  completionPolicy: WorkflowCompletionPolicy;
   clarificationPolicy: WorkflowClarificationPolicy;
   reviewStrictness: WorkflowReviewStrictness;
   maxRetryCount: number;
@@ -77,7 +68,6 @@ export type WorkflowRoutingDirectiveOverrides<
   forbiddenCapabilityIds?: CapabilityId[];
   requiredEvidenceIds?: EvidenceId[];
   allowedModelProfileIds?: ProfileId[];
-  completionPolicy?: WorkflowCompletionPolicy;
   clarificationPolicy?: WorkflowClarificationPolicy;
   reviewStrictness?: WorkflowReviewStrictness;
   maxRetryCount?: number;
@@ -87,17 +77,13 @@ export type WorkflowResolvedRoutingPolicy<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
   EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
   ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
-> = WorkflowRoutingDirectives<CapabilityId, EvidenceId, ProfileId> & {
-  mergePolicy: WorkflowMergePolicy;
-};
+> = WorkflowRoutingDirectives<CapabilityId, EvidenceId, ProfileId>;
 
 export type WorkflowRoutingPolicyOverrides<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
   EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
   ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
-> = WorkflowRoutingDirectiveOverrides<CapabilityId, EvidenceId, ProfileId> & {
-  mergePolicy?: WorkflowMergePolicy;
-};
+> = WorkflowRoutingDirectiveOverrides<CapabilityId, EvidenceId, ProfileId>;
 
 export type WorkflowRoutingPolicyResolutionInput<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
@@ -139,7 +125,6 @@ export type WorkflowTicketExecutionContract<
   summary: string;
   objective: string;
   doneDefinition: string;
-  mergePolicy: WorkflowMergePolicy;
   routingDirectives: WorkflowRoutingDirectives<
     CapabilityId,
     EvidenceId,
@@ -363,8 +348,7 @@ export type WorkflowCapabilityAttempt<
 
 export type WorkflowCompletionReadiness =
   | "not_ready"
-  | "ready_for_manual_completion"
-  | "ready_for_auto_completion";
+  | "ready_for_completion";
 
 export type WorkflowCompletionGateEvaluation<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
@@ -442,7 +426,7 @@ export type WorkflowCapabilityPlanReady<
   CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
   EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
 > = {
-  kind: "ready_for_manual_completion" | "ready_for_auto_completion";
+  kind: "ready_for_completion";
   evaluation: WorkflowCompletionGateEvaluation<CapabilityId, EvidenceId>;
 };
 

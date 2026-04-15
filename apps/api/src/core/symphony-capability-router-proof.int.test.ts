@@ -43,10 +43,10 @@ describe("Symphony capability router proof harness", () => {
 
     expect(adversarial.nextPlanning.plan).toEqual(
       expect.objectContaining({
-        kind: "ready_for_manual_completion",
+        kind: "ready_for_completion",
         evaluation: expect.objectContaining({
           workEpoch: 1,
-          result: "ready_for_manual_completion",
+          result: "ready_for_completion",
           missingCapabilityIds: [],
           missingEvidenceIds: []
         })

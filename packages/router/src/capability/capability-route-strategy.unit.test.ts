@@ -189,17 +189,14 @@ function resolvedPolicy(
       "critic_strict",
       "critic_adversarial"
     ],
-    completionPolicy: { mode: "manual" },
     clarificationPolicy: { mode: "required" },
     reviewStrictness: "strict",
-    maxRetryCount: 1,
-    mergePolicy: "manual"
+    maxRetryCount: 1
   };
 
   return {
     ...base,
     ...overrides,
-    completionPolicy: overrides.completionPolicy ?? base.completionPolicy,
     clarificationPolicy:
       overrides.clarificationPolicy ?? base.clarificationPolicy
   };

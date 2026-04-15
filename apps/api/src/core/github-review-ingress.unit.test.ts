@@ -36,7 +36,7 @@ describe("github review ingress", () => {
       }),
       async onProcessed(result) {
         processedResults.push(result);
-        if (result.status === "requeued") {
+        if (result.status === "matched") {
           refreshCount += 1;
         }
       }
@@ -59,7 +59,7 @@ describe("github review ingress", () => {
     });
     expect(processedResults).toHaveLength(1);
     expect(processedResults[0]).toMatchObject({
-      status: "requeued",
+      status: "matched",
       issueIdentifier: fixture.issue.identifier
     });
     expect(refreshCount).toBe(1);

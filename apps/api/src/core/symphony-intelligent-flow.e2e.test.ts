@@ -60,9 +60,9 @@ describe("intelligent-flow golden paths", () => {
     );
     expect(implementation.nextPlanning.plan).toEqual(
       expect.objectContaining({
-        kind: "ready_for_manual_completion",
+        kind: "ready_for_completion",
         evaluation: expect.objectContaining({
-          result: "ready_for_manual_completion",
+          result: "ready_for_completion",
           missingCapabilityIds: [],
           missingEvidenceIds: []
         })
@@ -119,9 +119,9 @@ describe("intelligent-flow golden paths", () => {
     );
     expect(review.nextPlanning.plan).toEqual(
       expect.objectContaining({
-        kind: "ready_for_manual_completion",
+        kind: "ready_for_completion",
         evaluation: expect.objectContaining({
-          result: "ready_for_manual_completion"
+          result: "ready_for_completion"
         })
       })
     );
@@ -180,9 +180,9 @@ describe("intelligent-flow golden paths", () => {
     );
     expect(browser.nextPlanning.plan).toEqual(
       expect.objectContaining({
-        kind: "ready_for_manual_completion",
+        kind: "ready_for_completion",
         evaluation: expect.objectContaining({
-          result: "ready_for_manual_completion"
+          result: "ready_for_completion"
         })
       })
     );
@@ -271,7 +271,7 @@ describe("intelligent-flow golden paths", () => {
         attempt: 2
       })
     );
-    expect(resumedAdvance.nextPlanning.plan.kind).toBe("ready_for_manual_completion");
+    expect(resumedAdvance.nextPlanning.plan.kind).toBe("ready_for_completion");
   });
 
   it("moves the lifecycle shell into blocked after implementation emits a blocked outcome", async () => {
@@ -397,7 +397,7 @@ describe("intelligent-flow golden paths", () => {
       throw new TypeError("Expected implementation advance to execute.");
     }
 
-    expect(implementation.nextPlanning.plan.kind).toBe("ready_for_manual_completion");
+    expect(implementation.nextPlanning.plan.kind).toBe("ready_for_completion");
 
     await harness.observeTrackerState({
       recordedAt: "2026-04-13T12:01:00.000Z",
@@ -442,15 +442,11 @@ function createNeutralCapabilityPresetFactory(input: {
         forbiddenCapabilityIds: [],
         requiredEvidenceIds: [],
         allowedModelProfileIds: preset.modelProfiles.map((profile) => profile.id),
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },
         reviewStrictness: "strict",
-        maxRetryCount: 2,
-        mergePolicy: "manual"
+        maxRetryCount: 2
       }
     };
   };
@@ -509,7 +505,6 @@ function createContractFactory(input: {
       summary: issue.title,
       objective: "Prove the intelligent-flow golden path end to end.",
       doneDefinition: "The required module evidence is recorded and the shell state is consistent.",
-      mergePolicy: "manual",
       routingDirectives: {
         requiredCapabilityIds: [...input.requiredCapabilityIds],
         preferredCapabilityIds: [...(input.preferredCapabilityIds ?? [])],
@@ -524,9 +519,6 @@ function createContractFactory(input: {
             "critic_browser"
           ])
         ],
-        completionPolicy: {
-          mode: "manual"
-        },
         clarificationPolicy: {
           mode: "required"
         },

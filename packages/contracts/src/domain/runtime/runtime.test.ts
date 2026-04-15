@@ -530,7 +530,7 @@ describe("symphony runtime contracts", () => {
       },
       data: {
         issueIdentifier: "COL-157",
-        observedTrackerState: "Rework",
+        observedTrackerState: "Todo",
         workflowTrackerState: "Bootstrapping",
         observed: true,
         disposition: "observed",
@@ -551,7 +551,7 @@ describe("symphony runtime contracts", () => {
       },
       data: {
         issueIdentifier: "COL-158",
-        observedTrackerState: "Rework",
+        observedTrackerState: "Todo",
         workflowTrackerState: null,
         observed: false,
         disposition: "ignored",

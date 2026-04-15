@@ -29,7 +29,7 @@ Continuation guidance:
 - Prefer built-in Pi tools for reading, searching, and editing files. Use shell primarily for execution tasks like tests, builds, git, and package-manager commands.
 - If Symphony exposes built-in Linear tools in this runtime, use them instead of searching for \`LINEAR_API_KEY\` in shell startup files, the workspace, or git history.
 - If the \`linear\` CLI is available, prefer it over one-off shell scripts for direct Linear inspection.
-- If the issue is in \`Rework\`, or review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
+- If review feedback already exists, read the latest Linear comment context and any relevant PR review feedback before editing so you address the current feedback instead of stale assumptions.
 - Never move the issue to \`Done\` from the agent runtime.
 ${buildSymphonyContinuationCompletionGuidance(input.runMode, completionContract).join("\n")}
 - Do not end the turn with a completion-style summary while the issue stays active unless the requested work is actually finished and validated.

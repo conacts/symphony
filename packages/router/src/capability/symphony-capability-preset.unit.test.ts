@@ -42,15 +42,11 @@ describe("Symphony capability preset", () => {
         "critic_strict",
         "critic_adversarial"
       ],
-      completionPolicy: {
-        mode: "manual"
-      },
       clarificationPolicy: {
         mode: "required"
       },
       reviewStrictness: "strict",
-      maxRetryCount: 2,
-      mergePolicy: "manual"
+      maxRetryCount: 2
     });
   });
 
@@ -89,9 +85,9 @@ describe("Symphony capability preset", () => {
       "critic.browser_test"
     ]);
     expect(plan).toEqual({
-      kind: "ready_for_manual_completion",
+      kind: "ready_for_completion",
       evaluation: expect.objectContaining({
-        result: "ready_for_manual_completion",
+        result: "ready_for_completion",
         missingCapabilityIds: [],
         missingEvidenceIds: []
       })
@@ -156,16 +152,12 @@ function createContract(
     objective: "Validate the first capability preset through planner execution.",
     doneDefinition:
       "The planner routes the default verification path without inventing extra capabilities.",
-    mergePolicy: preset.defaultPolicy.mergePolicy,
     routingDirectives: {
       requiredCapabilityIds: [...preset.defaultPolicy.requiredCapabilityIds],
       preferredCapabilityIds: [...preset.defaultPolicy.preferredCapabilityIds],
       forbiddenCapabilityIds: [...preset.defaultPolicy.forbiddenCapabilityIds],
       requiredEvidenceIds: [...preset.defaultPolicy.requiredEvidenceIds],
       allowedModelProfileIds: [...preset.defaultPolicy.allowedModelProfileIds],
-      completionPolicy: {
-        ...preset.defaultPolicy.completionPolicy
-      },
       clarificationPolicy: {
         ...preset.defaultPolicy.clarificationPolicy
       },

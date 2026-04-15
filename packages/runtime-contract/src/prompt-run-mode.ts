@@ -1,13 +1,8 @@
-export type SymphonyRunMode = "implementation" | "rework";
+export type SymphonyRunMode = "implementation";
 
 export function deriveSymphonyRunMode(
   issueState: string | null | undefined
 ): SymphonyRunMode {
-  const normalizedState = issueState?.trim().toLowerCase() ?? "";
-
-  if (normalizedState === "rework") {
-    return "rework";
-  }
-
+  void issueState;
   return "implementation";
 }

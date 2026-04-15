@@ -31,7 +31,7 @@ const runStatusValues = [
 ] as const;
 
 const runOutcomeValues = symphonyRunOutcomeValues;
-const runModeValues = ["implementation", "rework"] as const;
+const runModeValues = ["implementation"] as const;
 
 const turnStatusValues = ["running", "completed", "failed", "stopped"] as const;
 const eventItemTypeValues = [
@@ -2057,7 +2057,7 @@ export const routeWorkflowExecutionContractsTable = sqliteTable(
     summary: text("summary").notNull(),
     objective: text("objective").notNull(),
     doneDefinition: text("done_definition").notNull(),
-    mergePolicy: text("merge_policy").notNull(),
+    legacyMergePolicy: text("merge_policy").notNull(),
     requiredCapabilityIdsJson: text("required_capability_ids_json", {
       mode: "json"
     }).notNull().$type<unknown>(),
@@ -2073,7 +2073,7 @@ export const routeWorkflowExecutionContractsTable = sqliteTable(
     allowedModelProfileIdsJson: text("allowed_model_profile_ids_json", {
       mode: "json"
     }).notNull().$type<unknown>(),
-    completionMode: text("completion_mode").notNull(),
+    legacyCompletionMode: text("completion_mode").notNull(),
     clarificationMode: text("clarification_mode").notNull(),
     reviewStrictness: text("review_strictness").notNull(),
     maxRetryCount: integer("max_retry_count").notNull(),
@@ -2102,13 +2102,13 @@ export const routeWorkflowExecutionContractsTable = sqliteTable(
       "route_workflow_execution_contracts_done_definition_check",
       sql`length(trim(${table.doneDefinition})) > 0`
     ),
-    mergePolicyCheck: check(
+    legacyMergePolicyCheck: check(
       "route_workflow_execution_contracts_merge_policy_check",
-      sql`${table.mergePolicy} in (${sqlEnum(["manual", "auto_merge"] as const)})`
+      sql`${table.legacyMergePolicy} in (${sqlEnum(["manual"] as const)})`
     ),
-    completionModeCheck: check(
+    legacyCompletionModeCheck: check(
       "route_workflow_execution_contracts_completion_mode_check",
-      sql`${table.completionMode} in (${sqlEnum(["manual", "auto"] as const)})`
+      sql`${table.legacyCompletionMode} in (${sqlEnum(["manual"] as const)})`
     ),
     clarificationModeCheck: check(
       "route_workflow_execution_contracts_clarification_mode_check",
@@ -2187,8 +2187,7 @@ export const routeWorkflowCapabilityPlannerDecisionsTable = sqliteTable(
         "execute",
         "awaiting_input",
         "blocked",
-        "ready_for_manual_completion",
-        "ready_for_auto_completion"
+        "ready_for_completion"
       ] as const)})`
     ),
     workflowBasisIdx: uniqueIndex(

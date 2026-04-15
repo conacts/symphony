@@ -367,7 +367,6 @@ describe("route workflow store", () => {
           objective: "Create a durable API-side capability contract artifact.",
           doneDefinition:
             "The canonical contract is stored in control-plane data and can be reloaded.",
-          mergePolicy: "manual",
           routingDirectives: {
             requiredCapabilityIds: ["implement.spec", "critic.code_review"],
             preferredCapabilityIds: ["critic.adversarial_tests"],
@@ -379,9 +378,6 @@ describe("route workflow store", () => {
               "critic_strict",
               "critic_adversarial"
             ],
-            completionPolicy: {
-              mode: "manual"
-            },
             clarificationPolicy: {
               mode: "required"
             },
@@ -405,7 +401,6 @@ describe("route workflow store", () => {
         objective: "Create a durable API-side capability contract artifact.",
         doneDefinition:
           "The canonical contract is stored in control-plane data and can be reloaded.",
-        mergePolicy: "manual",
         routingDirectives: {
           requiredCapabilityIds: ["implement.spec", "critic.code_review"],
           preferredCapabilityIds: ["critic.adversarial_tests"],
@@ -417,9 +412,6 @@ describe("route workflow store", () => {
             "critic_strict",
             "critic_adversarial"
           ],
-          completionPolicy: {
-            mode: "manual"
-          },
           clarificationPolicy: {
             mode: "required"
           },
@@ -476,7 +468,6 @@ describe("route workflow store", () => {
           summary: "Persist the first capability planner decision.",
           objective: "Compute and persist the first deterministic capability plan.",
           doneDefinition: "A planner decision and capability command are stored together.",
-          mergePolicy: "manual",
           routingDirectives: {
             requiredCapabilityIds: ["implement.spec", "critic.code_review"],
             preferredCapabilityIds: [],
@@ -488,9 +479,6 @@ describe("route workflow store", () => {
               "critic_strict",
               "critic_adversarial"
             ],
-            completionPolicy: {
-              mode: "manual"
-            },
             clarificationPolicy: {
               mode: "required"
             },
@@ -517,16 +505,12 @@ describe("route workflow store", () => {
           summary: contract.summary,
           objective: contract.objective,
           doneDefinition: contract.doneDefinition,
-          mergePolicy: contract.mergePolicy,
           routingDirectives: {
             requiredCapabilityIds: [...contract.routingDirectives.requiredCapabilityIds],
             preferredCapabilityIds: [...contract.routingDirectives.preferredCapabilityIds],
             forbiddenCapabilityIds: [...contract.routingDirectives.forbiddenCapabilityIds],
             requiredEvidenceIds: [...contract.routingDirectives.requiredEvidenceIds],
             allowedModelProfileIds: [...contract.routingDirectives.allowedModelProfileIds],
-            completionPolicy: {
-              mode: contract.routingDirectives.completionPolicy.mode
-            },
             clarificationPolicy: {
               mode: contract.routingDirectives.clarificationPolicy.mode
             },
@@ -677,7 +661,6 @@ describe("route workflow store", () => {
           summary: "Persist policy-qualified planner decisions.",
           objective: "Allow multiple planner decisions for one workflow state when policies differ.",
           doneDefinition: "Each policy lookup resolves its own planner decision.",
-          mergePolicy: "manual",
           routingDirectives: {
             requiredCapabilityIds: ["implement.spec", "critic.code_review"],
             preferredCapabilityIds: [],
@@ -689,9 +672,6 @@ describe("route workflow store", () => {
               "critic_strict",
               "critic_adversarial"
             ],
-            completionPolicy: {
-              mode: "manual"
-            },
             clarificationPolicy: {
               mode: "required"
             },
@@ -713,10 +693,10 @@ describe("route workflow store", () => {
         lifecycleProjectionSequence: 0,
         lifecycleCurrentNode: null,
         plan: {
-          kind: "ready_for_manual_completion",
+          kind: "ready_for_completion",
           evaluation: {
             workEpoch: 1,
-            result: "ready_for_manual_completion",
+            result: "ready_for_completion",
             satisfiedCapabilityIds: ["implement.spec", "critic.code_review"],
             missingCapabilityIds: [],
             satisfiedEvidenceIds: ["change_set", "code_review_report"],
@@ -807,7 +787,6 @@ describe("route workflow store", () => {
           summary: "Persist intelligent-flow planner decisions.",
           objective: "Store the admissible candidate set with the selected module.",
           doneDefinition: "The intelligent-flow router decision is replayable after restart.",
-          mergePolicy: "manual",
           routingDirectives: {
             requiredCapabilityIds: ["implement.spec", "critic.code_review"],
             preferredCapabilityIds: [],
@@ -819,9 +798,6 @@ describe("route workflow store", () => {
               "critic_strict",
               "critic_adversarial"
             ],
-            completionPolicy: {
-              mode: "manual"
-            },
             clarificationPolicy: {
               mode: "required"
             },
@@ -848,16 +824,12 @@ describe("route workflow store", () => {
           summary: contract.summary,
           objective: contract.objective,
           doneDefinition: contract.doneDefinition,
-          mergePolicy: contract.mergePolicy,
           routingDirectives: {
             requiredCapabilityIds: [...contract.routingDirectives.requiredCapabilityIds],
             preferredCapabilityIds: [...contract.routingDirectives.preferredCapabilityIds],
             forbiddenCapabilityIds: [...contract.routingDirectives.forbiddenCapabilityIds],
             requiredEvidenceIds: [...contract.routingDirectives.requiredEvidenceIds],
             allowedModelProfileIds: [...contract.routingDirectives.allowedModelProfileIds],
-            completionPolicy: {
-              mode: contract.routingDirectives.completionPolicy.mode
-            },
             clarificationPolicy: {
               mode: contract.routingDirectives.clarificationPolicy.mode
             },

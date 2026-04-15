@@ -1032,7 +1032,7 @@ describe("@symphony/api app", () => {
   });
 
   it(
-    "accepts GitHub rework ingress and leaves intelligent-flow issues in review",
+    "accepts GitHub review ingress and leaves intelligent-flow issues in review",
     async () => {
       const harness = await createSymphonyRuntimeAppServicesHarness();
       harnesses.push(harness);
@@ -1090,7 +1090,8 @@ describe("@symphony/api app", () => {
       expect(routedDispatches).toEqual([]);
       expect(
         issueTimeline?.entries.some(
-          (entry) => entry.message === "Stored rework handoff for the next run."
+          (entry) =>
+            entry.message === "Recorded GitHub review feedback for a future run."
         ) ?? false
       ).toBe(false);
       expect(
@@ -1106,7 +1107,7 @@ describe("@symphony/api app", () => {
             eventType: "github_review_ingress_processed",
             message: "Processed GitHub review ingress event.",
             payload: expect.objectContaining({
-              status: "requeued"
+              status: "matched"
             })
           })
         ])
