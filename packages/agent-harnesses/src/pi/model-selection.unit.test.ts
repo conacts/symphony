@@ -4,7 +4,7 @@ import {
   normalizePiThinkingLevel,
   resolvePiIssueSelection
 } from "./model-selection.js";
-import { resolvePiSdkLaunchSettings } from "./launch.js";
+import { resolvePiLaunchSettings } from "./launch.js";
 
 describe("pi model selection", () => {
   it("applies issue labels on top of provided defaults", () => {
@@ -136,7 +136,7 @@ describe("pi model selection", () => {
         }
       }
     });
-    const launchSettings = resolvePiSdkLaunchSettings(
+    const launchSettings = resolvePiLaunchSettings(
       "pi --profile advanced",
       buildIssue({
         labels: ["model:premium"]

@@ -1,6 +1,6 @@
-const sdkRunnerSchemaVersion = "1" as const;
+const piRunnerSchemaVersion = "1" as const;
 
-export const piSdkRunnerFailureClasses = [
+export const piRunnerFailureClasses = [
   "runner_startup_failure",
   "bridge_protocol_failure",
   "transport_timeout",
@@ -14,10 +14,10 @@ export const piSdkRunnerFailureClasses = [
   "runtime_crash"
 ] as const;
 
-export type PiSdkRunnerFailureClass =
-  (typeof piSdkRunnerFailureClasses)[number];
+export type PiRunnerFailureClass =
+  (typeof piRunnerFailureClasses)[number];
 
-export const piSdkRunnerStopReasons = [
+export const piRunnerStopReasons = [
   "end_turn",
   "tool_calls",
   "max_tokens",
@@ -27,31 +27,31 @@ export const piSdkRunnerStopReasons = [
   "unknown"
 ] as const;
 
-export type PiSdkRunnerStopReason = (typeof piSdkRunnerStopReasons)[number];
+export type PiRunnerStopReason = (typeof piRunnerStopReasons)[number];
 
-export const piSdkRunnerApprovalModes = ["auto", "manual"] as const;
+export const piRunnerApprovalModes = ["auto", "manual"] as const;
 
-export type PiSdkRunnerApprovalMode =
-  (typeof piSdkRunnerApprovalModes)[number];
+export type PiRunnerApprovalMode =
+  (typeof piRunnerApprovalModes)[number];
 
-export const piSdkRunnerFileChangeTypes = [
+export const piRunnerFileChangeTypes = [
   "added",
   "modified",
   "deleted"
 ] as const;
 
-export type PiSdkRunnerFileChangeType =
-  (typeof piSdkRunnerFileChangeTypes)[number];
+export type PiRunnerFileChangeType =
+  (typeof piRunnerFileChangeTypes)[number];
 
-export type PiSdkRunnerUsage = {
+export type PiRunnerUsage = {
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
 };
 
-export type PiSdkRunnerInput = {
-  schemaVersion: typeof sdkRunnerSchemaVersion;
+export type PiRunnerInput = {
+  schemaVersion: typeof piRunnerSchemaVersion;
   runId: string;
   issue: {
     id: string;
@@ -80,19 +80,19 @@ export type PiSdkRunnerInput = {
     toolTimeoutMs: number | null;
   };
   executionPolicy: {
-    approvalMode: PiSdkRunnerApprovalMode;
+    approvalMode: PiRunnerApprovalMode;
     emitReasoning: boolean;
   };
 };
 
-export type PiSdkRunnerBootstrapCommand = {
-  schemaVersion: typeof sdkRunnerSchemaVersion;
+export type PiRunnerBootstrapCommand = {
+  schemaVersion: typeof piRunnerSchemaVersion;
   commandType: "bootstrap";
-  input: PiSdkRunnerInput;
+  input: PiRunnerInput;
 };
 
-export type PiSdkRunnerRunTurnCommand = {
-  schemaVersion: typeof sdkRunnerSchemaVersion;
+export type PiRunnerRunTurnCommand = {
+  schemaVersion: typeof piRunnerSchemaVersion;
   commandType: "run_turn";
   runId: string;
   turnId: string;
@@ -110,113 +110,113 @@ export type PiSdkRunnerRunTurnCommand = {
   };
 };
 
-export type PiSdkRunnerShutdownCommand = {
-  schemaVersion: typeof sdkRunnerSchemaVersion;
+export type PiRunnerShutdownCommand = {
+  schemaVersion: typeof piRunnerSchemaVersion;
   commandType: "shutdown";
 };
 
-export type PiSdkRunnerCommand =
-  | PiSdkRunnerBootstrapCommand
-  | PiSdkRunnerRunTurnCommand
-  | PiSdkRunnerShutdownCommand;
+export type PiRunnerCommand =
+  | PiRunnerBootstrapCommand
+  | PiRunnerRunTurnCommand
+  | PiRunnerShutdownCommand;
 
-type PiSdkRunnerTerminalResultBase = {
-  schemaVersion: typeof sdkRunnerSchemaVersion;
+type PiRunnerTerminalResultBase = {
+  schemaVersion: typeof piRunnerSchemaVersion;
   providerStopReason: string | null;
   finalAssistantMessage: string | null;
-  usage: PiSdkRunnerUsage | null;
+  usage: PiRunnerUsage | null;
   lastActivityAt: string | null;
   lastActivityType: string | null;
 };
 
-export type PiSdkRunnerCompletedTerminalResult =
-  PiSdkRunnerTerminalResultBase & {
+export type PiRunnerCompletedTerminalResult =
+  PiRunnerTerminalResultBase & {
     kind: "completed";
-    stopReason: PiSdkRunnerStopReason;
+    stopReason: PiRunnerStopReason;
   };
 
-export type PiSdkRunnerAwaitingInputTerminalResult =
-  PiSdkRunnerTerminalResultBase & {
+export type PiRunnerAwaitingInputTerminalResult =
+  PiRunnerTerminalResultBase & {
     kind: "awaiting_input";
-    stopReason: PiSdkRunnerStopReason;
+    stopReason: PiRunnerStopReason;
     reason: string;
     prompt: string;
   };
 
-export type PiSdkRunnerBlockedTerminalResult = PiSdkRunnerTerminalResultBase & {
+export type PiRunnerBlockedTerminalResult = PiRunnerTerminalResultBase & {
   kind: "blocked";
-  stopReason: PiSdkRunnerStopReason;
+  stopReason: PiRunnerStopReason;
   reason: string;
 };
 
-export type PiSdkRunnerFailedTerminalResult = PiSdkRunnerTerminalResultBase & {
+export type PiRunnerFailedTerminalResult = PiRunnerTerminalResultBase & {
   kind: "failed";
-  stopReason: PiSdkRunnerStopReason | null;
-  failureClass: PiSdkRunnerFailureClass;
+  stopReason: PiRunnerStopReason | null;
+  failureClass: PiRunnerFailureClass;
   reason: string;
 };
 
-export type PiSdkRunnerTerminalResult =
-  | PiSdkRunnerCompletedTerminalResult
-  | PiSdkRunnerAwaitingInputTerminalResult
-  | PiSdkRunnerBlockedTerminalResult
-  | PiSdkRunnerFailedTerminalResult;
+export type PiRunnerTerminalResult =
+  | PiRunnerCompletedTerminalResult
+  | PiRunnerAwaitingInputTerminalResult
+  | PiRunnerBlockedTerminalResult
+  | PiRunnerFailedTerminalResult;
 
-type PiSdkRunnerEventBase<TType extends string> = {
-  schemaVersion: typeof sdkRunnerSchemaVersion;
+type PiRunnerEventBase<TType extends string> = {
+  schemaVersion: typeof piRunnerSchemaVersion;
   eventType: TType;
   sequence: number;
   recordedAt: string;
   runId: string;
 };
 
-export type PiSdkRunnerSessionStartedEvent =
-  PiSdkRunnerEventBase<"session_started"> & {
+export type PiRunnerSessionStartedEvent =
+  PiRunnerEventBase<"session_started"> & {
     sessionId: string;
     threadId: string | null;
     modelId: string;
     cwd: string;
   };
 
-export type PiSdkRunnerPromptStartedEvent =
-  PiSdkRunnerEventBase<"prompt_started"> & {
+export type PiRunnerPromptStartedEvent =
+  PiRunnerEventBase<"prompt_started"> & {
     promptTitle: string;
     promptText: string;
   };
 
-export type PiSdkRunnerAssistantMessageStartedEvent =
-  PiSdkRunnerEventBase<"assistant_message_started"> & {
+export type PiRunnerAssistantMessageStartedEvent =
+  PiRunnerEventBase<"assistant_message_started"> & {
     messageId: string;
   };
 
-export type PiSdkRunnerAssistantTextDeltaEvent =
-  PiSdkRunnerEventBase<"assistant_text_delta"> & {
-    messageId: string;
-    text: string;
-  };
-
-export type PiSdkRunnerAssistantReasoningDeltaEvent =
-  PiSdkRunnerEventBase<"assistant_reasoning_delta"> & {
+export type PiRunnerAssistantTextDeltaEvent =
+  PiRunnerEventBase<"assistant_text_delta"> & {
     messageId: string;
     text: string;
   };
 
-export type PiSdkRunnerToolCallStartedEvent =
-  PiSdkRunnerEventBase<"tool_call_started"> & {
+export type PiRunnerAssistantReasoningDeltaEvent =
+  PiRunnerEventBase<"assistant_reasoning_delta"> & {
+    messageId: string;
+    text: string;
+  };
+
+export type PiRunnerToolCallStartedEvent =
+  PiRunnerEventBase<"tool_call_started"> & {
     callId: string;
     toolName: string;
     argumentsText: string | null;
   };
 
-export type PiSdkRunnerToolCallCompletedEvent =
-  PiSdkRunnerEventBase<"tool_call_completed"> & {
+export type PiRunnerToolCallCompletedEvent =
+  PiRunnerEventBase<"tool_call_completed"> & {
     callId: string;
     toolName: string;
     outputText: string | null;
   };
 
-export type PiSdkRunnerToolCallHeartbeatEvent =
-  PiSdkRunnerEventBase<"tool_call_heartbeat"> & {
+export type PiRunnerToolCallHeartbeatEvent =
+  PiRunnerEventBase<"tool_call_heartbeat"> & {
     callId: string;
     toolName: string;
     argumentsText: string | null;
@@ -226,23 +226,23 @@ export type PiSdkRunnerToolCallHeartbeatEvent =
     timeoutMs: number | null;
   };
 
-export type PiSdkRunnerToolCallFailedEvent =
-  PiSdkRunnerEventBase<"tool_call_failed"> & {
+export type PiRunnerToolCallFailedEvent =
+  PiRunnerEventBase<"tool_call_failed"> & {
     callId: string;
     toolName: string;
     errorMessage: string;
     outputText: string | null;
   };
 
-export type PiSdkRunnerCommandStartedEvent =
-  PiSdkRunnerEventBase<"command_started"> & {
+export type PiRunnerCommandStartedEvent =
+  PiRunnerEventBase<"command_started"> & {
     commandId: string;
     commandText: string;
     workingDirectory: string | null;
   };
 
-export type PiSdkRunnerCommandCompletedEvent =
-  PiSdkRunnerEventBase<"command_completed"> & {
+export type PiRunnerCommandCompletedEvent =
+  PiRunnerEventBase<"command_completed"> & {
     commandId: string;
     commandText: string;
     exitCode: number;
@@ -250,8 +250,8 @@ export type PiSdkRunnerCommandCompletedEvent =
     stderr: string | null;
   };
 
-export type PiSdkRunnerCommandFailedEvent =
-  PiSdkRunnerEventBase<"command_failed"> & {
+export type PiRunnerCommandFailedEvent =
+  PiRunnerEventBase<"command_failed"> & {
     commandId: string;
     commandText: string;
     exitCode: number | null;
@@ -260,31 +260,31 @@ export type PiSdkRunnerCommandFailedEvent =
     stderr: string | null;
   };
 
-export type PiSdkRunnerFileChangeObservedEvent =
-  PiSdkRunnerEventBase<"file_change_observed"> & {
+export type PiRunnerFileChangeObservedEvent =
+  PiRunnerEventBase<"file_change_observed"> & {
     path: string;
-    changeType: PiSdkRunnerFileChangeType;
+    changeType: PiRunnerFileChangeType;
     diffText: string | null;
   };
 
-export type PiSdkRunnerIdleTimeoutTriggeredEvent =
-  PiSdkRunnerEventBase<"idle_timeout_triggered"> & {
+export type PiRunnerIdleTimeoutTriggeredEvent =
+  PiRunnerEventBase<"idle_timeout_triggered"> & {
     failureClass: "model_idle_timeout";
     thresholdMs: number;
     lastActivityAt: string | null;
     lastActivityType: string | null;
   };
 
-export type PiSdkRunnerRunTimeoutTriggeredEvent =
-  PiSdkRunnerEventBase<"run_timeout_triggered"> & {
+export type PiRunnerRunTimeoutTriggeredEvent =
+  PiRunnerEventBase<"run_timeout_triggered"> & {
     failureClass: "run_timeout";
     thresholdMs: number;
     lastActivityAt: string | null;
     lastActivityType: string | null;
   };
 
-export type PiSdkRunnerToolTimeoutTriggeredEvent =
-  PiSdkRunnerEventBase<"tool_timeout_triggered"> & {
+export type PiRunnerToolTimeoutTriggeredEvent =
+  PiRunnerEventBase<"tool_timeout_triggered"> & {
     failureClass: "tool_timeout";
     thresholdMs: number;
     callId: string;
@@ -294,55 +294,55 @@ export type PiSdkRunnerToolTimeoutTriggeredEvent =
     lastActivityType: string | null;
   };
 
-export type PiSdkRunnerInputRequiredEvent =
-  PiSdkRunnerEventBase<"input_required"> & {
+export type PiRunnerInputRequiredEvent =
+  PiRunnerEventBase<"input_required"> & {
     reason: string;
     prompt: string;
   };
 
-export type PiSdkRunnerTerminalResultEvent =
-  PiSdkRunnerEventBase<"terminal_result"> & {
-    result: PiSdkRunnerTerminalResult;
+export type PiRunnerTerminalResultEvent =
+  PiRunnerEventBase<"terminal_result"> & {
+    result: PiRunnerTerminalResult;
   };
 
-export type PiSdkRunnerRunnerErrorEvent =
-  PiSdkRunnerEventBase<"runner_error"> & {
-    failureClass: PiSdkRunnerFailureClass;
+export type PiRunnerRunnerErrorEvent =
+  PiRunnerEventBase<"runner_error"> & {
+    failureClass: PiRunnerFailureClass;
     reason: string;
   };
 
-export type PiSdkRunnerEvent =
-  | PiSdkRunnerSessionStartedEvent
-  | PiSdkRunnerPromptStartedEvent
-  | PiSdkRunnerAssistantMessageStartedEvent
-  | PiSdkRunnerAssistantTextDeltaEvent
-  | PiSdkRunnerAssistantReasoningDeltaEvent
-  | PiSdkRunnerToolCallStartedEvent
-  | PiSdkRunnerToolCallCompletedEvent
-  | PiSdkRunnerToolCallHeartbeatEvent
-  | PiSdkRunnerToolCallFailedEvent
-  | PiSdkRunnerCommandStartedEvent
-  | PiSdkRunnerCommandCompletedEvent
-  | PiSdkRunnerCommandFailedEvent
-  | PiSdkRunnerFileChangeObservedEvent
-  | PiSdkRunnerIdleTimeoutTriggeredEvent
-  | PiSdkRunnerRunTimeoutTriggeredEvent
-  | PiSdkRunnerToolTimeoutTriggeredEvent
-  | PiSdkRunnerInputRequiredEvent
-  | PiSdkRunnerTerminalResultEvent
-  | PiSdkRunnerRunnerErrorEvent;
+export type PiRunnerEvent =
+  | PiRunnerSessionStartedEvent
+  | PiRunnerPromptStartedEvent
+  | PiRunnerAssistantMessageStartedEvent
+  | PiRunnerAssistantTextDeltaEvent
+  | PiRunnerAssistantReasoningDeltaEvent
+  | PiRunnerToolCallStartedEvent
+  | PiRunnerToolCallCompletedEvent
+  | PiRunnerToolCallHeartbeatEvent
+  | PiRunnerToolCallFailedEvent
+  | PiRunnerCommandStartedEvent
+  | PiRunnerCommandCompletedEvent
+  | PiRunnerCommandFailedEvent
+  | PiRunnerFileChangeObservedEvent
+  | PiRunnerIdleTimeoutTriggeredEvent
+  | PiRunnerRunTimeoutTriggeredEvent
+  | PiRunnerToolTimeoutTriggeredEvent
+  | PiRunnerInputRequiredEvent
+  | PiRunnerTerminalResultEvent
+  | PiRunnerRunnerErrorEvent;
 
-const failureClassSet = new Set<string>(piSdkRunnerFailureClasses);
-const stopReasonSet = new Set<string>(piSdkRunnerStopReasons);
-const approvalModeSet = new Set<string>(piSdkRunnerApprovalModes);
-const fileChangeTypeSet = new Set<string>(piSdkRunnerFileChangeTypes);
+const failureClassSet = new Set<string>(piRunnerFailureClasses);
+const stopReasonSet = new Set<string>(piRunnerStopReasons);
+const approvalModeSet = new Set<string>(piRunnerApprovalModes);
+const fileChangeTypeSet = new Set<string>(piRunnerFileChangeTypes);
 
-export function parsePiSdkRunnerInput(value: unknown): PiSdkRunnerInput {
-  const record = requireRecord(value, "Pi SDK runner input must be an object.");
-  requireSchemaVersion(record, "Pi SDK runner input");
+export function parsePiRunnerInput(value: unknown): PiRunnerInput {
+  const record = requireRecord(value, "Pi runner input must be an object.");
+  requireSchemaVersion(record, "Pi runner input");
 
   return {
-    schemaVersion: sdkRunnerSchemaVersion,
+    schemaVersion: piRunnerSchemaVersion,
     runId: requireNonEmptyString(record, "runId"),
     issue: parseIssue(requireRecord(record.issue, "issue must be an object.")),
     workspace: parseWorkspace(
@@ -362,21 +362,21 @@ export function parsePiSdkRunnerInput(value: unknown): PiSdkRunnerInput {
   };
 }
 
-export function parsePiSdkRunnerCommand(value: unknown): PiSdkRunnerCommand {
-  const record = requireRecord(value, "Pi SDK runner command must be an object.");
-  requireSchemaVersion(record, "Pi SDK runner command");
+export function parsePiRunnerCommand(value: unknown): PiRunnerCommand {
+  const record = requireRecord(value, "Pi runner command must be an object.");
+  requireSchemaVersion(record, "Pi runner command");
   const commandType = requireString(record, "commandType");
 
   switch (commandType) {
     case "bootstrap":
       return {
-        schemaVersion: sdkRunnerSchemaVersion,
+        schemaVersion: piRunnerSchemaVersion,
         commandType,
-        input: parsePiSdkRunnerInput(record.input)
+        input: parsePiRunnerInput(record.input)
       };
     case "run_turn":
       return {
-        schemaVersion: sdkRunnerSchemaVersion,
+        schemaVersion: piRunnerSchemaVersion,
         commandType,
         runId: requireNonEmptyString(record, "runId"),
         turnId: requireNonEmptyString(record, "turnId"),
@@ -395,24 +395,24 @@ export function parsePiSdkRunnerCommand(value: unknown): PiSdkRunnerCommand {
       };
     case "shutdown":
       return {
-        schemaVersion: sdkRunnerSchemaVersion,
+        schemaVersion: piRunnerSchemaVersion,
         commandType
       };
     default:
       throw new TypeError(
-        `Pi SDK runner commandType is unsupported: ${JSON.stringify(commandType)}.`
+        `Pi runner commandType is unsupported: ${JSON.stringify(commandType)}.`
       );
   }
 }
 
-export function parsePiSdkRunnerTerminalResult(
+export function parsePiRunnerTerminalResult(
   value: unknown
-): PiSdkRunnerTerminalResult {
+): PiRunnerTerminalResult {
   const record = requireRecord(
     value,
-    "Pi SDK runner terminal result must be an object."
+    "Pi runner terminal result must be an object."
   );
-  requireSchemaVersion(record, "Pi SDK runner terminal result");
+  requireSchemaVersion(record, "Pi runner terminal result");
   const kind = requireString(record, "kind");
   const base = parseTerminalResultBase(record);
 
@@ -448,14 +448,14 @@ export function parsePiSdkRunnerTerminalResult(
       };
     default:
       throw new TypeError(
-        `Pi SDK runner terminal result kind must be one of ["completed","awaiting_input","blocked","failed"]. Received ${JSON.stringify(kind)}.`
+        `Pi runner terminal result kind must be one of ["completed","awaiting_input","blocked","failed"]. Received ${JSON.stringify(kind)}.`
       );
   }
 }
 
-export function parsePiSdkRunnerEvent(value: unknown): PiSdkRunnerEvent {
-  const record = requireRecord(value, "Pi SDK runner event must be an object.");
-  requireSchemaVersion(record, "Pi SDK runner event");
+export function parsePiRunnerEvent(value: unknown): PiRunnerEvent {
+  const record = requireRecord(value, "Pi runner event must be an object.");
+  requireSchemaVersion(record, "Pi runner event");
   const eventType = requireString(record, "eventType");
   const base = parseEventBase(record);
 
@@ -617,7 +617,7 @@ export function parsePiSdkRunnerEvent(value: unknown): PiSdkRunnerEvent {
       return {
         ...base,
         eventType,
-        result: parsePiSdkRunnerTerminalResult(record.result)
+        result: parsePiRunnerTerminalResult(record.result)
       };
     case "runner_error":
       return {
@@ -628,14 +628,14 @@ export function parsePiSdkRunnerEvent(value: unknown): PiSdkRunnerEvent {
       };
     default:
       throw new TypeError(
-        `Pi SDK runner eventType is unsupported: ${JSON.stringify(eventType)}.`
+        `Pi runner eventType is unsupported: ${JSON.stringify(eventType)}.`
       );
   }
 }
 
 function parseIssue(
   record: Record<string, unknown>
-): PiSdkRunnerInput["issue"] {
+): PiRunnerInput["issue"] {
   return {
     id: requireNonEmptyString(record, "id"),
     identifier: requireNonEmptyString(record, "identifier"),
@@ -645,7 +645,7 @@ function parseIssue(
 
 function parseWorkspace(
   record: Record<string, unknown>
-): PiSdkRunnerInput["workspace"] {
+): PiRunnerInput["workspace"] {
   return {
     cwd: requireNonEmptyString(record, "cwd"),
     sessionFile: requireNonEmptyString(record, "sessionFile"),
@@ -655,7 +655,7 @@ function parseWorkspace(
 
 function parsePrompt(
   record: Record<string, unknown>
-): PiSdkRunnerInput["prompt"] {
+): PiRunnerInput["prompt"] {
   return {
     title: requireNonEmptyString(record, "title"),
     text: requireNonEmptyString(record, "text")
@@ -664,7 +664,7 @@ function parsePrompt(
 
 function parseModel(
   record: Record<string, unknown>
-): PiSdkRunnerInput["model"] {
+): PiRunnerInput["model"] {
   return {
     id: requireNonEmptyString(record, "id"),
     reasoningEffort: requireNonEmptyString(record, "reasoningEffort"),
@@ -676,7 +676,7 @@ function parseModel(
 
 function parseTimeouts(
   record: Record<string, unknown>
-): PiSdkRunnerInput["timeouts"] {
+): PiRunnerInput["timeouts"] {
   return {
     runTimeoutMs: requirePositiveInteger(record, "runTimeoutMs"),
     modelIdleTimeoutMs: requireNullablePositiveInteger(
@@ -689,23 +689,23 @@ function parseTimeouts(
 
 function parseExecutionPolicy(
   record: Record<string, unknown>
-): PiSdkRunnerInput["executionPolicy"] {
+): PiRunnerInput["executionPolicy"] {
   const approvalMode = requireString(record, "approvalMode");
   if (!approvalModeSet.has(approvalMode)) {
     throw new TypeError(
-      `approvalMode must be one of ${JSON.stringify(piSdkRunnerApprovalModes)}.`
+      `approvalMode must be one of ${JSON.stringify(piRunnerApprovalModes)}.`
     );
   }
 
   return {
-    approvalMode: approvalMode as PiSdkRunnerApprovalMode,
+    approvalMode: approvalMode as PiRunnerApprovalMode,
     emitReasoning: requireBoolean(record, "emitReasoning")
   };
 }
 
 function parseRunTurnExecutionPolicy(
   record: Record<string, unknown>
-): PiSdkRunnerRunTurnCommand["executionPolicy"] {
+): PiRunnerRunTurnCommand["executionPolicy"] {
   return {
     emitReasoning: requireBoolean(record, "emitReasoning")
   };
@@ -713,9 +713,9 @@ function parseRunTurnExecutionPolicy(
 
 function parseTerminalResultBase(
   record: Record<string, unknown>
-): PiSdkRunnerTerminalResultBase {
+): PiRunnerTerminalResultBase {
   return {
-    schemaVersion: sdkRunnerSchemaVersion,
+    schemaVersion: piRunnerSchemaVersion,
     providerStopReason: requireNullableString(record, "providerStopReason"),
     finalAssistantMessage: requireNullableString(record, "finalAssistantMessage"),
     usage: requireNullableUsage(record, "usage"),
@@ -726,9 +726,9 @@ function parseTerminalResultBase(
 
 function parseEventBase(
   record: Record<string, unknown>
-): Omit<PiSdkRunnerEventBase<string>, "eventType"> {
+): Omit<PiRunnerEventBase<string>, "eventType"> {
   return {
-    schemaVersion: sdkRunnerSchemaVersion,
+    schemaVersion: piRunnerSchemaVersion,
     sequence: requirePositiveInteger(record, "sequence"),
     recordedAt: requireTimestamp(record, "recordedAt"),
     runId: requireNonEmptyString(record, "runId")
@@ -740,9 +740,9 @@ function requireSchemaVersion(
   label: string
 ): void {
   const schemaVersion = requireString(record, "schemaVersion");
-  if (schemaVersion !== sdkRunnerSchemaVersion) {
+  if (schemaVersion !== piRunnerSchemaVersion) {
     throw new TypeError(
-      `${label} schemaVersion must be "${sdkRunnerSchemaVersion}". Received ${JSON.stringify(schemaVersion)}.`
+      `${label} schemaVersion must be "${piRunnerSchemaVersion}". Received ${JSON.stringify(schemaVersion)}.`
     );
   }
 }
@@ -896,18 +896,18 @@ function requireNullableNonNegativeInteger(
 function requireFailureClass(
   record: Record<string, unknown>,
   key: string
-): PiSdkRunnerFailureClass {
+): PiRunnerFailureClass {
   const value = requireString(record, key);
   if (!failureClassSet.has(value)) {
     throw new TypeError(
-      `${key} must be one of ${JSON.stringify(piSdkRunnerFailureClasses)}.`
+      `${key} must be one of ${JSON.stringify(piRunnerFailureClasses)}.`
     );
   }
 
-  return value as PiSdkRunnerFailureClass;
+  return value as PiRunnerFailureClass;
 }
 
-function requireExactFailureClass<TClass extends PiSdkRunnerFailureClass>(
+function requireExactFailureClass<TClass extends PiRunnerFailureClass>(
   record: Record<string, unknown>,
   key: string,
   expected: TClass
@@ -925,52 +925,52 @@ function requireExactFailureClass<TClass extends PiSdkRunnerFailureClass>(
 function requireStopReason(
   record: Record<string, unknown>,
   key: string
-): PiSdkRunnerStopReason {
+): PiRunnerStopReason {
   const value = requireString(record, key);
   if (!stopReasonSet.has(value)) {
     throw new TypeError(
-      `${key} must be one of ${JSON.stringify(piSdkRunnerStopReasons)}.`
+      `${key} must be one of ${JSON.stringify(piRunnerStopReasons)}.`
     );
   }
 
-  return value as PiSdkRunnerStopReason;
+  return value as PiRunnerStopReason;
 }
 
 function requireNullableStopReason(
   record: Record<string, unknown>,
   key: string
-): PiSdkRunnerStopReason | null {
+): PiRunnerStopReason | null {
   const value = record[key];
   if (value === null || value === undefined) {
     return null;
   }
   if (typeof value !== "string" || !stopReasonSet.has(value)) {
     throw new TypeError(
-      `${key} must be one of ${JSON.stringify(piSdkRunnerStopReasons)} or null.`
+      `${key} must be one of ${JSON.stringify(piRunnerStopReasons)} or null.`
     );
   }
 
-  return value as PiSdkRunnerStopReason;
+  return value as PiRunnerStopReason;
 }
 
 function requireFileChangeType(
   record: Record<string, unknown>,
   key: string
-): PiSdkRunnerFileChangeType {
+): PiRunnerFileChangeType {
   const value = requireString(record, key);
   if (!fileChangeTypeSet.has(value)) {
     throw new TypeError(
-      `${key} must be one of ${JSON.stringify(piSdkRunnerFileChangeTypes)}.`
+      `${key} must be one of ${JSON.stringify(piRunnerFileChangeTypes)}.`
     );
   }
 
-  return value as PiSdkRunnerFileChangeType;
+  return value as PiRunnerFileChangeType;
 }
 
 function requireNullableUsage(
   record: Record<string, unknown>,
   key: string
-): PiSdkRunnerUsage | null {
+): PiRunnerUsage | null {
   const value = record[key];
   if (value === null || value === undefined) {
     return null;

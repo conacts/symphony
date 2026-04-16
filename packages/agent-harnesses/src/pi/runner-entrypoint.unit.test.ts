@@ -2,11 +2,11 @@ import process from "node:process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import {
-  executePiSdkRunnerTurn,
-  type PiSdkRunnerRuntime
-} from "./sdk-runner-entrypoint.js";
+  executePiRunnerTurn,
+  type PiRunnerRuntime
+} from "./runner-entrypoint.js";
 
-type TestSession = PiSdkRunnerRuntime["session"];
+type TestSession = PiRunnerRuntime["session"];
 type TestSessionListener = Parameters<TestSession["subscribe"]>[0];
 
 function createAssistantMessage(text: string): AssistantMessage {
@@ -66,7 +66,7 @@ function createSession(input: {
   };
 }
 
-describe("pi sdk runner entrypoint", () => {
+describe("pi runner entrypoint", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -103,7 +103,7 @@ describe("pi sdk runner entrypoint", () => {
       return true;
     });
 
-    await executePiSdkRunnerTurn(
+    await executePiRunnerTurn(
       {
         bootstrap: {
           schemaVersion: "1",
@@ -143,7 +143,7 @@ describe("pi sdk runner entrypoint", () => {
         model: {
           provider: "openrouter",
           id: "xiaomi/mimo-v2-pro"
-        } as PiSdkRunnerRuntime["model"],
+        } as PiRunnerRuntime["model"],
         session,
         sessionId: "session-1",
         threadId: "session-1"
@@ -267,7 +267,7 @@ describe("pi sdk runner entrypoint", () => {
       return true;
     });
 
-    await executePiSdkRunnerTurn(
+    await executePiRunnerTurn(
       {
         bootstrap: {
           schemaVersion: "1",
@@ -307,7 +307,7 @@ describe("pi sdk runner entrypoint", () => {
         model: {
           provider: "openrouter",
           id: "xiaomi/mimo-v2-pro"
-        } as PiSdkRunnerRuntime["model"],
+        } as PiRunnerRuntime["model"],
         session,
         sessionId: "session-1",
         threadId: "session-1"
@@ -397,7 +397,7 @@ describe("pi sdk runner entrypoint", () => {
       return true;
     });
 
-    const execution = executePiSdkRunnerTurn(
+    const execution = executePiRunnerTurn(
       {
         bootstrap: {
           schemaVersion: "1",
@@ -437,7 +437,7 @@ describe("pi sdk runner entrypoint", () => {
         model: {
           provider: "openrouter",
           id: "xiaomi/mimo-v2-pro"
-        } as PiSdkRunnerRuntime["model"],
+        } as PiRunnerRuntime["model"],
         session,
         sessionId: "session-1",
         threadId: "session-1"
@@ -502,7 +502,7 @@ describe("pi sdk runner entrypoint", () => {
       return true;
     });
 
-    const execution = executePiSdkRunnerTurn(
+    const execution = executePiRunnerTurn(
       {
         bootstrap: {
           schemaVersion: "1",
@@ -542,7 +542,7 @@ describe("pi sdk runner entrypoint", () => {
         model: {
           provider: "openrouter",
           id: "xiaomi/mimo-v2-pro"
-        } as PiSdkRunnerRuntime["model"],
+        } as PiRunnerRuntime["model"],
         session,
         sessionId: "session-1",
         threadId: "session-1"
@@ -616,7 +616,7 @@ describe("pi sdk runner entrypoint", () => {
       return true;
     });
 
-    const execution = executePiSdkRunnerTurn(
+    const execution = executePiRunnerTurn(
       {
         bootstrap: {
           schemaVersion: "1",
@@ -656,7 +656,7 @@ describe("pi sdk runner entrypoint", () => {
         model: {
           provider: "openrouter",
           id: "xiaomi/mimo-v2-pro"
-        } as PiSdkRunnerRuntime["model"],
+        } as PiRunnerRuntime["model"],
         session,
         sessionId: "session-1",
         threadId: "session-1"
@@ -780,7 +780,7 @@ describe("pi sdk runner entrypoint", () => {
       return true;
     });
 
-    const execution = executePiSdkRunnerTurn(
+    const execution = executePiRunnerTurn(
       {
         bootstrap: {
           schemaVersion: "1",
@@ -820,7 +820,7 @@ describe("pi sdk runner entrypoint", () => {
         model: {
           provider: "openrouter",
           id: "xiaomi/mimo-v2-pro"
-        } as PiSdkRunnerRuntime["model"],
+        } as PiRunnerRuntime["model"],
         session,
         sessionId: "session-1",
         threadId: "session-1"

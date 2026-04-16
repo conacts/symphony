@@ -7,11 +7,11 @@ import {
   HarnessSessionError,
   isHarnessRunnerErrorFailureDetail,
   isHarnessTransportTimeoutFailureDetail,
-  piSdkRunnerFailureClasses,
+  piRunnerFailureClasses,
   type HarnessCompletionCandidate,
   type HarnessFailedTurnDetail,
   type HarnessTurnResult,
-  type PiSdkRunnerFailureClass
+  type PiRunnerFailureClass
 } from "@symphony/agent-harnesses";
 import type { JsonObject } from "@symphony/contracts";
 import type { RuntimeFailureClassification } from "./runtime-supervision-types.js";
@@ -19,7 +19,7 @@ import {
   toJsonValue
 } from "./runtime-supervision-values.js";
 
-const piSdkRunnerFailureClassSet = new Set<string>(piSdkRunnerFailureClasses);
+const piRunnerFailureClassSet = new Set<string>(piRunnerFailureClasses);
 
 export type ExplicitCompletionRequirement =
   | "none"
@@ -38,8 +38,8 @@ export function classifyHarnessTurnFailure(input: {
   return classifyPiFailure({
     failureClass:
       typeof input.turnResult.failureClass === "string" &&
-      piSdkRunnerFailureClassSet.has(input.turnResult.failureClass)
-        ? (input.turnResult.failureClass as PiSdkRunnerFailureClass)
+      piRunnerFailureClassSet.has(input.turnResult.failureClass)
+        ? (input.turnResult.failureClass as PiRunnerFailureClass)
         : null,
     reason: input.turnResult.reason,
     detail: input.turnResult.detail,
@@ -56,7 +56,7 @@ export function classifyHarnessExecutionFailure(input: {
     return null;
   }
 
-  if (harnessError.code === "pi_sdk_runner_transport_timeout") {
+  if (harnessError.code === "pi_runner_transport_timeout") {
     return classifyPiFailure({
       failureClass: "transport_timeout",
       reason: harnessError.message,
@@ -67,7 +67,7 @@ export function classifyHarnessExecutionFailure(input: {
     });
   }
 
-  if (harnessError.code !== "pi_sdk_runner_failed") {
+  if (harnessError.code !== "pi_runner_failed") {
     return null;
   }
 
@@ -164,9 +164,9 @@ export function classifyStartupFailure(error: unknown): {
         "invalid_turn_payload",
         "invalid_issue_label_override",
         "pi_launch_unsupported",
-        "pi_sdk_runner_launch_unsupported",
-        "pi_sdk_runner_initialize_failed",
-        "pi_sdk_runner_initialize_timeout",
+        "pi_runner_launch_unsupported",
+        "pi_runner_initialize_failed",
+        "pi_runner_initialize_timeout",
         "pi_session_start_failed",
         "pi_turn_start_failed"
       ].includes(harnessError.code)
@@ -179,7 +179,7 @@ export function classifyStartupFailure(error: unknown): {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("Pi SDK runner")) {
+  if (message.includes("Pi runner")) {
     return {
       failureStage: "runtime_session_start",
       failureOrigin: "pi_startup"
@@ -255,7 +255,7 @@ export function isTransientProviderError(
 }
 
 function classifyPiFailure(input: {
-  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
+  failureClass: PiRunnerFailureClass | "transport_timeout" | null;
   reason: string;
   detail: unknown;
   providerId: string | null;
@@ -266,7 +266,7 @@ function classifyPiFailure(input: {
     detail: input.detail
   });
   const failureError = new HarnessSessionError(
-    "pi_sdk_runner_failed",
+    "pi_runner_failed",
     input.reason,
     input.detail
   );
@@ -444,7 +444,7 @@ function classifyPiFailure(input: {
 }
 
 function buildRuntimeFailurePayload(input: {
-  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
+  failureClass: PiRunnerFailureClass | "transport_timeout" | null;
   reason: string;
   detail: unknown;
 }): JsonObject {
@@ -598,8 +598,8 @@ function isHarnessFailedTerminalResultDetail(
   );
 }
 
-function toPiFailureClass(value: string | null): PiSdkRunnerFailureClass | null {
-  return value && piSdkRunnerFailureClassSet.has(value)
-    ? (value as PiSdkRunnerFailureClass)
+function toPiFailureClass(value: string | null): PiRunnerFailureClass | null {
+  return value && piRunnerFailureClassSet.has(value)
+    ? (value as PiRunnerFailureClass)
     : null;
 }

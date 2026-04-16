@@ -1,38 +1,38 @@
 import {
-  buildPiSdkRunnerRunTurnCommand
+  buildPiRunnerRunTurnCommand
 } from "../client/bootstrap.js";
 import {
   createThreadItemState,
   type PiSdkThreadItemState
 } from "./stream-events.js";
-import type { PiSdkRunnerCommand } from "../sdk-runner-contract.js";
+import type { PiRunnerCommand } from "../runner-contract.js";
 
-export type PreparedPiSdkRunnerTurn = {
+export type PreparedPiRunnerTurn = {
   turnId: string;
   threadState: PiSdkThreadItemState;
-  command: Extract<PiSdkRunnerCommand, { commandType: "run_turn" }>;
+  command: Extract<PiRunnerCommand, { commandType: "run_turn" }>;
 };
 
-export function preparePiSdkRunnerTurn(input: {
+export function preparePiRunnerTurn(input: {
   turnSequence: number;
   promptTitle: string;
   promptText: string;
   turnTimeoutMs: number;
   stallTimeoutMs: number;
   toolTimeoutMs: number | null;
-}): PreparedPiSdkRunnerTurn {
+}): PreparedPiRunnerTurn {
   const turnId = `pi-sdk-turn-${input.turnSequence}`;
 
   return {
     turnId,
     threadState: createThreadItemState(),
-    command: buildPiSdkRunnerRunTurnCommand({
+    command: buildPiRunnerRunTurnCommand({
       turnId,
       promptTitle: input.promptTitle,
       promptText: input.promptText,
       turnTimeoutMs: input.turnTimeoutMs,
       stallTimeoutMs: input.stallTimeoutMs,
       toolTimeoutMs: input.toolTimeoutMs
-    }) as Extract<PiSdkRunnerCommand, { commandType: "run_turn" }>
+    }) as Extract<PiRunnerCommand, { commandType: "run_turn" }>
   };
 }

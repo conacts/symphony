@@ -15,10 +15,10 @@ export {
   resolvePiIssueModel
 };
 
-export const defaultPiSdkRunnerExecutablePath =
+export const defaultPiRunnerExecutablePath =
   "/usr/local/bin/symphony-pi-runner";
 
-export function resolvePiSdkLaunchSettings(
+export function resolvePiLaunchSettings(
   baseCommand: string,
   issue: SymphonyTrackerIssue,
   defaults?: {
@@ -69,7 +69,7 @@ export function resolvePiSdkLaunchSettings(
   };
 }
 
-export function buildPiSdkRunnerSpawnSpec(input: {
+export function buildPiRunnerSpawnSpec(input: {
   launchTarget: AgentRuntimeLaunchTarget;
   env: Record<string, string>;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -105,7 +105,7 @@ export function buildPiSdkRunnerSpawnSpec(input: {
       [
         `mkdir -p ${shellQuote(piAgentDir)}`,
         `if [ -f ${shellQuote(mountedPiAuthPath)} ] && [ ! -f ${shellQuote(`${piAgentDir}/auth.json`)} ]; then cp ${shellQuote(mountedPiAuthPath)} ${shellQuote(`${piAgentDir}/auth.json`)}; fi`,
-        `exec ${shellQuote(defaultPiSdkRunnerExecutablePath)}`
+        `exec ${shellQuote(defaultPiRunnerExecutablePath)}`
       ].join(" && ")
     ],
     cwd: input.launchTarget.hostLaunchPath,

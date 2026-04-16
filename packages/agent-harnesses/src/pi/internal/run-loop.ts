@@ -3,30 +3,30 @@ import type {
   HarnessSession,
   HarnessTurnResult
 } from "../../shared/session-types.js";
-import { mapPiSdkRunnerAwaitEventFailure } from "../client/transport-failure-mapper.js";
+import { mapPiRunnerAwaitEventFailure } from "../client/transport-failure-mapper.js";
 import type {
-  PiSdkRunnerTimeoutTriggerEvent,
+  PiRunnerTimeoutTriggerEvent,
   PiSdkThreadItemState
 } from "./stream-events.js";
-import type { PiSdkRunnerProcess } from "../sdk-runner-process.js";
-import { resolvePiSdkRunnerTurnEvent } from "./turn-resolution.js";
+import type { PiRunnerProcess } from "../runner-process.js";
+import { resolvePiRunnerTurnEvent } from "./turn-resolution.js";
 
-export async function runPiSdkRunnerTurnLoop(input: {
-  process: PiSdkRunnerProcess;
+export async function runPiRunnerTurnLoop(input: {
+  process: PiRunnerProcess;
   session: HarnessSession;
   turnId: string;
   readTimeoutMs: number;
   threadState: PiSdkThreadItemState;
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
 }): Promise<HarnessTurnResult> {
-  let timeoutTriggerEvent: PiSdkRunnerTimeoutTriggerEvent | null = null;
+  let timeoutTriggerEvent: PiRunnerTimeoutTriggerEvent | null = null;
 
   while (true) {
     let event;
     try {
       event = await input.process.awaitEvent(input.readTimeoutMs);
     } catch (error) {
-      const timeoutError = await mapPiSdkRunnerAwaitEventFailure({
+      const timeoutError = await mapPiRunnerAwaitEventFailure({
         error,
         process: input.process,
         readTimeoutMs: input.readTimeoutMs,
@@ -39,7 +39,7 @@ export async function runPiSdkRunnerTurnLoop(input: {
       throw error;
     }
 
-    const resolution = await resolvePiSdkRunnerTurnEvent({
+    const resolution = await resolvePiRunnerTurnEvent({
       event,
       session: input.session,
       turnId: input.turnId,

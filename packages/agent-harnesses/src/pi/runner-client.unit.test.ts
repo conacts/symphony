@@ -5,17 +5,17 @@ import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError } from "../shared/session-types.js";
 import {
-  buildPiSdkRunnerSpawnSpec,
-  defaultPiSdkRunnerExecutablePath
+  buildPiRunnerSpawnSpec,
+  defaultPiRunnerExecutablePath
 } from "./launch.js";
-import { PiSdkRunnerClient } from "./sdk-runner-client.js";
+import { PiRunnerClient } from "./runner-client.js";
 
 const { startMock } = vi.hoisted(() => ({
   startMock: vi.fn()
 }));
 
-vi.mock("./sdk-runner-process.js", () => ({
-  PiSdkRunnerProcess: {
+vi.mock("./runner-process.js", () => ({
+  PiRunnerProcess: {
     start: startMock
   }
 }));
@@ -133,9 +133,9 @@ function createRuntimePolicy(): SymphonyAgentRuntimeConfig {
   };
 }
 
-describe("pi sdk runner client", () => {
+describe("pi runner client", () => {
   it("builds a docker spawn spec rooted at the workspace root", () => {
-    const spec = buildPiSdkRunnerSpawnSpec({
+    const spec = buildPiRunnerSpawnSpec({
       launchTarget: {
         kind: "container",
         hostLaunchPath: `${repoRoot}/apps/api`,
@@ -154,7 +154,7 @@ describe("pi sdk runner client", () => {
 
     expect(spec.runtimeWorkspaceRoot).toBe("/workspace");
     expect(spec.args.at(-1)).toContain(
-      `exec '${defaultPiSdkRunnerExecutablePath}'`
+      `exec '${defaultPiRunnerExecutablePath}'`
     );
   });
 
@@ -186,7 +186,7 @@ describe("pi sdk runner client", () => {
     });
 
     const runtimePolicy = createRuntimePolicy();
-    const session = await PiSdkRunnerClient.startSession(
+    const session = await PiRunnerClient.startSession(
       {
         launchTarget: {
           kind: "container",
@@ -362,7 +362,7 @@ describe("pi sdk runner client", () => {
     });
 
     const runtimePolicy = createRuntimePolicy();
-    const session = await PiSdkRunnerClient.startSession(
+    const session = await PiRunnerClient.startSession(
       {
         launchTarget: {
           kind: "container",
@@ -590,7 +590,7 @@ describe("pi sdk runner client", () => {
     });
 
     const runtimePolicy = createRuntimePolicy();
-    const session = await PiSdkRunnerClient.startSession(
+    const session = await PiRunnerClient.startSession(
       {
         launchTarget: {
           kind: "container",
@@ -616,8 +616,8 @@ describe("pi sdk runner client", () => {
 
     awaitEvent.mockRejectedValueOnce(
       new HarnessSessionError(
-        "pi_sdk_runner_timeout",
-        "Timed out waiting for Pi SDK runner event after 5000ms."
+        "pi_runner_timeout",
+        "Timed out waiting for Pi runner event after 5000ms."
       )
     );
 
@@ -632,7 +632,7 @@ describe("pi sdk runner client", () => {
         turnTimeoutMs: 30_000
       })
     ).rejects.toMatchObject({
-      code: "pi_sdk_runner_transport_timeout"
+      code: "pi_runner_transport_timeout"
     });
 
     expect(updates).toContainEqual({
@@ -703,7 +703,7 @@ describe("pi sdk runner client", () => {
     });
 
     const runtimePolicy = createRuntimePolicy();
-    const session = await PiSdkRunnerClient.startSession(
+    const session = await PiRunnerClient.startSession(
       {
         launchTarget: {
           kind: "container",
@@ -834,7 +834,7 @@ describe("pi sdk runner client", () => {
       runtimeWorkspaceRoot: "/workspace"
     });
 
-    const session = await PiSdkRunnerClient.startSession({
+    const session = await PiRunnerClient.startSession({
       launchTarget: {
         kind: "container",
         hostLaunchPath: packageRoot,
@@ -949,7 +949,7 @@ describe("pi sdk runner client", () => {
       runtimeWorkspaceRoot: "/workspace"
     });
 
-    const session = await PiSdkRunnerClient.startSession({
+    const session = await PiRunnerClient.startSession({
       launchTarget: {
         kind: "container",
         hostLaunchPath: packageRoot,
@@ -1047,7 +1047,7 @@ describe("pi sdk runner client", () => {
           lastActivityAt: "2026-04-14T18:00:35.000Z",
           lastActivityType: "assistant_text_delta",
           failureClass: "model_idle_timeout",
-          reason: "Pi SDK runner idled for 30000ms without visible activity."
+          reason: "Pi runner idled for 30000ms without visible activity."
         }
       });
 
@@ -1063,7 +1063,7 @@ describe("pi sdk runner client", () => {
       runtimeWorkspaceRoot: "/workspace"
     });
 
-    const session = await PiSdkRunnerClient.startSession({
+    const session = await PiRunnerClient.startSession({
       launchTarget: {
         kind: "container",
         hostLaunchPath: packageRoot,
@@ -1097,7 +1097,7 @@ describe("pi sdk runner client", () => {
       threadId: "sdk-bootstrap-SYM-42-session",
       turnId: "pi-sdk-turn-1",
       usage: null,
-      reason: "Pi SDK runner idled for 30000ms without visible activity.",
+      reason: "Pi runner idled for 30000ms without visible activity.",
       failureClass: "model_idle_timeout",
       detail: {
         kind: "terminal_result",
@@ -1234,7 +1234,7 @@ describe("pi sdk runner client", () => {
       runtimeWorkspaceRoot: "/workspace"
     });
 
-    const session = await PiSdkRunnerClient.startSession({
+    const session = await PiRunnerClient.startSession({
       launchTarget: {
         kind: "container",
         hostLaunchPath: packageRoot,
@@ -1333,7 +1333,7 @@ describe("pi sdk runner client", () => {
           lastActivityType: "tool_call_heartbeat",
           failureClass: "tool_timeout",
           reason:
-            "Pi SDK runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\"."
+            "Pi runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\"."
         }
       });
 
@@ -1349,7 +1349,7 @@ describe("pi sdk runner client", () => {
       runtimeWorkspaceRoot: "/workspace"
     });
 
-    const session = await PiSdkRunnerClient.startSession({
+    const session = await PiRunnerClient.startSession({
       launchTarget: {
         kind: "container",
         hostLaunchPath: packageRoot,
@@ -1384,7 +1384,7 @@ describe("pi sdk runner client", () => {
       turnId: "pi-sdk-turn-1",
       usage: null,
       reason:
-        "Pi SDK runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\".",
+        "Pi runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\".",
       failureClass: "tool_timeout",
       detail: {
         kind: "terminal_result",

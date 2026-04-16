@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import type { PiSdkRunnerEvent } from "../sdk-runner-contract.js";
+import type { PiRunnerEvent } from "../runner-contract.js";
 import type {
   PiSdkPromptExecutionState,
-  PiSdkRunnerRuntime,
+  PiRunnerRuntime,
   PiSdkTimeoutController
 } from "./definition.js";
 import { emitEvent, nextSequence, stringifyJson } from "./event-emitter.js";
 import { captureFinalAssistantMessage } from "./terminal-result.js";
 
 export function emitRuntimeEvent(input: {
-  runtime: PiSdkRunnerRuntime;
+  runtime: PiRunnerRuntime;
   command: {
     runId: string;
   };
@@ -298,7 +298,7 @@ function emitAssistantMessageUpdate(input: {
 function emitEventWithActivity(
   executionState: PiSdkPromptExecutionState,
   activityType: string,
-  event: PiSdkRunnerEvent,
+  event: PiRunnerEvent,
   timeoutController?: PiSdkTimeoutController
 ): void {
   executionState.lastActivityAt = event.recordedAt;
@@ -385,7 +385,7 @@ function buildFileChangeObservedEvent(input: {
   toolName: string;
   args: unknown;
   result: unknown;
-}): Extract<PiSdkRunnerEvent, { eventType: "file_change_observed" }> | null {
+}): Extract<PiRunnerEvent, { eventType: "file_change_observed" }> | null {
   if (input.toolName !== "edit" && input.toolName !== "write") {
     return null;
   }

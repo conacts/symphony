@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  parsePiSdkRunnerCommand,
-  parsePiSdkRunnerEvent,
-  parsePiSdkRunnerInput,
-  parsePiSdkRunnerTerminalResult,
-  piSdkRunnerFailureClasses
-} from "./sdk-runner-contract.js";
+  parsePiRunnerCommand,
+  parsePiRunnerEvent,
+  parsePiRunnerInput,
+  parsePiRunnerTerminalResult,
+  piRunnerFailureClasses
+} from "./runner-contract.js";
 
-describe("pi sdk runner contract", () => {
+describe("pi runner contract", () => {
   it("parses a valid runner input", () => {
-    const parsed = parsePiSdkRunnerInput({
+    const parsed = parsePiRunnerInput({
       schemaVersion: "1",
       runId: "run-1",
       issue: {
@@ -82,7 +82,7 @@ describe("pi sdk runner contract", () => {
 
   it("rejects malformed runner input", () => {
     expect(() =>
-      parsePiSdkRunnerInput({
+      parsePiRunnerInput({
         schemaVersion: "1",
         runId: "run-1",
         issue: {
@@ -120,7 +120,7 @@ describe("pi sdk runner contract", () => {
   });
 
   it("parses a bootstrap runner command", () => {
-    const parsed = parsePiSdkRunnerCommand({
+    const parsed = parsePiRunnerCommand({
       schemaVersion: "1",
       commandType: "bootstrap",
       input: {
@@ -137,8 +137,8 @@ describe("pi sdk runner contract", () => {
           agentDir: null
         },
         prompt: {
-          title: "Initialize Pi SDK runner",
-          text: "Initialize the Pi SDK runner session."
+          title: "Initialize Pi runner",
+          text: "Initialize the Pi runner session."
         },
         model: {
           id: "xiaomi/mimo-v2-pro",
@@ -171,7 +171,7 @@ describe("pi sdk runner contract", () => {
   });
 
   it("parses a run_turn command", () => {
-    const parsed = parsePiSdkRunnerCommand({
+    const parsed = parsePiRunnerCommand({
       schemaVersion: "1",
       commandType: "run_turn",
       runId: "run-turn-1",
@@ -211,7 +211,7 @@ describe("pi sdk runner contract", () => {
   });
 
   it("parses a completed terminal result", () => {
-    const parsed = parsePiSdkRunnerTerminalResult({
+    const parsed = parsePiRunnerTerminalResult({
       schemaVersion: "1",
       kind: "completed",
       stopReason: "end_turn",
@@ -242,7 +242,7 @@ describe("pi sdk runner contract", () => {
 
   it("rejects an invalid terminal result failure class", () => {
     expect(() =>
-      parsePiSdkRunnerTerminalResult({
+      parsePiRunnerTerminalResult({
         schemaVersion: "1",
         kind: "failed",
         stopReason: null,
@@ -255,12 +255,12 @@ describe("pi sdk runner contract", () => {
         reason: "The run stalled."
       })
     ).toThrow(
-      `failureClass must be one of ${JSON.stringify(piSdkRunnerFailureClasses)}.`
+      `failureClass must be one of ${JSON.stringify(piRunnerFailureClasses)}.`
     );
   });
 
   it("parses a command completion event with full text fields", () => {
-    const parsed = parsePiSdkRunnerEvent({
+    const parsed = parsePiRunnerEvent({
       schemaVersion: "1",
       eventType: "command_completed",
       sequence: 8,
@@ -288,7 +288,7 @@ describe("pi sdk runner contract", () => {
   });
 
   it("parses a terminal result event", () => {
-    const parsed = parsePiSdkRunnerEvent({
+    const parsed = parsePiRunnerEvent({
       schemaVersion: "1",
       eventType: "terminal_result",
       sequence: 14,
@@ -318,7 +318,7 @@ describe("pi sdk runner contract", () => {
   });
 
   it("parses tool heartbeat and tool-timeout events", () => {
-    const heartbeatEvent = parsePiSdkRunnerEvent({
+    const heartbeatEvent = parsePiRunnerEvent({
       schemaVersion: "1",
       eventType: "tool_call_heartbeat",
       sequence: 15,
@@ -332,7 +332,7 @@ describe("pi sdk runner contract", () => {
       heartbeatIntervalMs: 30000,
       timeoutMs: 900000
     });
-    const timeoutEvent = parsePiSdkRunnerEvent({
+    const timeoutEvent = parsePiRunnerEvent({
       schemaVersion: "1",
       eventType: "tool_timeout_triggered",
       sequence: 16,
@@ -363,7 +363,7 @@ describe("pi sdk runner contract", () => {
 
   it("rejects an event with an invalid timestamp", () => {
     expect(() =>
-      parsePiSdkRunnerEvent({
+      parsePiRunnerEvent({
         schemaVersion: "1",
         eventType: "runner_error",
         sequence: 2,

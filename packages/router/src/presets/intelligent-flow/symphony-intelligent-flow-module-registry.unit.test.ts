@@ -13,6 +13,7 @@ describe("Symphony intelligent-flow module registry", () => {
     const registry = createSymphonyIntelligentFlowDefaultModuleRegistry();
 
     expect(registry.listModuleIds()).toEqual([
+      "intake.review",
       "implement.spec",
       "critic.code_review",
       "critic.adversarial_tests",
@@ -20,6 +21,7 @@ describe("Symphony intelligent-flow module registry", () => {
       "blocked.report"
     ]);
     expect(registry.listAvailableModuleIds()).toEqual([
+      "intake.review",
       "implement.spec",
       "critic.code_review",
       "critic.adversarial_tests",
@@ -39,6 +41,7 @@ describe("Symphony intelligent-flow module registry", () => {
       summary: "Implement the requested slice.",
       description: "Produces the change set.",
       executionKind: "agent",
+      executionContractRequirement: "persisted",
       enabledByDefault: true,
       supportedModelProfileIds: ["builder_fast"],
       producesEvidenceIds: ["change_set"],
@@ -65,6 +68,7 @@ describe("Symphony intelligent-flow module registry", () => {
       summary: "Implement the requested slice.",
       description: "Produces the change set.",
       executionKind: "agent",
+      executionContractRequirement: "persisted",
       enabledByDefault: true,
       supportedModelProfileIds: ["builder_fast"],
       producesEvidenceIds: ["change_set"],
@@ -81,6 +85,7 @@ describe("Symphony intelligent-flow module registry", () => {
       summary: "Record the blocked condition.",
       description: "Requires missing evidence to prove validation works.",
       executionKind: "system",
+      executionContractRequirement: "persisted",
       enabledByDefault: true,
       supportedModelProfileIds: [],
       producesEvidenceIds: [],
@@ -119,6 +124,7 @@ describe("Symphony intelligent-flow module registry", () => {
       summary: "Implement the requested slice.",
       description: "Produces the change set.",
       executionKind: "agent",
+      executionContractRequirement: "persisted",
       enabledByDefault: true,
       supportedModelProfileIds: ["builder_fast"],
       producesEvidenceIds: ["change_set"],
@@ -135,6 +141,7 @@ describe("Symphony intelligent-flow module registry", () => {
       summary: "Run browser verification.",
       description: "Produces browser test evidence.",
       executionKind: "agent",
+      executionContractRequirement: "persisted",
       enabledByDefault: true,
       supportedModelProfileIds: ["critic_browser"],
       producesEvidenceIds: ["browser_test_report"],
@@ -156,7 +163,9 @@ describe("Symphony intelligent-flow module registry", () => {
     expect(registry.isModuleRuntimeSupported({ moduleId: "critic.browser_test" })).toBe(
       false
     );
-    expect(registry.listAvailableModuleIds()).toEqual(["implement.spec"]);
+    expect(registry.listAvailableModuleIds()).toEqual([
+      "implement.spec"
+    ]);
     expect(
       registry.listAvailableModuleIds({
         runtimeSupport: {

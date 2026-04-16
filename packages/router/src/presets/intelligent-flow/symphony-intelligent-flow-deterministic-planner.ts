@@ -633,6 +633,7 @@ function toCapabilityPhase(
       return "implementing";
     case "verifying":
       return "verifying";
+    case "intaking":
     case "reporting":
       throw new TypeError(
         `Intelligent-flow planner cannot map ${JSON.stringify(phase)} into a capability execution phase.`

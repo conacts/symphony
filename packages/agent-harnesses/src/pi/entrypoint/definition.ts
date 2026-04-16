@@ -1,11 +1,11 @@
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { Api, AssistantMessage, Model } from "@mariozechner/pi-ai";
 import type {
-  PiSdkRunnerInput,
-  PiSdkRunnerUsage
-} from "../sdk-runner-contract.js";
+  PiRunnerInput,
+  PiRunnerUsage
+} from "../runner-contract.js";
 
-export type PiSdkRunnerSession = {
+export type PiRunnerSession = {
   abort: AgentSession["abort"];
   dispose: AgentSession["dispose"];
   prompt: AgentSession["prompt"];
@@ -15,11 +15,11 @@ export type PiSdkRunnerSession = {
   subscribe: AgentSession["subscribe"];
 };
 
-export type PiSdkRunnerRuntime = {
-  bootstrap: PiSdkRunnerInput;
+export type PiRunnerRuntime = {
+  bootstrap: PiRunnerInput;
   resolvedAgentDir: string;
   model: Model<Api>;
-  session: PiSdkRunnerSession;
+  session: PiRunnerSession;
   sessionId: string;
   threadId: string | null;
 };
@@ -38,7 +38,7 @@ export type PiSdkPromptExecutionState = {
   >;
   finalAssistantMessage: AssistantMessage | null;
   finalAssistantText: string | null;
-  usage: PiSdkRunnerUsage | null;
+  usage: PiRunnerUsage | null;
   providerStopReason: string | null;
   lastActivityAt: string | null;
   lastActivityType: string | null;

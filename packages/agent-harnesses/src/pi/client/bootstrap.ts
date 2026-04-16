@@ -1,22 +1,22 @@
 import { randomUUID } from "node:crypto";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError } from "../../shared/session-types.js";
-import type { PiSdkRunnerProcess } from "../sdk-runner-process.js";
+import type { PiRunnerProcess } from "../runner-process.js";
 import {
-  type PiSdkRunnerCommand,
-  type PiSdkRunnerInput,
-  parsePiSdkRunnerEvent
-} from "../sdk-runner-contract.js";
+  type PiRunnerCommand,
+  type PiRunnerInput,
+  parsePiRunnerEvent
+} from "../runner-contract.js";
 import { resolvePiIssueSelection } from "../model-selection.js";
 
-export function buildPiSdkRunnerBootstrapInput(input: {
+export function buildPiRunnerBootstrapInput(input: {
   issue: SymphonyTrackerIssue;
   runtimeWorkspacePath: string;
   runtimeWorkspaceRoot: string;
   selection: ReturnType<typeof resolvePiIssueSelection>;
   providerId: string | null;
   providerName: string | null;
-}): PiSdkRunnerInput {
+}): PiRunnerInput {
   return {
     schemaVersion: "1",
     runId: `sdk-bootstrap-${input.issue.identifier}-${randomUUID()}`,
@@ -31,8 +31,8 @@ export function buildPiSdkRunnerBootstrapInput(input: {
       agentDir: null
     },
     prompt: {
-      title: "Initialize Pi SDK runner",
-      text: "Initialize the Pi SDK runner session."
+      title: "Initialize Pi runner",
+      text: "Initialize the Pi runner session."
     },
     model: {
       id: input.selection.model,
@@ -53,9 +53,9 @@ export function buildPiSdkRunnerBootstrapInput(input: {
   };
 }
 
-export function buildPiSdkRunnerBootstrapCommand(
-  runnerInput: PiSdkRunnerInput
-): PiSdkRunnerCommand {
+export function buildPiRunnerBootstrapCommand(
+  runnerInput: PiRunnerInput
+): PiRunnerCommand {
   return {
     schemaVersion: "1",
     commandType: "bootstrap",
@@ -63,14 +63,14 @@ export function buildPiSdkRunnerBootstrapCommand(
   };
 }
 
-export function buildPiSdkRunnerRunTurnCommand(input: {
+export function buildPiRunnerRunTurnCommand(input: {
   turnId: string;
   promptTitle: string;
   promptText: string;
   turnTimeoutMs: number;
   stallTimeoutMs: number;
   toolTimeoutMs: number | null;
-}): PiSdkRunnerCommand {
+}): PiRunnerCommand {
   return {
     schemaVersion: "1",
     commandType: "run_turn",
@@ -91,16 +91,16 @@ export function buildPiSdkRunnerRunTurnCommand(input: {
   };
 }
 
-export function parsePiSdkRunnerBootstrapEvent(value: unknown) {
-  return parsePiSdkRunnerEvent(value);
+export function parsePiRunnerBootstrapEvent(value: unknown) {
+  return parsePiRunnerEvent(value);
 }
 
 export async function awaitSessionStartedEvent(input: {
-  process: PiSdkRunnerProcess;
+  process: PiRunnerProcess;
   timeoutMs: number;
 }) {
   const deadline = Date.now() + input.timeoutMs;
-  let lastEvent: ReturnType<typeof parsePiSdkRunnerEvent> | null = null;
+  let lastEvent: ReturnType<typeof parsePiRunnerEvent> | null = null;
 
   while (Date.now() < deadline) {
     const remainingMs = Math.max(1, deadline - Date.now());
@@ -111,7 +111,7 @@ export async function awaitSessionStartedEvent(input: {
       }
       if (event.eventType === "runner_error") {
         throw new HarnessSessionError(
-          "pi_sdk_runner_initialize_failed",
+          "pi_runner_initialize_failed",
           event.reason,
           event
         );
@@ -120,7 +120,7 @@ export async function awaitSessionStartedEvent(input: {
     } catch (error) {
       if (
         error instanceof HarnessSessionError &&
-        error.code === "pi_sdk_runner_timeout" &&
+        error.code === "pi_runner_timeout" &&
         lastEvent !== null
       ) {
         return lastEvent;
@@ -134,8 +134,8 @@ export async function awaitSessionStartedEvent(input: {
   }
 
   throw new HarnessSessionError(
-    "pi_sdk_runner_initialize_timeout",
-    `Timed out waiting for Pi SDK runner startup after ${input.timeoutMs}ms.`,
+    "pi_runner_initialize_timeout",
+    `Timed out waiting for Pi runner startup after ${input.timeoutMs}ms.`,
     {
       transportTimeoutMs: input.timeoutMs,
       diagnostics: input.process.diagnosticsSnapshot()

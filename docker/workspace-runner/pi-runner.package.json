@@ -1,5 +1,5 @@
 {
-  "name": "symphony-pi-sdk-runner",
+  "name": "symphony-pi-runner",
   "private": true,
   "type": "module",
   "dependencies": {

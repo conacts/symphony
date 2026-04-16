@@ -220,7 +220,7 @@ describe("docker runner image", () => {
         result: {
           exitCode: 1,
           stdout:
-            "file:/opt/symphony/pi-sdk-runner/node_modules/tsx/dist/loader.mjs\nfile:/opt/symphony/pi-sdk-runner/src/pi/sdk-runner-entrypoint.ts\n",
+            "file:/opt/symphony/pi-runner/node_modules/tsx/dist/loader.mjs\nfile:/opt/symphony/pi-runner/src/pi/runner-entrypoint.ts\n",
           stderr: ""
         }
       },
@@ -244,7 +244,7 @@ describe("docker runner image", () => {
         commandRunner: runner
       })
     ).rejects.toThrowError(
-      /missing required runner contract entries: file:\/opt\/symphony\/pi-sdk-runner\/node_modules\/tsx\/dist\/loader\.mjs, file:\/opt\/symphony\/pi-sdk-runner\/src\/pi\/sdk-runner-entrypoint\.ts/i
+      /missing required runner contract entries: file:\/opt\/symphony\/pi-runner\/node_modules\/tsx\/dist\/loader\.mjs, file:\/opt\/symphony\/pi-runner\/src\/pi\/runner-entrypoint\.ts/i
     );
   });
 

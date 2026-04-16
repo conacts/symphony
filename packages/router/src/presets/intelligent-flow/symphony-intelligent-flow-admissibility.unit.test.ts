@@ -71,6 +71,35 @@ describe("Symphony intelligent-flow admissibility", () => {
     expect(findRejected(snapshot, "critic.browser_test")).toMatchObject({
       reasonCode: "disabled_by_default"
     });
+    expect(findRejected(snapshot, "intake.review")).toMatchObject({
+      reasonCode: "execution_contract_state_mismatch"
+    });
+  });
+
+  it("admits intake.review before Symphony has derived a persisted execution contract", () => {
+    const snapshot = buildSymphonyIntelligentFlowAdmissibilitySnapshot({
+      lifecycleState: "claimed",
+      moduleRegistry: createSymphonyIntelligentFlowDefaultModuleRegistry(),
+      resolvedPolicy: createResolvedPolicy({
+        requiredCapabilityIds: ["implement.spec"],
+        requiredEvidenceIds: ["change_set"]
+      }),
+      projection: createProjection({
+        phase: "implementing",
+        workEpoch: 0
+      }),
+      executionContractAvailable: false
+    });
+
+    expect(snapshot.admissible).toEqual([
+      expect.objectContaining({
+        moduleId: "intake.review",
+        rank: 0
+      })
+    ]);
+    expect(findRejected(snapshot, "implement.spec")).toMatchObject({
+      reasonCode: "execution_contract_state_mismatch"
+    });
   });
 
   it("builds the verification candidate matrix after implementation evidence exists", () => {

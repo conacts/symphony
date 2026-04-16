@@ -3,7 +3,7 @@ import type {
   HarnessSession
 } from "../shared/session-types.js";
 import type { SymphonyAgentHarnessDefinition } from "../shared/types.js";
-import { PiSdkRunnerClient } from "./sdk-runner-client.js";
+import { PiRunnerClient } from "./runner-client.js";
 
 export type PiRunner = {
   kind: "pi";
@@ -24,7 +24,7 @@ export const piRunnerDefinition = {
     "file_changes"
   ],
   notes: [
-    "Pi transport is wired through the Symphony runtime via the Pi SDK runner.",
+    "Pi transport is wired through the Symphony runtime via the Pi runner.",
     "The harness emits Symphony's canonical thread narrative directly from the SDK-backed runner bridge."
   ]
 } satisfies SymphonyAgentHarnessDefinition;
@@ -32,7 +32,7 @@ export const piRunnerDefinition = {
 export async function startPiRunnerSession(
   input: HarnessLaunchSessionInput
 ): Promise<HarnessSession> {
-  return await PiSdkRunnerClient.startSession(input);
+  return await PiRunnerClient.startSession(input);
 }
 
 export function createPiRunner(): PiRunner {

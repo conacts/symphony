@@ -4,12 +4,12 @@ export * from "./shared/runtime-policy.js";
 export * from "./shared/protocol.js";
 export * from "./shared/workspace-cwd.js";
 export * from "./pi/runner.js";
-export * from "./pi/sdk-runner-contract.js";
+export * from "./pi/runner-contract.js";
 export {
-  buildPiSdkRunnerSpawnSpec,
-  defaultPiSdkRunnerExecutablePath,
+  buildPiRunnerSpawnSpec,
+  defaultPiRunnerExecutablePath,
   listSupportedPiModels,
   piModelLabelPrefix,
   resolvePiIssueModel,
-  resolvePiSdkLaunchSettings,
+  resolvePiLaunchSettings,
 } from "./pi/launch.js";

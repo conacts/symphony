@@ -30,10 +30,10 @@ RUN corepack enable \
 RUN npm install -g "@mariozechner/pi-coding-agent@${PI_VERSION}" "@schpet/linear-cli@${LINEAR_CLI_VERSION}" \
   && npm cache clean --force
 
-ENV SYMPHONY_PI_SDK_RUNNER_ROOT=/opt/symphony/pi-sdk-runner
-WORKDIR ${SYMPHONY_PI_SDK_RUNNER_ROOT}
+ENV SYMPHONY_PI_RUNNER_ROOT=/opt/symphony/pi-runner
+WORKDIR ${SYMPHONY_PI_RUNNER_ROOT}
 
-COPY docker/workspace-runner/pi-sdk-runner.package.json ./package.json
+COPY docker/workspace-runner/pi-runner.package.json ./package.json
 RUN npm install --omit=dev \
   && npm cache clean --force
 

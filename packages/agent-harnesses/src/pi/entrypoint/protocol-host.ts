@@ -3,28 +3,28 @@ import process from "node:process";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import {
-  parsePiSdkRunnerCommand,
-  type PiSdkRunnerCommand
-} from "../sdk-runner-contract.js";
-import { type PiSdkRunnerRuntime } from "./definition.js";
+  parsePiRunnerCommand,
+  type PiRunnerCommand
+} from "../runner-contract.js";
+import { type PiRunnerRuntime } from "./definition.js";
 import {
   emitEvent,
   emitRunnerError,
   emitTerminalFailure,
   nextSequence
 } from "./event-emitter.js";
-import { bootstrapPiSdkRunner } from "./runtime-bootstrap.js";
-import { executePiSdkRunnerTurn } from "./turn-execution.js";
+import { bootstrapPiRunner } from "./runtime-bootstrap.js";
+import { executePiRunnerTurn } from "./turn-execution.js";
 
-export async function runPiSdkRunnerFromStdio(): Promise<void> {
-  let runtime: PiSdkRunnerRuntime | null = null;
+export async function runPiRunnerFromStdio(): Promise<void> {
+  let runtime: PiRunnerRuntime | null = null;
 
   for await (const line of readStdinLines()) {
     if (line.trim() === "") {
       continue;
     }
 
-    let command: PiSdkRunnerCommand;
+    let command: PiRunnerCommand;
     try {
       command = parseCommandLine(line);
     } catch (error) {
@@ -39,7 +39,7 @@ export async function runPiSdkRunnerFromStdio(): Promise<void> {
     switch (command.commandType) {
       case "bootstrap":
         try {
-          runtime = await bootstrapPiSdkRunner(command.input);
+          runtime = await bootstrapPiRunner(command.input);
           emitEvent({
             schemaVersion: "1",
             eventType: "session_started",
@@ -65,12 +65,12 @@ export async function runPiSdkRunnerFromStdio(): Promise<void> {
           emitTerminalFailure({
             runId: command.runId,
             failureClass: "bridge_protocol_failure",
-            reason: "Pi SDK runner must be bootstrapped before run_turn."
+            reason: "Pi runner must be bootstrapped before run_turn."
           });
           break;
         }
 
-        await executePiSdkRunnerTurn(runtime, command);
+        await executePiRunnerTurn(runtime, command);
         break;
       case "shutdown":
         runtime?.session.dispose();
@@ -81,7 +81,7 @@ export async function runPiSdkRunnerFromStdio(): Promise<void> {
   runtime?.session.dispose();
 }
 
-export function isPiSdkRunnerEntrypoint(): boolean {
+export function isPiRunnerEntrypoint(): boolean {
   const currentFilePath = fileURLToPath(import.meta.url);
   const argvPath = process.argv[1];
   if (typeof argvPath !== "string" || argvPath.trim() === "") {
@@ -91,18 +91,18 @@ export function isPiSdkRunnerEntrypoint(): boolean {
   return currentFilePath === resolve(argvPath);
 }
 
-function parseCommandLine(line: string): PiSdkRunnerCommand {
+function parseCommandLine(line: string): PiRunnerCommand {
   let parsed: unknown;
   try {
     parsed = JSON.parse(line);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new TypeError(`Pi SDK runner command must be valid JSON: ${reason}`, {
+    throw new TypeError(`Pi runner command must be valid JSON: ${reason}`, {
       cause: error
     });
   }
 
-  return parsePiSdkRunnerCommand(parsed);
+  return parsePiRunnerCommand(parsed);
 }
 
 async function* readStdinLines(): AsyncGenerator<string> {

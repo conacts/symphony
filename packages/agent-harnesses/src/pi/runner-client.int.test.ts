@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type { HarnessSession } from "../shared/session-types.js";
-import { PiSdkRunnerClient } from "./sdk-runner-client.js";
+import { PiRunnerClient } from "./runner-client.js";
 
 const execFileAsync = promisify(execFile);
 const liveDockerEnabled = process.env.SYMPHONY_LIVE_DOCKER_VERIFY === "1";
@@ -27,7 +27,7 @@ afterEach(async () => {
   );
 });
 
-describeLiveDocker("pi sdk runner client live docker", () => {
+describeLiveDocker("pi runner client live docker", () => {
   it(
     "starts a real Pi SDK session through the stable wrapper executable",
     async () => {
@@ -56,7 +56,7 @@ describeLiveDocker("pi sdk runner client live docker", () => {
 
       let session: HarnessSession | null = null;
       try {
-        session = await PiSdkRunnerClient.startSession({
+        session = await PiRunnerClient.startSession({
           launchTarget: {
             kind: "container",
             hostLaunchPath: workspace.launchPath,
@@ -162,7 +162,7 @@ function createIssue(): SymphonyTrackerIssue {
   return {
     id: "issue-live-1",
     identifier: "SYM-LIVE",
-    title: "Validate live Pi SDK runner wrapper",
+    title: "Validate live Pi runner wrapper",
     description: null,
     priority: null,
     url: null,

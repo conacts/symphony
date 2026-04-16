@@ -38,7 +38,10 @@ import {
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import {
   buildHarnessAgentMessageCompletedUpdate,
+  buildHarnessCommandProgressUpdate,
+  buildHarnessCommandStartedUpdate,
   buildHarnessCommandCompletedUpdate,
+  buildHarnessFailedTurnResult,
   buildImplementationModuleResult,
   buildImplementationModuleResultMessage,
   createTranscriptDrivenFakeHarnessBuilder,
@@ -241,7 +244,7 @@ describe("agent runtime transcript golden paths", () => {
       completionRecordedAt: "2026-04-15T10:10:05.000Z",
       transcript: createTranscriptDrivenFakeHarnessBuilder().throw(
         new HarnessSessionError(
-          "pi_sdk_runner_transport_timeout",
+          "pi_runner_transport_timeout",
           "Timed out waiting for Pi SDK bridge output after 5000ms.",
           {
             kind: "transport_timeout",
@@ -292,6 +295,187 @@ describe("agent runtime transcript golden paths", () => {
         })
       ])
     );
+  });
+
+  it("records tool timeouts as runtime failures and pauses the tracker shell", async () => {
+    harness = await createRuntimeAgentExecutionHarness();
+
+    const prepared = await harness.prepareInitialImplementationRun(
+      "2026-04-15T10:15:00.000Z"
+    );
+
+    const executed = await harness.runTranscript({
+      runId: prepared.runId,
+      issue: prepared.issue,
+      completionRecordedAt: "2026-04-15T10:15:05.000Z",
+      transcript: createTranscriptDrivenFakeHarnessBuilder().resolve(
+        buildHarnessFailedTurnResult({
+          reason: "Command execution exceeded the configured timeout.",
+          failureClass: "tool_timeout",
+          detail: {
+            kind: "terminal_result",
+            result: {
+              finalAssistantMessage: null,
+              moduleResult: null,
+              stopReason: null,
+              providerStopReason: null,
+              lastActivityAt: "2026-04-15T10:15:04.000Z",
+              lastActivityType: "tool_call_heartbeat"
+            },
+            timeoutTrigger: {
+              failureClass: "tool_timeout",
+              thresholdMs: 30_000,
+              callId: "tool-bash-1",
+              toolName: "shell",
+              commandText: "pnpm test",
+              lastActivityAt: "2026-04-15T10:15:04.000Z",
+              lastActivityType: "tool_call_heartbeat"
+            }
+          }
+        })
+      )
+    });
+
+    expect(executed.completion).toEqual(
+      expect.objectContaining({
+        kind: "failure",
+        reason: "Command execution exceeded the configured timeout."
+      })
+    );
+    expect(executed.routeResult.issue.state).toBe("Paused");
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+
+    const signalTypes = await harness.listSignalTypes(prepared.workflowId);
+    expect(signalTypes).toEqual(
+      expect.arrayContaining([
+        "capability.started",
+        "capability.failed",
+        "runtime.completed"
+      ])
+    );
+
+    const runtimeLogs = await harness.listRuntimeLogs();
+    expect(runtimeLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "runtime_timeout_classified",
+          payload: expect.objectContaining({
+            failureClass: "tool_timeout",
+            timeoutClass: "tool_timeout",
+            thresholdMs: 30_000,
+            callId: "tool-bash-1",
+            toolName: "shell",
+            commandText: "pnpm test",
+            lastActivityType: "tool_call_heartbeat"
+          })
+        }),
+        expect.objectContaining({
+          eventType: "runtime_run_paused",
+          payload: expect.objectContaining({
+            completionKind: "failure"
+          })
+        })
+      ])
+    );
+  });
+
+  it("routes heartbeat-backed command progress to Done without timeout classification", async () => {
+    harness = await createRuntimeAgentExecutionHarness();
+
+    const prepared = await harness.prepareInitialImplementationRun(
+      "2026-04-15T10:17:00.000Z"
+    );
+
+    const executed = await harness.runTranscript({
+      runId: prepared.runId,
+      issue: prepared.issue,
+      completionRecordedAt: "2026-04-15T10:17:05.000Z",
+      transcript: createTranscriptDrivenFakeHarnessBuilder()
+        .update(
+          buildHarnessCommandStartedUpdate({
+            id: "command-build-1",
+            command: "pnpm build"
+          })
+        )
+        .update(
+          buildHarnessCommandProgressUpdate({
+            id: "command-build-1",
+            command: "pnpm build",
+            aggregatedOutput: "Build is still running..."
+          })
+        )
+        .update(
+          buildHarnessCommandCompletedUpdate({
+            id: "command-build-1",
+            command: "pnpm build",
+            aggregatedOutput: "Build passed.",
+            exitCode: 0
+          })
+        )
+        .update(
+          buildHarnessAgentMessageCompletedUpdate({
+            text: buildImplementationModuleResultMessage({
+              summary:
+                "Implemented the requested issue behavior after the long-running build completed."
+            })
+          })
+        )
+        .awaitCloseThenThrow(
+          new Error("session closed after terminal result detection")
+        )
+    });
+
+    expect(executed.completion).toEqual(
+      expect.objectContaining({
+        kind: "delivered"
+      })
+    );
+    expect(executed.routeResult).toEqual({
+      issue: expect.objectContaining({
+        id: harness.issue.id,
+        state: "Done"
+      }),
+      continueWithRunMode: null
+    });
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Done");
+    expect(executed.controller.closeRequested).toBe(true);
+
+    const signalTypes = await harness.listSignalTypes(prepared.workflowId);
+    expect(signalTypes).toEqual(
+      expect.arrayContaining([
+        "capability.started",
+        "capability.completed",
+        "runtime.completed"
+      ])
+    );
+    expect(signalTypes).not.toContain("capability.failed");
+
+    const runtimeLogs = await harness.listRuntimeLogs();
+    expect(runtimeLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "runtime_terminal_result_detected",
+          payload: expect.objectContaining({
+            completionKind: "delivered",
+            moduleId: "implement.spec",
+            requestedState: "done"
+          })
+        }),
+        expect.objectContaining({
+          eventType: "runtime_run_completed",
+          payload: expect.objectContaining({
+            outcome: "completed",
+            completionKind: "delivered"
+          })
+        })
+      ])
+    );
+    expect(
+      runtimeLogs.some((entry) => entry.eventType === "runtime_timeout_classified")
+    ).toBe(false);
+    expect(
+      runtimeLogs.some((entry) => entry.eventType === "runtime_run_paused")
+    ).toBe(false);
   });
 
   it("resumes a clarification-requested runtime session with a fresh session and completes the same capability", async () => {

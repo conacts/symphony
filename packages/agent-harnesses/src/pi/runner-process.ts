@@ -12,15 +12,15 @@ import {
   type HarnessLaunchSessionInput,
   type HarnessSessionLogger
 } from "../shared/session-types.js";
-import { buildPiSdkRunnerSpawnSpec } from "./launch.js";
+import { buildPiRunnerSpawnSpec } from "./launch.js";
 import {
-  parsePiSdkRunnerCommand,
-  parsePiSdkRunnerEvent,
-  type PiSdkRunnerCommand,
-  type PiSdkRunnerEvent,
-} from "./sdk-runner-contract.js";
+  parsePiRunnerCommand,
+  parsePiRunnerEvent,
+  type PiRunnerCommand,
+  type PiRunnerEvent,
+} from "./runner-contract.js";
 
-type PiSdkRunnerChildProcess = {
+type PiRunnerChildProcess = {
   stdout: ChildProcessWithoutNullStreams["stdout"];
   stderr: ChildProcessWithoutNullStreams["stderr"];
   stdin: ChildProcessWithoutNullStreams["stdin"];
@@ -28,11 +28,11 @@ type PiSdkRunnerChildProcess = {
   once(
     event: "exit",
     listener: (code: number | null, signal: string | null) => void
-  ): PiSdkRunnerChildProcess;
+  ): PiRunnerChildProcess;
   once(
     event: "error",
     listener: (error: Error) => void
-  ): PiSdkRunnerChildProcess;
+  ): PiRunnerChildProcess;
   pid?: ChildProcessWithoutNullStreams["pid"];
 };
 
@@ -46,20 +46,20 @@ type SpawnSpec = {
   runtimeWorkspaceRoot?: string;
 };
 
-type PiSdkRunnerState = {
-  child: PiSdkRunnerChildProcess;
+type PiRunnerState = {
+  child: PiRunnerChildProcess;
   eventQueue: ReturnType<typeof createRunnerEventQueue>;
   closed: boolean;
   recentStdoutLines: string[];
   recentStderrLines: string[];
 };
 
-export class PiSdkRunnerProcess {
-  readonly #state: PiSdkRunnerState;
+export class PiRunnerProcess {
+  readonly #state: PiRunnerState;
   readonly processId: string | null;
 
   constructor(
-    child: PiSdkRunnerChildProcess,
+    child: PiRunnerChildProcess,
     logger: HarnessSessionLogger
   ) {
     this.#state = {
@@ -79,19 +79,19 @@ export class PiSdkRunnerProcess {
       spawnSpecOverride?: SpawnSpec;
     }
   ): Promise<{
-    process: PiSdkRunnerProcess;
+    process: PiRunnerProcess;
     hostLaunchPath: string;
     runtimeWorkspacePath: string;
     runtimeWorkspaceRoot: string;
   }> {
     if (input.launchTarget.kind !== "container") {
       throw new HarnessSessionError(
-        "pi_sdk_runner_launch_unsupported",
-        "Pi SDK runner currently requires a container-backed launch target."
+        "pi_runner_launch_unsupported",
+        "Pi runner currently requires a container-backed launch target."
       );
     }
 
-    const defaultSpec = buildPiSdkRunnerSpawnSpec({
+    const defaultSpec = buildPiRunnerSpawnSpec({
       launchTarget: input.launchTarget,
       env: input.env,
       hostCommandEnvSource: input.hostCommandEnvSource ?? {}
@@ -102,7 +102,7 @@ export class PiSdkRunnerProcess {
       spawnSpec.hostLaunchPath,
       input.runtimePolicy.workspace.root
     );
-    input.logger.debug("Starting Pi SDK runner process", {
+    input.logger.debug("Starting Pi runner process", {
       command: spawnSpec.command,
       args: spawnSpec.args,
       cwd: hostLaunchPath
@@ -113,7 +113,7 @@ export class PiSdkRunnerProcess {
       env: spawnSpec.env,
       stdio: "pipe"
     });
-    const process = new PiSdkRunnerProcess(child, input.logger);
+    const process = new PiRunnerProcess(child, input.logger);
 
     return {
       process,
@@ -133,18 +133,18 @@ export class PiSdkRunnerProcess {
     this.#state.child.kill("SIGTERM");
   }
 
-  sendCommand(command: PiSdkRunnerCommand): void {
+  sendCommand(command: PiRunnerCommand): void {
     this.#state.child.stdin.write(`${JSON.stringify(command)}\n`);
   }
 
-  async awaitEvent(timeoutMs: number): Promise<PiSdkRunnerEvent> {
+  async awaitEvent(timeoutMs: number): Promise<PiRunnerEvent> {
     const exit = await Effect.runPromiseExit(
       Effect.timeoutFail(Queue.take(this.#state.eventQueue), {
         duration: Duration.millis(timeoutMs),
         onTimeout: () =>
           new HarnessSessionError(
-            "pi_sdk_runner_timeout",
-            `Timed out waiting for Pi SDK runner event after ${timeoutMs}ms.`,
+            "pi_runner_timeout",
+            `Timed out waiting for Pi runner event after ${timeoutMs}ms.`,
             this.diagnosticsSnapshot()
           )
       })
@@ -176,21 +176,21 @@ export class PiSdkRunnerProcess {
     this.#state.child.once("exit", (code, signal) => {
       this.#state.closed = true;
       const reason = signal ? `signal:${signal}` : `code:${code ?? "unknown"}`;
-      const event: PiSdkRunnerEvent = {
+      const event: PiRunnerEvent = {
         schemaVersion: "1",
         eventType: "runner_error",
         sequence: Number.MAX_SAFE_INTEGER,
         recordedAt: new Date().toISOString(),
         runId: "runner-process-exit",
         failureClass: "runtime_crash",
-        reason: `Pi SDK runner process exited (${reason}).`
+        reason: `Pi runner process exited (${reason}).`
       };
       this.enqueueEvent(event);
     });
 
     this.#state.child.once("error", (error) => {
       this.#state.closed = true;
-      const event: PiSdkRunnerEvent = {
+      const event: PiRunnerEvent = {
         schemaVersion: "1",
         eventType: "runner_error",
         sequence: Number.MAX_SAFE_INTEGER - 1,
@@ -223,7 +223,7 @@ export class PiSdkRunnerProcess {
 
     if (stream === "stderr") {
       try {
-        parsePiSdkRunnerCommand(parsed);
+        parsePiRunnerCommand(parsed);
         return;
       } catch {
         // Fall through. The runner writes only events to stdout, but stderr may
@@ -232,17 +232,17 @@ export class PiSdkRunnerProcess {
     }
 
     try {
-      const event = parsePiSdkRunnerEvent(parsed);
+      const event = parsePiRunnerEvent(parsed);
       this.enqueueEvent(event);
     } catch (error) {
-      logger.warn("Ignoring malformed Pi SDK runner event.", {
+      logger.warn("Ignoring malformed Pi runner event.", {
         line,
         error: error instanceof Error ? error.message : String(error)
       });
     }
   }
 
-  private enqueueEvent(event: PiSdkRunnerEvent): void {
+  private enqueueEvent(event: PiRunnerEvent): void {
     Effect.runSync(Queue.offer(this.#state.eventQueue, event));
   }
 
@@ -259,5 +259,5 @@ export class PiSdkRunnerProcess {
 }
 
 function createRunnerEventQueue() {
-  return Effect.runSync(Queue.unbounded<PiSdkRunnerEvent>());
+  return Effect.runSync(Queue.unbounded<PiRunnerEvent>());
 }

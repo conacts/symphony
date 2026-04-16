@@ -187,7 +187,7 @@ describe("Symphony capability operator service", () => {
         summary:
           "Ticket needs more detail before Symphony can derive a valid execution contract.",
         nextAction:
-          'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+          'Update the ticket body to answer the missing question so intake.review can derive the execution contract: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
         questions: [
           {
             id: "done_definition",

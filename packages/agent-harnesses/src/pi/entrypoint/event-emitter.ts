@@ -1,18 +1,18 @@
 import type {
-  PiSdkRunnerEvent,
-  PiSdkRunnerFailureClass,
-  PiSdkRunnerTerminalResult
-} from "../sdk-runner-contract.js";
+  PiRunnerEvent,
+  PiRunnerFailureClass,
+  PiRunnerTerminalResult
+} from "../runner-contract.js";
 
 let sequence = 0;
 
-export function emitEvent(event: PiSdkRunnerEvent): void {
+export function emitEvent(event: PiRunnerEvent): void {
   process.stdout.write(`${JSON.stringify(event)}\n`);
 }
 
 export function emitTerminalResult(input: {
   runId: string;
-  result: PiSdkRunnerTerminalResult;
+  result: PiRunnerTerminalResult;
 }): void {
   emitEvent({
     schemaVersion: "1",
@@ -26,7 +26,7 @@ export function emitTerminalResult(input: {
 
 export function emitTerminalFailure(input: {
   runId: string;
-  failureClass: PiSdkRunnerFailureClass;
+  failureClass: PiRunnerFailureClass;
   reason: string;
 }): void {
   emitTerminalResult({
@@ -48,7 +48,7 @@ export function emitTerminalFailure(input: {
 
 export function emitRunnerError(input: {
   runId: string;
-  failureClass: PiSdkRunnerFailureClass;
+  failureClass: PiRunnerFailureClass;
   reason: string;
 }): void {
   emitEvent({

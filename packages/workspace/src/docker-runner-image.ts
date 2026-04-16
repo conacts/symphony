@@ -33,10 +33,10 @@ export const symphonyDockerWorkspaceRequiredTools = [
   "rg",
   "symphony-pi-runner"
 ] as const;
-const defaultSymphonyPiSdkRunnerRoot = "/opt/symphony/pi-sdk-runner";
+const defaultSymphonyPiRunnerRoot = "/opt/symphony/pi-runner";
 const symphonyDockerWorkspaceRequiredFiles = [
-  `${defaultSymphonyPiSdkRunnerRoot}/node_modules/tsx/dist/loader.mjs`,
-  `${defaultSymphonyPiSdkRunnerRoot}/src/pi/sdk-runner-entrypoint.ts`
+  `${defaultSymphonyPiRunnerRoot}/node_modules/tsx/dist/loader.mjs`,
+  `${defaultSymphonyPiRunnerRoot}/src/pi/runner-entrypoint.ts`
 ] as const;
 // Docker image inspection and in-container tool checks can exceed 15s when the
 // host is already running multiple build/test workers. Keep the default budget

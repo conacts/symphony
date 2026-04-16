@@ -1,15 +1,15 @@
-import type { PiSdkRunnerCommand, PiSdkRunnerEvent } from "../sdk-runner-contract.js";
+import type { PiRunnerCommand, PiRunnerEvent } from "../runner-contract.js";
 import type {
   PiSdkPromptExecutionState,
   PiSdkTimeoutController,
   PiSdkTimeoutFailure,
-  PiSdkRunnerRuntime
+  PiRunnerRuntime
 } from "./definition.js";
 import { emitEvent, nextSequence, stringifyJson } from "./event-emitter.js";
 
 export function createTimeoutController(input: {
-  runtime: PiSdkRunnerRuntime;
-  command: Extract<PiSdkRunnerCommand, { commandType: "run_turn" }>;
+  runtime: PiRunnerRuntime;
+  command: Extract<PiRunnerCommand, { commandType: "run_turn" }>;
   executionState: PiSdkPromptExecutionState;
 }): PiSdkTimeoutController {
   let triggeredFailure: PiSdkTimeoutFailure | null = null;
@@ -56,9 +56,9 @@ export function createTimeoutController(input: {
   const triggerFailure = (
     failureClass: PiSdkTimeoutFailure["failureClass"],
     event:
-      | Extract<PiSdkRunnerEvent, { eventType: "idle_timeout_triggered" }>
-      | Extract<PiSdkRunnerEvent, { eventType: "run_timeout_triggered" }>
-      | Extract<PiSdkRunnerEvent, { eventType: "tool_timeout_triggered" }>,
+      | Extract<PiRunnerEvent, { eventType: "idle_timeout_triggered" }>
+      | Extract<PiRunnerEvent, { eventType: "run_timeout_triggered" }>
+      | Extract<PiRunnerEvent, { eventType: "tool_timeout_triggered" }>,
     reason: string
   ) => {
     if (disposed || triggeredFailure !== null) {
@@ -109,14 +109,14 @@ export function createTimeoutController(input: {
   ) => {
     const thresholdMs = input.command.timeouts.toolTimeoutMs;
     if (thresholdMs === null) {
-      return "Pi SDK runner exceeded the configured tool timeout.";
+      return "Pi runner exceeded the configured tool timeout.";
     }
 
     if (activeTool.toolName === "bash" && activeTool.commandText) {
-      return `Pi SDK runner exceeded the ${thresholdMs}ms tool timeout while waiting for bash command ${JSON.stringify(activeTool.commandText)}.`;
+      return `Pi runner exceeded the ${thresholdMs}ms tool timeout while waiting for bash command ${JSON.stringify(activeTool.commandText)}.`;
     }
 
-    return `Pi SDK runner exceeded the ${thresholdMs}ms tool timeout while waiting for tool ${JSON.stringify(activeTool.toolName)}.`;
+    return `Pi runner exceeded the ${thresholdMs}ms tool timeout while waiting for tool ${JSON.stringify(activeTool.toolName)}.`;
   };
 
   const syncTimeouts = () => {
@@ -243,7 +243,7 @@ export function createTimeoutController(input: {
           lastActivityAt: input.executionState.lastActivityAt,
           lastActivityType: input.executionState.lastActivityType
         },
-        `Pi SDK runner idled for ${modelIdleTimeoutMs}ms without visible activity.`
+        `Pi runner idled for ${modelIdleTimeoutMs}ms without visible activity.`
       );
     }, modelIdleTimeoutMs);
   };
@@ -273,7 +273,7 @@ export function createTimeoutController(input: {
           lastActivityAt: input.executionState.lastActivityAt,
           lastActivityType: input.executionState.lastActivityType
         },
-        `Pi SDK runner exceeded the ${input.command.timeouts.runTimeoutMs}ms turn timeout.`
+        `Pi runner exceeded the ${input.command.timeouts.runTimeoutMs}ms turn timeout.`
       );
     }, input.command.timeouts.runTimeoutMs);
   }

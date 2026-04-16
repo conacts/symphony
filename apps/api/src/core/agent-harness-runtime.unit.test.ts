@@ -179,7 +179,7 @@ describe("agent harness runtime", () => {
         )
         .resolve(
           buildHarnessFailedTurnResult({
-            reason: "Pi SDK runner idled for 30000ms without visible activity.",
+            reason: "Pi runner idled for 30000ms without visible activity.",
             failureClass: "model_idle_timeout",
             detail: {
               kind: "terminal_result",
@@ -561,7 +561,7 @@ describe("agent harness runtime", () => {
     const fakeHarness = createTranscriptDrivenFakeHarnessStartSession({
       transcript: createTranscriptDrivenFakeHarnessBuilder().resolve(
         buildHarnessFailedTurnResult({
-          reason: "Pi SDK runner idled for 30000ms without visible activity.",
+          reason: "Pi runner idled for 30000ms without visible activity.",
           failureClass: "model_idle_timeout",
           detail: {
             kind: "terminal_result",
@@ -629,7 +629,7 @@ describe("agent harness runtime", () => {
 
     await expect(completionPromise).resolves.toEqual({
       kind: "stalled",
-      reason: "Pi SDK runner idled for 30000ms without visible activity."
+      reason: "Pi runner idled for 30000ms without visible activity."
     });
     expect(runtimeLogs.record).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -649,7 +649,7 @@ describe("agent harness runtime", () => {
     {
       failureClass: "run_timeout" as const,
       eventType: "runtime_timeout_classified",
-      reason: "Pi SDK runner exceeded the 30000ms turn timeout.",
+      reason: "Pi runner exceeded the 30000ms turn timeout.",
       detail: {
         kind: "terminal_result" as const,
         result: {
@@ -819,7 +819,7 @@ describe("agent harness runtime", () => {
     const fakeHarness = createTranscriptDrivenFakeHarnessStartSession({
       transcript: createTranscriptDrivenFakeHarnessBuilder().throw(
         new HarnessSessionError(
-          "pi_sdk_runner_transport_timeout",
+          "pi_runner_transport_timeout",
           "Timed out waiting for Pi SDK bridge output after 5000ms.",
           {
             kind: "transport_timeout",

@@ -20,12 +20,14 @@ const symphonyIntelligentFlowLifecycleStates = [
 ] as const;
 
 const symphonyIntelligentFlowModulePhases = [
+  "intaking",
   "implementing",
   "verifying",
   "reporting"
 ] as const;
 
 const symphonyIntelligentFlowModuleIds = [
+  "intake.review",
   "implement.spec",
   "critic.code_review",
   "critic.adversarial_tests",
@@ -49,6 +51,11 @@ const symphonyIntelligentFlowExecutionKinds = [
   "system"
 ] as const;
 
+const symphonyIntelligentFlowExecutionContractRequirements = [
+  "missing",
+  "persisted"
+] as const;
+
 const symphonyIntelligentFlowModuleOutcomeKinds = [
   "completed",
   "changes_requested",
@@ -68,6 +75,7 @@ const symphonyIntelligentFlowAdmissibleReasonCodes = [
 
 const symphonyIntelligentFlowRejectedReasonCodes = [
   "disabled_by_default",
+  "execution_contract_state_mismatch",
   "forbidden_by_policy",
   "unsupported_runtime",
   "pending_clarification",
@@ -96,6 +104,8 @@ export type SymphonyIntelligentFlowRuntimeSupportFlagId =
   (typeof symphonyIntelligentFlowRuntimeSupportFlagIds)[number];
 export type SymphonyIntelligentFlowExecutionKind =
   (typeof symphonyIntelligentFlowExecutionKinds)[number];
+export type SymphonyIntelligentFlowExecutionContractRequirement =
+  (typeof symphonyIntelligentFlowExecutionContractRequirements)[number];
 export type SymphonyIntelligentFlowModuleOutcomeKind =
   (typeof symphonyIntelligentFlowModuleOutcomeKinds)[number];
 export type SymphonyIntelligentFlowAdmissibleReasonCode =
@@ -122,6 +132,9 @@ export const symphonyIntelligentFlowRuntimeSupportFlagIdSchema = z.enum(
 );
 export const symphonyIntelligentFlowExecutionKindSchema = z.enum(
   symphonyIntelligentFlowExecutionKinds
+);
+export const symphonyIntelligentFlowExecutionContractRequirementSchema = z.enum(
+  symphonyIntelligentFlowExecutionContractRequirements
 );
 export const symphonyIntelligentFlowModuleOutcomeKindSchema = z.enum(
   symphonyIntelligentFlowModuleOutcomeKinds
@@ -163,6 +176,8 @@ export const symphonyIntelligentFlowModuleDefinitionSchema = z
     summary: workflowRequiredTextSchema,
     description: workflowRequiredTextSchema,
     executionKind: symphonyIntelligentFlowExecutionKindSchema,
+    executionContractRequirement:
+      symphonyIntelligentFlowExecutionContractRequirementSchema,
     enabledByDefault: z.boolean(),
     supportedModelProfileIds: createUniqueEnumArraySchema(
       [
@@ -492,12 +507,31 @@ export function readSymphonyIntelligentFlowRuntimeSupport(
 
 export const symphonyIntelligentFlowDefaultModuleDefinitions = Object.freeze([
   createSymphonyIntelligentFlowModuleDefinition({
+    id: "intake.review",
+    phase: "intaking",
+    summary: "Review the ticket and derive whether execution can start.",
+    description:
+      "Evaluates freeform ticket detail before execution, persists the execution contract when the ticket is strong enough, and otherwise requests clarification or fails invalid directives.",
+    executionKind: "system",
+    executionContractRequirement: "missing",
+    enabledByDefault: true,
+    supportedModelProfileIds: [],
+    producesEvidenceIds: [],
+    requiresEvidenceIds: [],
+    requiredRuntimeSupportFlags: [],
+    allowedLifecycleStates: ["queued", "claimed", "active"],
+    allowedOutcomeKinds: ["completed", "clarification_requested", "failed"],
+    requiresNoPendingClarification: false,
+    canRunWhenBlocked: false
+  }),
+  createSymphonyIntelligentFlowModuleDefinition({
     id: "implement.spec",
     phase: "implementing",
     summary: "Implement the requested ticket slice.",
     description:
       "Produces the canonical change set for the current work epoch.",
     executionKind: "agent",
+    executionContractRequirement: "persisted",
     enabledByDefault: true,
     supportedModelProfileIds: ["builder_fast", "builder_deep"],
     producesEvidenceIds: ["change_set"],
@@ -522,6 +556,7 @@ export const symphonyIntelligentFlowDefaultModuleDefinitions = Object.freeze([
     description:
       "Produces structured code-review evidence for the current change set.",
     executionKind: "agent",
+    executionContractRequirement: "persisted",
     enabledByDefault: true,
     supportedModelProfileIds: ["critic_strict"],
     producesEvidenceIds: ["code_review_report"],
@@ -546,6 +581,7 @@ export const symphonyIntelligentFlowDefaultModuleDefinitions = Object.freeze([
     description:
       "Produces hostile and edge-case verification evidence for backend-oriented changes.",
     executionKind: "agent",
+    executionContractRequirement: "persisted",
     enabledByDefault: true,
     supportedModelProfileIds: ["critic_adversarial"],
     producesEvidenceIds: ["adversarial_test_report"],
@@ -570,6 +606,7 @@ export const symphonyIntelligentFlowDefaultModuleDefinitions = Object.freeze([
     description:
       "Produces browser evidence once the execution substrate supports it.",
     executionKind: "agent",
+    executionContractRequirement: "persisted",
     enabledByDefault: false,
     supportedModelProfileIds: ["critic_browser"],
     producesEvidenceIds: ["browser_test_report"],
@@ -594,6 +631,7 @@ export const symphonyIntelligentFlowDefaultModuleDefinitions = Object.freeze([
     description:
       "Explains why forward progress cannot continue and moves the workflow into blocked handling.",
     executionKind: "system",
+    executionContractRequirement: "persisted",
     enabledByDefault: true,
     supportedModelProfileIds: [],
     producesEvidenceIds: [],

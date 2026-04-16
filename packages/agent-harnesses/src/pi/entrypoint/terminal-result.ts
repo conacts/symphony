@@ -4,13 +4,13 @@ import type {
   TextContent
 } from "@mariozechner/pi-ai";
 import type {
-  PiSdkRunnerFailureClass,
-  PiSdkRunnerTerminalResult,
-  PiSdkRunnerUsage
-} from "../sdk-runner-contract.js";
+  PiRunnerFailureClass,
+  PiRunnerTerminalResult,
+  PiRunnerUsage
+} from "../runner-contract.js";
 import type {
   PiSdkPromptExecutionState,
-  PiSdkRunnerSession
+  PiRunnerSession
 } from "./definition.js";
 
 export function captureFinalAssistantMessage(
@@ -26,11 +26,11 @@ export function captureFinalAssistantMessage(
 export function buildTerminalResult(input: {
   executionState: PiSdkPromptExecutionState;
   finalAssistantMessage: AssistantMessage | null;
-}): PiSdkRunnerTerminalResult {
+}): PiRunnerTerminalResult {
   if (!input.finalAssistantMessage) {
     return buildFailedTerminalResult({
       failureClass: "terminal_result_missing",
-      reason: "Pi SDK runner finished without a terminal assistant message.",
+      reason: "Pi runner finished without a terminal assistant message.",
       executionState: input.executionState
     });
   }
@@ -64,11 +64,11 @@ export function buildTerminalResult(input: {
 }
 
 export function buildFailedTerminalResult(input: {
-  failureClass: PiSdkRunnerFailureClass;
+  failureClass: PiRunnerFailureClass;
   reason: string;
   executionState: PiSdkPromptExecutionState;
   stopReason?: StopReason | null;
-}): PiSdkRunnerTerminalResult {
+}): PiRunnerTerminalResult {
   return {
     schemaVersion: "1",
     kind: "failed",
@@ -84,7 +84,7 @@ export function buildFailedTerminalResult(input: {
 }
 
 export function findLastAssistantMessage(
-  session: PiSdkRunnerSession
+  session: PiRunnerSession
 ): AssistantMessage | null {
   for (let index = session.state.messages.length - 1; index >= 0; index -= 1) {
     const message = session.state.messages[index];
@@ -124,7 +124,7 @@ function mapStopReason(stopReason: StopReason) {
   }
 }
 
-function toRunnerUsage(usage: AssistantMessage["usage"]): PiSdkRunnerUsage {
+function toRunnerUsage(usage: AssistantMessage["usage"]): PiRunnerUsage {
   return {
     inputTokens: usage.input,
     cachedInputTokens: usage.cacheRead,

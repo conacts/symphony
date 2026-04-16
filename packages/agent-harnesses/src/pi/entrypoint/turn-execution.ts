@@ -1,7 +1,7 @@
-import type { PiSdkRunnerCommand } from "../sdk-runner-contract.js";
+import type { PiRunnerCommand } from "../runner-contract.js";
 import {
   createPromptExecutionState,
-  type PiSdkRunnerRuntime
+  type PiRunnerRuntime
 } from "./definition.js";
 import { emitEvent, emitTerminalResult, nextSequence } from "./event-emitter.js";
 import { emitRuntimeEvent } from "./runtime-event-mapper.js";
@@ -12,9 +12,9 @@ import {
 } from "./terminal-result.js";
 import { createTimeoutController } from "./timeout-controller.js";
 
-export async function executePiSdkRunnerTurn(
-  runtime: PiSdkRunnerRuntime,
-  command: Extract<PiSdkRunnerCommand, { commandType: "run_turn" }>
+export async function executePiRunnerTurn(
+  runtime: PiRunnerRuntime,
+  command: Extract<PiRunnerCommand, { commandType: "run_turn" }>
 ): Promise<void> {
   const promptStartedAt = new Date().toISOString();
   emitEvent({

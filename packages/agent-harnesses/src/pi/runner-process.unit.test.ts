@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
-import { PiSdkRunnerProcess } from "./sdk-runner-process.js";
+import { PiRunnerProcess } from "./runner-process.js";
 
 function createLogger() {
   return {
@@ -17,7 +17,7 @@ function createFakeChildProcess() {
   const stderr = new PassThrough();
   const stdin = new PassThrough();
   const kill = vi.fn();
-  const child: ConstructorParameters<typeof PiSdkRunnerProcess>[0] = {
+  const child: ConstructorParameters<typeof PiRunnerProcess>[0] = {
     stdout,
     stderr,
     stdin,
@@ -44,11 +44,11 @@ function createFakeChildProcess() {
   };
 }
 
-describe("pi sdk runner process", () => {
+describe("pi runner process", () => {
   it("buffers parsed events emitted before awaitEvent is called", async () => {
     const logger = createLogger();
     const fakeChild = createFakeChildProcess();
-    const process = new PiSdkRunnerProcess(fakeChild.child, logger);
+    const process = new PiRunnerProcess(fakeChild.child, logger);
 
     fakeChild.stdout.write(
       `${JSON.stringify({
@@ -76,7 +76,7 @@ describe("pi sdk runner process", () => {
   it("converts child exits into queued runner_error events", async () => {
     const logger = createLogger();
     const fakeChild = createFakeChildProcess();
-    const process = new PiSdkRunnerProcess(fakeChild.child, logger);
+    const process = new PiRunnerProcess(fakeChild.child, logger);
 
     fakeChild.emitExit(9);
 
@@ -85,20 +85,20 @@ describe("pi sdk runner process", () => {
     expect(event).toMatchObject({
       eventType: "runner_error",
       failureClass: "runtime_crash",
-      reason: "Pi SDK runner process exited (code:9)."
+      reason: "Pi runner process exited (code:9)."
     });
   });
 
   it("times out with recent diagnostics when no event arrives", async () => {
     const logger = createLogger();
     const fakeChild = createFakeChildProcess();
-    const process = new PiSdkRunnerProcess(fakeChild.child, logger);
+    const process = new PiRunnerProcess(fakeChild.child, logger);
 
     fakeChild.stderr.write("fatal: bridge stayed silent\n");
 
     await expect(process.awaitEvent(10)).rejects.toMatchObject({
       name: "HarnessSessionError",
-      code: "pi_sdk_runner_timeout",
+      code: "pi_runner_timeout",
       detail: expect.objectContaining({
         processId: "4321",
         recentStderrLines: ["fatal: bridge stayed silent"]

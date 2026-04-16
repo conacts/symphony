@@ -12,8 +12,8 @@ import {
 describe("Symphony intelligent-flow contract", () => {
   it("parses the frozen lifecycle shell and module ids", () => {
     expect(parseSymphonyIntelligentFlowLifecycleState("active")).toBe("active");
-    expect(parseSymphonyIntelligentFlowModuleId("critic.code_review")).toBe(
-      "critic.code_review"
+    expect(parseSymphonyIntelligentFlowModuleId("intake.review")).toBe(
+      "intake.review"
     );
   });
 
@@ -24,6 +24,7 @@ describe("Symphony intelligent-flow contract", () => {
       summary: "Implement the requested slice.",
       description: "Produces the canonical change set for the workflow.",
       executionKind: "agent",
+      executionContractRequirement: "persisted",
       enabledByDefault: true,
       supportedModelProfileIds: ["builder_fast"],
       producesEvidenceIds: ["change_set"],
@@ -59,6 +60,7 @@ describe("Symphony intelligent-flow contract", () => {
         summary: "Broken module",
         description: "Agent module with no model profile.",
         executionKind: "agent",
+        executionContractRequirement: "persisted",
         enabledByDefault: true,
         supportedModelProfileIds: [],
         producesEvidenceIds: ["change_set"],
@@ -80,6 +82,7 @@ describe("Symphony intelligent-flow contract", () => {
         summary: "Broken reporting module",
         description: "System module must not declare model profiles.",
         executionKind: "system",
+        executionContractRequirement: "persisted",
         enabledByDefault: true,
         supportedModelProfileIds: ["critic_strict"],
         producesEvidenceIds: [],
@@ -101,6 +104,7 @@ describe("Symphony intelligent-flow contract", () => {
         summary: "Broken review module",
         description: "Contradictory blocked settings should fail.",
         executionKind: "agent",
+        executionContractRequirement: "persisted",
         enabledByDefault: true,
         supportedModelProfileIds: ["critic_strict"],
         producesEvidenceIds: ["code_review_report"],

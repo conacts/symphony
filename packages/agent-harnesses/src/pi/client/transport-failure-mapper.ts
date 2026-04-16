@@ -1,19 +1,19 @@
 import { HarnessSessionError, type HarnessRuntimeUpdate } from "../../shared/session-types.js";
-import type { PiSdkRunnerProcess } from "../sdk-runner-process.js";
+import type { PiRunnerProcess } from "../runner-process.js";
 import { emitTurnFailed } from "../internal/stream-events.js";
 
-export async function mapPiSdkRunnerAwaitEventFailure(input: {
+export async function mapPiRunnerAwaitEventFailure(input: {
   error: unknown;
-  process: PiSdkRunnerProcess;
+  process: PiRunnerProcess;
   readTimeoutMs: number;
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
 }): Promise<HarnessSessionError | null> {
   if (
     input.error instanceof HarnessSessionError &&
-    input.error.code === "pi_sdk_runner_timeout"
+    input.error.code === "pi_runner_timeout"
   ) {
     const timeoutError = new HarnessSessionError(
-      "pi_sdk_runner_transport_timeout",
+      "pi_runner_transport_timeout",
       `Timed out waiting for Pi SDK bridge output after ${input.readTimeoutMs}ms.`,
       {
         kind: "transport_timeout",

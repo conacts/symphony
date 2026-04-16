@@ -11,12 +11,12 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import { normalizePiThinkingLevel } from "../model-selection.js";
-import type { PiSdkRunnerInput } from "../sdk-runner-contract.js";
-import type { PiSdkRunnerRuntime } from "./definition.js";
+import type { PiRunnerInput } from "../runner-contract.js";
+import type { PiRunnerRuntime } from "./definition.js";
 
-export async function bootstrapPiSdkRunner(
-  input: PiSdkRunnerInput
-): Promise<PiSdkRunnerRuntime> {
+export async function bootstrapPiRunner(
+  input: PiRunnerInput
+): Promise<PiRunnerRuntime> {
   const resolvedAgentDir = resolveAgentDir(input.workspace.agentDir);
   const authStorage = AuthStorage.create(
     resolve(resolvedAgentDir, "auth.json")
@@ -70,14 +70,14 @@ export async function bootstrapPiSdkRunner(
 function resolveAgentDir(agentDir: string | null): string {
   const resolvedAgentDir = (agentDir ?? getAgentDir()).trim();
   if (resolvedAgentDir === "") {
-    throw new TypeError("Pi SDK runner requires a non-empty agent directory.");
+    throw new TypeError("Pi runner requires a non-empty agent directory.");
   }
 
   return resolvedAgentDir;
 }
 
 function resolveRunnerModel(
-  input: PiSdkRunnerInput,
+  input: PiRunnerInput,
   modelRegistry: ModelRegistry
 ): Model<Api> {
   if (input.model.providerId) {
@@ -99,14 +99,14 @@ function resolveRunnerModel(
 
   if (exactMatches.length > 1) {
     throw new TypeError(
-      `Pi SDK runner model ${JSON.stringify(
+      `Pi runner model ${JSON.stringify(
         input.model.id
       )} is ambiguous without an explicit provider id.`
     );
   }
 
   throw new TypeError(
-    `Pi SDK runner could not resolve model ${JSON.stringify(
+    `Pi runner could not resolve model ${JSON.stringify(
       input.model.id
     )}.`
   );

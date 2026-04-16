@@ -1,5 +1,5 @@
 import type { HarnessRuntimeUpdate } from "../../shared/session-types.js";
-import type { PiSdkRunnerEvent } from "../sdk-runner-contract.js";
+import type { PiRunnerEvent } from "../runner-contract.js";
 import type { PiSdkThreadItemState } from "./stream-events.js";
 import {
   consumePiToolCallArguments,
@@ -12,7 +12,7 @@ type PiSdkToolExecutionState = Pick<PiSdkThreadItemState, "toolCallArguments">;
 export async function emitToolCallStarted(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkToolExecutionState,
-  event: Extract<PiSdkRunnerEvent, { eventType: "tool_call_started" }>
+  event: Extract<PiRunnerEvent, { eventType: "tool_call_started" }>
 ): Promise<void> {
   if (event.toolName === "bash") {
     return;
@@ -43,7 +43,7 @@ export async function emitToolCallStarted(
 export async function emitToolCallCompleted(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkToolExecutionState,
-  event: Extract<PiSdkRunnerEvent, { eventType: "tool_call_completed" }>
+  event: Extract<PiRunnerEvent, { eventType: "tool_call_completed" }>
 ): Promise<void> {
   if (event.toolName === "bash") {
     return;
@@ -83,7 +83,7 @@ export async function emitToolCallCompleted(
 export async function emitToolCallHeartbeat(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkToolExecutionState,
-  event: Extract<PiSdkRunnerEvent, { eventType: "tool_call_heartbeat" }>
+  event: Extract<PiRunnerEvent, { eventType: "tool_call_heartbeat" }>
 ): Promise<void> {
   if (event.toolName === "bash") {
     await onMessage({
@@ -125,7 +125,7 @@ export async function emitToolCallHeartbeat(
 export async function emitToolCallFailed(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkToolExecutionState,
-  event: Extract<PiSdkRunnerEvent, { eventType: "tool_call_failed" }>
+  event: Extract<PiRunnerEvent, { eventType: "tool_call_failed" }>
 ): Promise<void> {
   if (event.toolName === "bash") {
     return;
@@ -167,7 +167,7 @@ export async function emitToolCallFailed(
 
 export async function emitCommandStarted(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
-  event: Extract<PiSdkRunnerEvent, { eventType: "command_started" }>
+  event: Extract<PiRunnerEvent, { eventType: "command_started" }>
 ): Promise<void> {
   await onMessage({
     event: {
@@ -186,7 +186,7 @@ export async function emitCommandStarted(
 
 export async function emitCommandCompleted(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
-  event: Extract<PiSdkRunnerEvent, { eventType: "command_completed" }>
+  event: Extract<PiRunnerEvent, { eventType: "command_completed" }>
 ): Promise<void> {
   await onMessage({
     event: {
@@ -206,7 +206,7 @@ export async function emitCommandCompleted(
 
 export async function emitCommandFailed(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
-  event: Extract<PiSdkRunnerEvent, { eventType: "command_failed" }>
+  event: Extract<PiRunnerEvent, { eventType: "command_failed" }>
 ): Promise<void> {
   await onMessage({
     event: {
@@ -227,7 +227,7 @@ export async function emitCommandFailed(
 
 export async function emitFileChangeObserved(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
-  event: Extract<PiSdkRunnerEvent, { eventType: "file_change_observed" }>
+  event: Extract<PiRunnerEvent, { eventType: "file_change_observed" }>
 ): Promise<void> {
   await onMessage({
     event: {
@@ -259,7 +259,7 @@ function joinPiCommandOutput(
 
 function mapPiFileChangeKind(
   changeType: Extract<
-    PiSdkRunnerEvent,
+    PiRunnerEvent,
     { eventType: "file_change_observed" }
   >["changeType"]
 ): "add" | "delete" | "update" {

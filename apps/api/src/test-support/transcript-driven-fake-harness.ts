@@ -244,6 +244,48 @@ export function buildHarnessAgentMessageCompletedUpdate(input: {
   });
 }
 
+export function buildHarnessCommandStartedUpdate(input: {
+  command: string;
+  aggregatedOutput?: string;
+  id?: string;
+  rawPayload?: unknown;
+}): HarnessRuntimeUpdate {
+  return buildHarnessRuntimeUpdate({
+    event: {
+      type: "item.started",
+      item: {
+        id: input.id ?? "command-1",
+        type: "command_execution",
+        command: input.command,
+        aggregated_output: input.aggregatedOutput ?? "",
+        status: "in_progress"
+      }
+    },
+    rawPayload: input.rawPayload
+  });
+}
+
+export function buildHarnessCommandProgressUpdate(input: {
+  command: string;
+  aggregatedOutput?: string;
+  id?: string;
+  rawPayload?: unknown;
+}): HarnessRuntimeUpdate {
+  return buildHarnessRuntimeUpdate({
+    event: {
+      type: "item.updated",
+      item: {
+        id: input.id ?? "command-1",
+        type: "command_execution",
+        command: input.command,
+        aggregated_output: input.aggregatedOutput ?? "",
+        status: "in_progress"
+      }
+    },
+    rawPayload: input.rawPayload
+  });
+}
+
 export function buildHarnessCommandCompletedUpdate(input: {
   command: string;
   aggregatedOutput?: string;

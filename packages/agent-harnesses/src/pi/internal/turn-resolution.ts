@@ -10,7 +10,7 @@ import {
   emitTurnFailed,
   finalizeTerminalResult,
   markAssistantMessage,
-  type PiSdkRunnerTimeoutTriggerEvent,
+  type PiRunnerTimeoutTriggerEvent,
   type PiSdkThreadItemState
 } from "./stream-events.js";
 import {
@@ -23,12 +23,12 @@ import {
   emitToolCallHeartbeat,
   emitToolCallStarted
 } from "./tool-execution.js";
-import type { PiSdkRunnerEvent } from "../sdk-runner-contract.js";
+import type { PiRunnerEvent } from "../runner-contract.js";
 
-export type PiSdkRunnerEventResolution =
+export type PiRunnerEventResolution =
   | {
       kind: "continue";
-      timeoutTriggerEvent: PiSdkRunnerTimeoutTriggerEvent | null;
+      timeoutTriggerEvent: PiRunnerTimeoutTriggerEvent | null;
     }
   | {
       kind: "return";
@@ -39,15 +39,15 @@ export type PiSdkRunnerEventResolution =
       error: HarnessSessionError;
     };
 
-export async function resolvePiSdkRunnerTurnEvent(input: {
-  event: PiSdkRunnerEvent;
+export async function resolvePiRunnerTurnEvent(input: {
+  event: PiRunnerEvent;
   session: HarnessSession;
   turnId: string;
   threadState: PiSdkThreadItemState;
-  timeoutTriggerEvent: PiSdkRunnerTimeoutTriggerEvent | null;
+  timeoutTriggerEvent: PiRunnerTimeoutTriggerEvent | null;
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
   diagnosticsSnapshot(): Record<string, unknown>;
-}): Promise<PiSdkRunnerEventResolution> {
+}): Promise<PiRunnerEventResolution> {
   switch (input.event.eventType) {
     case "prompt_started":
       await input.onMessage({
@@ -166,7 +166,7 @@ export async function resolvePiSdkRunnerTurnEvent(input: {
       return {
         kind: "throw",
         error: new HarnessSessionError(
-          "pi_sdk_runner_failed",
+          "pi_runner_failed",
           input.event.reason,
           {
             kind: "runner_error",

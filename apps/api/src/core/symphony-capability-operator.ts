@@ -313,11 +313,11 @@ function buildContractIntakeClarificationNextAction(
   }>
 ): string {
   if (questions.length === 0) {
-    return "Update the ticket body with the missing implementation detail, then move the issue back to Todo to requeue.";
+    return "Update the ticket body with the missing implementation detail so intake.review can derive the execution contract, then move the issue back to Todo to requeue.";
   }
 
   const prompts = questions.map((question) => `"${question.prompt}"`).join(" ");
-  return `Update the ticket body to answer the missing question${questions.length === 1 ? "" : "s"}: ${prompts} Then move the issue back to Todo to requeue.`;
+  return `Update the ticket body to answer the missing question${questions.length === 1 ? "" : "s"} so intake.review can derive the execution contract: ${prompts} Then move the issue back to Todo to requeue.`;
 }
 
 function buildClarificationAnswerPath(issueIdentifier: string): string {

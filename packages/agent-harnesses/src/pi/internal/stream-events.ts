@@ -10,7 +10,7 @@ import {
 import {
   parseSymphonyImplementationModuleResultMessage
 } from "@symphony/runtime-contract";
-import type { PiSdkRunnerEvent } from "../sdk-runner-contract.js";
+import type { PiRunnerEvent } from "../runner-contract.js";
 
 export type PiSdkThreadItemState = {
   agentMessages: Map<string, string>;
@@ -19,8 +19,8 @@ export type PiSdkThreadItemState = {
   toolCallArguments: Map<string, unknown>;
 };
 
-export type PiSdkRunnerTimeoutTriggerEvent = Extract<
-  PiSdkRunnerEvent,
+export type PiRunnerTimeoutTriggerEvent = Extract<
+  PiRunnerEvent,
   {
     eventType:
       | "idle_timeout_triggered"
@@ -39,7 +39,7 @@ export function createThreadItemState(): PiSdkThreadItemState {
 }
 
 export function markAssistantMessage(
-  event: Extract<PiSdkRunnerEvent, { eventType: "assistant_message_started" }>,
+  event: Extract<PiRunnerEvent, { eventType: "assistant_message_started" }>,
   state: PiSdkThreadItemState
 ): void {
   state.seenAssistantMessages.add(event.messageId);
@@ -48,7 +48,7 @@ export function markAssistantMessage(
 export async function emitAssistantTextDelta(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkThreadItemState,
-  event: Extract<PiSdkRunnerEvent, { eventType: "assistant_text_delta" }>
+  event: Extract<PiRunnerEvent, { eventType: "assistant_text_delta" }>
 ): Promise<void> {
   const previous = state.agentMessages.get(event.messageId) ?? "";
 
@@ -83,7 +83,7 @@ export async function emitAssistantTextDelta(
 export async function emitAssistantReasoningDelta(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkThreadItemState,
-  event: Extract<PiSdkRunnerEvent, { eventType: "assistant_reasoning_delta" }>
+  event: Extract<PiRunnerEvent, { eventType: "assistant_reasoning_delta" }>
 ): Promise<void> {
   const reasoningId = `${event.messageId}:reasoning`;
   const previous = state.reasoningMessages.get(reasoningId) ?? "";
@@ -134,7 +134,7 @@ export async function emitTurnFailed(
 
 export function resolveFinalAssistantMessageId(
   state: PiSdkThreadItemState,
-  resultEvent: Extract<PiSdkRunnerEvent, { eventType: "terminal_result" }>
+  resultEvent: Extract<PiRunnerEvent, { eventType: "terminal_result" }>
 ): string {
   const lastSeenMessageId = [...state.seenAssistantMessages].at(-1);
   return lastSeenMessageId ?? `${resultEvent.runId}:assistant`;
@@ -144,8 +144,8 @@ export async function finalizeTerminalResult(input: {
   session: HarnessSession;
   turnId: string;
   threadState: PiSdkThreadItemState;
-  resultEvent: Extract<PiSdkRunnerEvent, { eventType: "terminal_result" }>;
-  timeoutTriggerEvent: PiSdkRunnerTimeoutTriggerEvent | null;
+  resultEvent: Extract<PiRunnerEvent, { eventType: "terminal_result" }>;
+  timeoutTriggerEvent: PiRunnerTimeoutTriggerEvent | null;
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
 }): Promise<HarnessTurnResult> {
   const usage = toHarnessUsage(input.resultEvent.result.usage);
@@ -223,8 +223,8 @@ export async function finalizeTerminalResult(input: {
   }
 
   throw new HarnessSessionError(
-    "pi_sdk_runner_failed",
-    "Pi SDK runner returned an unsupported terminal result.",
+    "pi_runner_failed",
+    "Pi runner returned an unsupported terminal result.",
     input.resultEvent.result
   );
 }
@@ -232,7 +232,7 @@ export async function finalizeTerminalResult(input: {
 async function emitCompletedAssistantItems(
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void,
   state: PiSdkThreadItemState,
-  resultEvent: Extract<PiSdkRunnerEvent, { eventType: "terminal_result" }>
+  resultEvent: Extract<PiRunnerEvent, { eventType: "terminal_result" }>
 ): Promise<void> {
   const completedAgentMessages =
     state.agentMessages.size > 0
@@ -279,7 +279,7 @@ async function emitCompletedAssistantItems(
 
 function toHarnessUsage(
   usage: Extract<
-    PiSdkRunnerEvent,
+    PiRunnerEvent,
     { eventType: "terminal_result" }
   >["result"]["usage"]
 ): HarnessTurnResult["usage"] {
@@ -296,7 +296,7 @@ function toHarnessUsage(
 
 function buildFailedTurnDetail(input: {
   result: HarnessTerminalTurnMetadata;
-  timeoutTriggerEvent: PiSdkRunnerTimeoutTriggerEvent | null;
+  timeoutTriggerEvent: PiRunnerTimeoutTriggerEvent | null;
 }) {
   return {
     kind: "terminal_result" as const,
@@ -306,7 +306,7 @@ function buildFailedTurnDetail(input: {
 }
 
 function buildTerminalTurnMetadata(
-  result: Extract<PiSdkRunnerEvent, { eventType: "terminal_result" }>["result"]
+  result: Extract<PiRunnerEvent, { eventType: "terminal_result" }>["result"]
 ): HarnessTerminalTurnMetadata {
   const parsed = parseSymphonyImplementationModuleResultMessage({
     messageText: result.finalAssistantMessage
@@ -323,7 +323,7 @@ function buildTerminalTurnMetadata(
 }
 
 function buildTimeoutTriggerDetail(
-  event: PiSdkRunnerTimeoutTriggerEvent | null
+  event: PiRunnerTimeoutTriggerEvent | null
 ): HarnessTimeoutTriggerDetail | null {
   if (!event) {
     return null;

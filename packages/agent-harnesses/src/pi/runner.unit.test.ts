@@ -5,8 +5,8 @@ const { startSessionMock } = vi.hoisted(() => ({
   startSessionMock: vi.fn()
 }));
 
-vi.mock("./sdk-runner-client.js", () => ({
-  PiSdkRunnerClient: {
+vi.mock("./runner-client.js", () => ({
+  PiRunnerClient: {
     startSession: startSessionMock
   }
 }));
@@ -26,7 +26,7 @@ describe("pi runner", () => {
     });
   });
 
-  it("routes session startup through the Pi SDK runner client", async () => {
+  it("routes session startup through the Pi runner client", async () => {
     const session = {
       client: {} as never,
       threadId: "thread-1",

@@ -21,6 +21,7 @@ import type {
   WorkflowResolvedRoutingPolicy
 } from "../../types/index.js";
 
+const INTAKE_REVIEW_MODULE_ID = "intake.review";
 const IMPLEMENT_SPEC_MODULE_ID = "implement.spec";
 const CODE_REVIEW_MODULE_ID = "critic.code_review";
 const ADVERSARIAL_TESTS_MODULE_ID = "critic.adversarial_tests";
@@ -57,7 +58,8 @@ const admissibleReasonPriority: Record<
 };
 
 const modulePriority: Record<SymphonyIntelligentFlowModuleId, number> = {
-  [BLOCKED_REPORT_MODULE_ID]: 0,
+  [INTAKE_REVIEW_MODULE_ID]: 0,
+  [BLOCKED_REPORT_MODULE_ID]: 5,
   [IMPLEMENT_SPEC_MODULE_ID]: 10,
   [CODE_REVIEW_MODULE_ID]: 20,
   [ADVERSARIAL_TESTS_MODULE_ID]: 30,
@@ -101,6 +103,7 @@ export function buildSymphonyIntelligentFlowAdmissibilitySnapshot(input: {
   resolvedPolicy: SymphonyIntelligentFlowResolvedRoutingPolicy;
   projection: SymphonyIntelligentFlowCapabilityProjection;
   moduleRegistry: SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>;
+  executionContractAvailable?: boolean;
   moduleAttempts?: ReadonlyArray<SymphonyIntelligentFlowModuleAttempt> | null;
 }): SymphonyIntelligentFlowAdmissibilitySnapshot {
   const currentEvidenceIds = resolveCurrentEvidenceIds(input.projection);
@@ -122,6 +125,7 @@ export function buildSymphonyIntelligentFlowAdmissibilitySnapshot(input: {
       currentEvidenceIds,
       missingRequiredEvidenceIds,
       latestAttemptsByModuleId,
+      executionContractAvailable: input.executionContractAvailable ?? true,
       moduleRegistry: input.moduleRegistry
     });
 
@@ -187,6 +191,7 @@ function evaluateModuleAdmissibility(input: {
     SymphonyIntelligentFlowModuleId,
     SymphonyIntelligentFlowModuleAttempt
   >;
+  executionContractAvailable: boolean;
   moduleRegistry: SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>;
 }): ModuleAdmissibilityEvaluation {
   const latestAttempt = input.latestAttemptsByModuleId.get(input.definition.id) ?? null;
@@ -195,6 +200,18 @@ function evaluateModuleAdmissibility(input: {
     return reject(
       "disabled_by_default",
       `${input.definition.id} is disabled by default.`
+    );
+  }
+
+  if (
+    (input.definition.executionContractRequirement === "missing") !==
+    !input.executionContractAvailable
+  ) {
+    return reject(
+      "execution_contract_state_mismatch",
+      input.executionContractAvailable
+        ? `${input.definition.id} only applies before Symphony has derived a persisted execution contract.`
+        : `${input.definition.id} requires a persisted execution contract before it can run.`
     );
   }
 
@@ -298,6 +315,11 @@ function evaluateModuleAdmissibility(input: {
   }
 
   switch (input.definition.id) {
+    case INTAKE_REVIEW_MODULE_ID:
+      return admit(
+        "required_by_contract",
+        `${INTAKE_REVIEW_MODULE_ID} must derive whether Symphony can persist an execution contract before any capability work can begin.`
+      );
     case IMPLEMENT_SPEC_MODULE_ID:
       return evaluateImplementationModule({
         latestAttempt,
@@ -322,6 +344,11 @@ function evaluateModuleAdmissibility(input: {
         lifecycleState: input.lifecycleState,
         projection: input.projection
       });
+    default:
+      return reject(
+        "blocked_by_lifecycle",
+        `${input.definition.id} is not recognized by the intelligent-flow admissibility evaluator.`
+      );
   }
 }
 

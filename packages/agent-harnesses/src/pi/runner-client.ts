@@ -7,15 +7,15 @@ import {
 } from "../shared/session-types.js";
 import { resolveHarnessModelRuntimePolicy } from "../shared/runtime-policy.js";
 import { resolvePiIssueSelection } from "./model-selection.js";
-import { PiSdkRunnerProcess } from "./sdk-runner-process.js";
+import { PiRunnerProcess } from "./runner-process.js";
 import {
   awaitSessionStartedEvent,
-  buildPiSdkRunnerBootstrapCommand,
-  buildPiSdkRunnerBootstrapInput,
-  parsePiSdkRunnerBootstrapEvent
+  buildPiRunnerBootstrapCommand,
+  buildPiRunnerBootstrapInput,
+  parsePiRunnerBootstrapEvent
 } from "./client/bootstrap.js";
-import { runPiSdkRunnerTurnLoop } from "./internal/run-loop.js";
-import { preparePiSdkRunnerTurn } from "./internal/turn-preparation.js";
+import { runPiRunnerTurnLoop } from "./internal/run-loop.js";
+import { preparePiRunnerTurn } from "./internal/turn-preparation.js";
 
 type SpawnSpecOverride = {
   command: string;
@@ -27,8 +27,8 @@ type SpawnSpecOverride = {
   runtimeWorkspaceRoot?: string;
 };
 
-export class PiSdkRunnerClient implements HarnessSessionClient {
-  readonly #process: PiSdkRunnerProcess;
+export class PiRunnerClient implements HarnessSessionClient {
+  readonly #process: PiRunnerProcess;
   readonly #readTimeoutMs: number;
   readonly #stallTimeoutMs: number;
   readonly #toolTimeoutMs: number | null;
@@ -36,7 +36,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
   #turnSequence = 0;
 
   constructor(input: {
-    process: PiSdkRunnerProcess;
+    process: PiRunnerProcess;
     readTimeoutMs: number;
     stallTimeoutMs: number;
     toolTimeoutMs: number | null;
@@ -60,10 +60,10 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
       defaultPreset: modelPolicy.defaultPreset,
       presets: modelPolicy.presets
     });
-    const started = await PiSdkRunnerProcess.start(input, {
+    const started = await PiRunnerProcess.start(input, {
       spawnSpecOverride: options?.spawnSpecOverride
     });
-    const client = new PiSdkRunnerClient({
+    const client = new PiRunnerClient({
       process: started.process,
       readTimeoutMs: input.runtimePolicy.pi.readTimeoutMs,
       stallTimeoutMs: input.runtimePolicy.pi.stallTimeoutMs,
@@ -71,7 +71,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
     });
 
     try {
-      const runnerInput = buildPiSdkRunnerBootstrapInput({
+      const runnerInput = buildPiRunnerBootstrapInput({
         issue: input.issue,
         runtimeWorkspacePath: started.runtimeWorkspacePath,
         runtimeWorkspaceRoot: started.runtimeWorkspaceRoot,
@@ -86,7 +86,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
             : null
       });
       started.process.sendCommand(
-        buildPiSdkRunnerBootstrapCommand(runnerInput)
+        buildPiRunnerBootstrapCommand(runnerInput)
       );
 
       const firstEvent = await awaitSessionStartedEvent({
@@ -96,8 +96,8 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
 
       if (firstEvent.eventType !== "session_started") {
         throw new HarnessSessionError(
-          "pi_sdk_runner_initialize_failed",
-          `Expected the Pi SDK runner to emit session_started first, received ${firstEvent.eventType}.`,
+          "pi_runner_initialize_failed",
+          `Expected the Pi runner to emit session_started first, received ${firstEvent.eventType}.`,
           firstEvent
         );
       }
@@ -141,7 +141,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
     input: Parameters<HarnessSessionClient["runTurn"]>[1]
   ): Promise<HarnessTurnResult> {
     this.#turnSequence += 1;
-    const preparedTurn = preparePiSdkRunnerTurn({
+    const preparedTurn = preparePiRunnerTurn({
       turnSequence: this.#turnSequence,
       promptTitle: input.title,
       promptText: input.prompt,
@@ -165,7 +165,7 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
 
     this.#process.sendCommand(preparedTurn.command);
 
-    return await runPiSdkRunnerTurnLoop({
+    return await runPiRunnerTurnLoop({
       process: this.#process,
       session,
       turnId: preparedTurn.turnId,
@@ -175,4 +175,4 @@ export class PiSdkRunnerClient implements HarnessSessionClient {
     });
   }
 }
-export { parsePiSdkRunnerBootstrapEvent };
+export { parsePiRunnerBootstrapEvent };

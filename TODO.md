@@ -15,7 +15,7 @@ This is intentionally different from [PROJECT_SWEEPS_TODO.md](/Users/connorsheeh
 
 ## Runtime And Sandbox Futures
 
-These ideas came out of the Pi SDK runner migration and the comparison against Sandcastle.
+These ideas came out of the Pi runner migration and the comparison against Sandcastle.
 
 They are worth preserving because they affect the long-term runtime shape of Symphony, but they are not the next implementation slices.
 
@@ -78,7 +78,7 @@ What the image contract likely needs:
 - any other hard runtime dependencies we truly require
 - a writable agent home
 - a predictable workspace mount path
-- the Symphony Pi SDK runner executable at a known path
+- the Symphony Pi runner executable at a known path
 
 Why this is valuable even if we keep one image:
 The contract is useful even before custom images. It makes our own image less ad hoc, improves preflight clarity, and gives us a stable surface to test.
@@ -152,7 +152,7 @@ Why this is better:
 Recommended future shape:
 This likely becomes the next packaging cleanup after timeout hardening is finished.
 
-### 5. Bundle the Pi SDK runner instead of relying on `tsx` at runtime
+### 5. Bundle the Pi runner instead of relying on `tsx` at runtime
 
 Idea:
 Move the in-image runner from "TypeScript source plus local `tsx` loader" to a bundled JavaScript artifact.
@@ -286,7 +286,7 @@ These ideas should not distract from the current runtime slices.
 
 After preserving these ideas, the current next slice remains the same:
 
-1. implement real timeout class separation inside the Pi SDK runner
+1. implement real timeout class separation inside the Pi runner
 2. distinguish idle stall from legitimate long-running work with heartbeat
 3. add targeted runtime tests proving terminal completion wins over later timeout noise
 
