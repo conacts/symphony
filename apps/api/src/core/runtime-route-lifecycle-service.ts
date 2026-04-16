@@ -1,3 +1,4 @@
+import type { RouteWorkflowStore } from "@symphony/db";
 import type {
   SymphonyDispatchBootstrapRoutingInput,
   SymphonyRunLifecycleCompletionInput,
@@ -5,11 +6,7 @@ import type {
   SymphonyRunStartActivationInput,
   SymphonyWorkflowRoutingAdapter
 } from "@symphony/orchestrator";
-import type {
-  SymphonyReworkHandoff,
-  SymphonyRunMode
-} from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "@symphony/runtime-tools";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import {
   createRuntimeWorkflowSessionLoader,
   type SymphonyLoadedRuntimeWorkflowHydration,
@@ -21,16 +18,6 @@ import {
 import {
   createRuntimeDispatchBootstrapRouter
 } from "./runtime-dispatch-bootstrap-routing.js";
-import {
-  createRuntimeDeliveryRouter,
-  type SymphonyDeliveryStatus
-} from "./runtime-delivery-routing.js";
-import {
-  createRuntimeMergeResultRouter
-} from "./runtime-merge-result-routing.js";
-import {
-  createRuntimeReviewReworkRouter
-} from "./runtime-review-rework-routing.js";
 import {
   createRuntimeRunLifecycleRouter
 } from "./runtime-run-lifecycle-routing.js";
@@ -66,6 +53,15 @@ import type { SymphonyRuntimeWorkflowPresetSelection } from "./runtime-workflow-
 import type {
   SymphonyRuntimeWorkflowLifecycleView
 } from "./runtime-workflow-lifecycle-view.js";
+import type {
+  SymphonyCapabilityDispatchAuthorityService
+} from "./symphony-capability-dispatch-authority.js";
+import type {
+  SymphonyCapabilityPlanningService
+} from "./symphony-capability-planning.js";
+import {
+  createSymphonyCapabilityRunCompletionService
+} from "./symphony-capability-run-completion.js";
 
 export type SymphonyRuntimeRouteLifecycleService = {
   workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter;
@@ -77,16 +73,7 @@ export type SymphonyRuntimeRouteLifecycleService = {
     issueIdentifier: string;
     runId: string;
     recordedAt: string;
-    status: SymphonyDeliveryStatus;
-    onDispatchRequested?(
-      input: SymphonyTrackerStateDispatchRequest
-    ): Promise<void> | void;
-  }): Promise<boolean>;
-  routeMergeResult(input: {
-    issueIdentifier: string;
-    runId: string;
-    recordedAt: string;
-    mergeResult: RuntimeMergeResult;
+    status: "completed" | "blocked" | "partial";
   }): Promise<boolean>;
   routeRuntimeStateRequest(input: {
     issueIdentifier: string;
@@ -94,14 +81,6 @@ export type SymphonyRuntimeRouteLifecycleService = {
     recordedAt: string;
     requestKind: string;
     targetState: string;
-  }): Promise<boolean>;
-  routeReviewReworkRequest(input: {
-    issueIdentifier: string;
-    recordedAt: string;
-    handoff: SymphonyReworkHandoff;
-    onDispatchRequested?(
-      input: SymphonyTrackerStateDispatchRequest
-    ): Promise<void> | void;
   }): Promise<boolean>;
   observeNonRunningTrackerStates(input: {
     claimedIssueIds: string[];
@@ -177,6 +156,9 @@ export async function createRuntimeRouteLifecycleService(input: {
   ): Promise<void> | void;
   presetSelection: SymphonyRuntimeWorkflowPresetSelection;
   sessionLoader?: SymphonyRuntimeWorkflowSessionLoader;
+  routeWorkflowStore?: RouteWorkflowStore;
+  capabilityPlanning?: SymphonyCapabilityPlanningService;
+  capabilityDispatchAuthority: SymphonyCapabilityDispatchAuthorityService;
   now?: () => Date;
 }): Promise<SymphonyRuntimeRouteLifecycleService> {
   const routing = await selectRuntimeRouterPreset({
@@ -201,7 +183,8 @@ export async function createRuntimeRouteLifecycleService(input: {
     resolveIssueRepositoryKey: input.resolveIssueRepositoryKey,
     ensureIssueIdentity: input.ensureIssueIdentity,
     routing,
-    sessionLoader
+    sessionLoader,
+    capabilityDispatchAuthority: input.capabilityDispatchAuthority
   });
   const runStartActivationRouter =
     await createRuntimeRunStartActivationRouter({
@@ -210,41 +193,6 @@ export async function createRuntimeRouteLifecycleService(input: {
       sessionLoader
     });
   const runLifecycleRouter = await createRuntimeRunLifecycleRouter({
-    routeWorkflows: input.routeWorkflows,
-    tracker: input.tracker,
-    sessionLoader
-  });
-  const workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
-    async routeDispatchBootstrap(
-      routeInput: SymphonyDispatchBootstrapRoutingInput
-    ) {
-      return await dispatchBootstrapRouter.route(routeInput);
-    },
-    async activateRunStart(activationInput: SymphonyRunStartActivationInput) {
-      return await runStartActivationRouter.activate(activationInput);
-    },
-    async observeRunningIssueState(
-      observationInput: SymphonyRunLifecycleObservationInput
-    ) {
-      return await runLifecycleRouter.observeIssueState(observationInput);
-    },
-    async routeRunCompletion(
-      completionInput: SymphonyRunLifecycleCompletionInput
-    ) {
-      return await runLifecycleRouter.routeCompletion(completionInput);
-    }
-  };
-  const deliveryRouter = await createRuntimeDeliveryRouter({
-    routeWorkflows: input.routeWorkflows,
-    tracker: input.tracker,
-    sessionLoader
-  });
-  const mergeResultRouter = await createRuntimeMergeResultRouter({
-    routeWorkflows: input.routeWorkflows,
-    tracker: input.tracker,
-    sessionLoader
-  });
-  const reviewReworkRouter = await createRuntimeReviewReworkRouter({
     routeWorkflows: input.routeWorkflows,
     tracker: input.tracker,
     sessionLoader
@@ -271,6 +219,92 @@ export async function createRuntimeRouteLifecycleService(input: {
       routing,
       sessionLoader
     });
+  const capabilityRunCompletion =
+    input.routeWorkflowStore && input.capabilityPlanning
+      ? createSymphonyCapabilityRunCompletionService({
+          routeWorkflowStore: input.routeWorkflowStore,
+          routeWorkflows: input.routeWorkflows,
+          sessionLoader,
+          tracker: input.tracker,
+          trackerConfig: input.trackerConfig,
+          capabilityPlanning: input.capabilityPlanning
+        })
+      : null;
+  const workflowRoutingAdapter: SymphonyWorkflowRoutingAdapter = {
+    async routeDispatchBootstrap(
+      routeInput: SymphonyDispatchBootstrapRoutingInput
+    ) {
+      return await dispatchBootstrapRouter.route(routeInput);
+    },
+    async activateRunStart(activationInput: SymphonyRunStartActivationInput) {
+      return await runStartActivationRouter.activate(activationInput);
+    },
+    async observeRunningIssueState(
+      observationInput: SymphonyRunLifecycleObservationInput
+    ) {
+      return await runLifecycleRouter.observeIssueState(observationInput);
+    },
+    async routeRunCompletion(
+      completionInput: SymphonyRunLifecycleCompletionInput
+    ) {
+      if (capabilityRunCompletion) {
+        const capabilityResult =
+          await capabilityRunCompletion.handleRunCompletion({
+            issueIdentifier: completionInput.issue.identifier,
+            runMode: completionInput.runMode,
+            completion: completionInput.completion,
+            recordedAt: completionInput.recordedAt
+          });
+
+        switch (capabilityResult.kind) {
+          case "continued":
+            return {
+              issue: completionInput.issue,
+              continueWithRunMode: capabilityResult.continueWithRunMode
+            };
+          case "ready_for_completion": {
+            if (!completionInput.runId) {
+              throw new TypeError(
+                `Capability-managed completion for ${completionInput.issue.identifier} requires a run id to route completion.`
+              );
+            }
+
+            const routedCompletion = await runLifecycleRouter.routeCompletion({
+              issue: completionInput.issue,
+              runId: completionInput.runId,
+              runMode: completionInput.runMode,
+              completion: {
+                kind: "delivered"
+              },
+              recordedAt: completionInput.recordedAt
+            });
+
+            return {
+              issue: routedCompletion.issue,
+              continueWithRunMode: null
+            };
+          }
+          case "awaiting_input":
+          case "blocked": {
+            const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
+              sessionLoader,
+              issueIdentifier: completionInput.issue.identifier,
+              failureContext: "during capability-managed run completion routing"
+            });
+
+            return {
+              issue: projectedIssue ?? completionInput.issue
+            };
+          }
+          case "failure_recorded":
+          case "not_handled":
+            break;
+        }
+      }
+
+      return await runLifecycleRouter.routeCompletion(completionInput);
+    }
+  };
   const nonRunningTrackerIngressPolicy = buildNonRunningTrackerIngressPolicy({
     presetId: routing.module.presetId,
     trackerConfig: input.trackerConfig,
@@ -307,7 +341,11 @@ export async function createRuntimeRouteLifecycleService(input: {
           observationKind: "idle",
           issueIdentifier: issue.identifier,
           recordedAt: observationInput.recordedAt,
-          onDispatchRequested: observationInput.onDispatchRequested
+          onDispatchRequested: createDispatchRequestHandler({
+            externalCallback: observationInput.onDispatchRequested,
+            missingCallbackMessage:
+              "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+          })
         });
         if (observed) {
           const workflowLifecycle = await loadRequiredWorkflowLifecycleView({
@@ -367,7 +405,12 @@ export async function createRuntimeRouteLifecycleService(input: {
       const observedTrackerState = issue.state;
       const observed = await trackerStateObservationRouter.observe({
         observationKind: "idle",
-        ...observationInput
+        ...observationInput,
+        onDispatchRequested: createDispatchRequestHandler({
+          externalCallback: observationInput.onDispatchRequested,
+          missingCallbackMessage:
+            "Idle tracker state observation emitted run.dispatch without a dispatch callback."
+        })
       });
       if (!observed) {
         return null;
@@ -437,6 +480,28 @@ export async function createRuntimeRouteLifecycleService(input: {
     }
     return workflowLifecycle;
   };
+  const createDispatchRequestHandler = (handlerInput: {
+    externalCallback?(
+      input: SymphonyTrackerStateDispatchRequest
+    ): Promise<void> | void;
+    missingCallbackMessage: string;
+  }) => {
+    return async (dispatchRequest: SymphonyTrackerStateDispatchRequest) => {
+      const handled =
+        await input.capabilityDispatchAuthority.handleDispatchRequest(
+          dispatchRequest
+        );
+      if (handled === "handled_in_process") {
+        return;
+      }
+
+      if (!handlerInput.externalCallback) {
+        throw new TypeError(handlerInput.missingCallbackMessage);
+      }
+
+      await handlerInput.externalCallback(dispatchRequest);
+    };
+  };
 
   return {
     workflowRoutingAdapter,
@@ -445,36 +510,30 @@ export async function createRuntimeRouteLifecycleService(input: {
       const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
         sessionLoader,
         issueIdentifier: deliveryInput.issueIdentifier,
-        failureContext: "during delivery routing"
+        failureContext: "during delivery completion routing"
       });
       if (!projectedIssue) {
         return false;
       }
 
-      await deliveryRouter.routeDelivery({
-        projectedIssue,
+      if (deliveryInput.status === "partial") {
+        return true;
+      }
+
+      await runLifecycleRouter.routeCompletion({
+        issue: projectedIssue,
         runId: deliveryInput.runId,
-        recordedAt: deliveryInput.recordedAt,
-        status: deliveryInput.status,
-        onDispatchRequested: deliveryInput.onDispatchRequested
-      });
-      return true;
-    },
-    async routeMergeResult(mergeResultInput) {
-      const projectedIssue = await loadWorkflowProjectedLifecycleIssue({
-        sessionLoader,
-        issueIdentifier: mergeResultInput.issueIdentifier,
-        failureContext: "during merge-result routing"
-      });
-      if (!projectedIssue) {
-        return false;
-      }
-
-      await mergeResultRouter.routeMergeResult({
-        projectedIssue,
-        runId: mergeResultInput.runId,
-        recordedAt: mergeResultInput.recordedAt,
-        mergeResult: mergeResultInput.mergeResult
+        runMode: "implementation",
+        completion:
+          deliveryInput.status === "completed"
+            ? {
+                kind: "delivered"
+              }
+            : {
+                kind: "blocked",
+                reason: "Runtime delivery report marked the run as blocked."
+              },
+        recordedAt: deliveryInput.recordedAt
       });
       return true;
     },
@@ -494,25 +553,6 @@ export async function createRuntimeRouteLifecycleService(input: {
         recordedAt: stateRequestInput.recordedAt,
         requestKind: stateRequestInput.requestKind,
         targetState: stateRequestInput.targetState
-      });
-      return true;
-    },
-    async routeReviewReworkRequest(reviewReworkInput) {
-      const observed = await trackerStateObservationRouter.observe({
-        observationKind: "idle",
-        issueIdentifier: reviewReworkInput.issueIdentifier,
-        recordedAt: reviewReworkInput.recordedAt,
-        onDispatchRequested: reviewReworkInput.onDispatchRequested
-      });
-      if (!observed) {
-        return false;
-      }
-
-      await reviewReworkRouter.routeReviewRework({
-        observedTrackerIssue: observed.issue,
-        recordedAt: reviewReworkInput.recordedAt,
-        handoff: reviewReworkInput.handoff,
-        onDispatchRequested: reviewReworkInput.onDispatchRequested
       });
       return true;
     },
@@ -677,24 +717,7 @@ function readWorkflowLifecycleViewFromProjection(input: {
 
   return {
     workflowId: projection.workflowId,
-    trackerState,
-    latestReworkHandoff:
-      projection.loaded.routing.module.runtimeAdapter.readLatestReworkHandoffFromProjection(
-        {
-          workflowId: projection.workflowId,
-          data: projection.data
-        }
-      ),
-    latestMergeResult:
-      input.runId === null
-        ? null
-        : projection.loaded.routing.module.runtimeAdapter.readLatestMergeResultFromProjection(
-            {
-              workflowId: projection.workflowId,
-              data: projection.data,
-              runId: input.runId
-            }
-          )
+    trackerState
   };
 }
 

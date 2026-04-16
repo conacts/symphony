@@ -6,7 +6,6 @@ const config: KnipConfig = {
     "apps/web/src/components/ui/**",
     "packages/runtime-contract/src/authoring-shim.ts"
   ],
-  ignoreBinaries: ["oclif"],
   ignoreDependencies: [
     "@react-grab/mcp",
     "@rive-app/react-webgl2",
@@ -49,10 +48,6 @@ const config: KnipConfig = {
     },
     "apps/api": {
       entry: ["src/{index,main,server}.ts"],
-      project: ["src/**/*.{ts,tsx}"]
-    },
-    "apps/cli": {
-      entry: ["bin/*.js", "src/commands/**/*.ts", "src/hooks/**/*.ts"],
       project: ["src/**/*.{ts,tsx}"]
     },
     "apps/web": {

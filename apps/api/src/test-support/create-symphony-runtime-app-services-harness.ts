@@ -97,10 +97,6 @@ export async function createSymphonyRuntimeAppServicesHarness(input: {
       SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
       SYMPHONY_POLL_INTERVAL_MS: "50",
       SYMPHONY_GITHUB_REPOSITORY: "openai/symphony",
-      SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
-      SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
-      SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
-      SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
       ...input.environmentSource
     };
     const runtimePolicy = loadSymphonyRuntimePolicyConfig({

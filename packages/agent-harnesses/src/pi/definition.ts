@@ -1,11 +1,7 @@
 import type { SymphonyAgentHarnessModule } from "../shared/types.js";
-import {
-  piAnalyticsAdapter,
-  type PiAnalyticsAdapter
-} from "./analytics-adapter.js";
-import { PiRpcClient } from "./rpc-client.js";
+import { PiSdkRunnerClient } from "./sdk-runner-client.js";
 
-export const piHarnessModule: SymphonyAgentHarnessModule<PiAnalyticsAdapter> = {
+export const piHarnessModule: SymphonyAgentHarnessModule = {
   definition: {
     kind: "pi",
     displayName: "Pi",
@@ -19,30 +15,29 @@ export const piHarnessModule: SymphonyAgentHarnessModule<PiAnalyticsAdapter> = {
       "file_changes"
     ],
     notes: [
-      "Pi transport is wired through the Symphony runtime via Pi RPC mode.",
-      "Analytics parity is promising: Pi exposes turn lifecycle, queue updates, tool execution events, and token usage in its JSON/RPC stream."
+      "Pi transport is wired through the Symphony runtime via the Pi SDK runner.",
+      "The harness emits Symphony's canonical thread narrative directly from the SDK-backed runner bridge."
     ]
   },
   transport: {
     status: "implemented",
     integration: "runtime",
     startSession(input) {
-      return PiRpcClient.startSession(input);
+      return PiSdkRunnerClient.startSession(input);
     },
     notes: [
       "Pi sessions are launched through Docker-backed workspace containers.",
-      "Pi currently relies on the CLI RPC stream rather than the host-side SDK."
+      "The default transport is the host-side SDK runner launched inside the workspace container."
     ]
   },
   analytics: {
     status: "implemented",
-    mode: "projection",
-    lossiness: "best_effort",
-    adapter: piAnalyticsAdapter,
+    mode: "native",
+    lossiness: "none",
+    adapter: null,
     notes: [
-      "Pi analytics are projected from the RPC event stream into Symphony's canonical event model.",
-      "Queue updates are mapped into todo tracking, and edit/write tool executions project native file changes.",
-      "Exit codes and some non-text tool payload details are not exposed directly."
+      "The SDK runner bridge emits canonical Symphony thread events directly.",
+      "Command outcomes, file changes, tool calls, usage, and terminal assistant completion are preserved at the harness boundary."
     ]
   }
 };

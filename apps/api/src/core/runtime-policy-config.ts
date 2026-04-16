@@ -19,18 +19,17 @@ type SymphonyPiRuntimePolicy = {
   turnTimeoutMs: number;
   readTimeoutMs: number;
   stallTimeoutMs: number;
+  toolTimeoutMs: number | null;
 };
 
 const defaultLinearEndpoint = "https://api.linear.app/graphql";
 const defaultDispatchableStates = [
   "Todo",
   "Bootstrapping",
-  "In Progress",
-  "Rework",
-  "Approved"
+  "In Progress"
 ];
 const defaultTerminalStates = ["Canceled", "Done"];
-const defaultClaimTransitionFromStates = ["Todo", "Rework"];
+const defaultClaimTransitionFromStates = ["Todo"];
 const defaultAllowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 export function loadSymphonyRuntimePolicyConfig(input: {
@@ -42,9 +41,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
   const workspaceRoot =
     readOptionalString(environmentSource.SYMPHONY_WORKSPACE_ROOT) ??
     path.join(cwd, ".symphony", "workspaces");
-  const githubStatePath =
-    readOptionalString(environmentSource.SYMPHONY_GITHUB_STATE_PATH) ??
-    path.join(workspaceRoot, ".symphony", "github-state.json");
   const trackerKind = readOptionalString(environmentSource.SYMPHONY_TRACKER_KIND) ?? "linear";
   const requestedPiProfile = readOptionalString(environmentSource.SYMPHONY_PI_PROFILE);
   const matchedPiProfileDefaults = findSymphonyPiProfileDefaults(requestedPiProfile);
@@ -118,9 +114,6 @@ export function loadSymphonyRuntimePolicyConfig(input: {
       matchedProfileDefaults: matchedPiProfileDefaults
     }),
     agentRuntime: {
-      // `pi app-server` is not a real command in the currently installed Pi CLI.
-      // Keep the production default on the supported RPC-compatible `pi` path
-      // until Symphony has a verified app-server transport.
       command: "pi",
       approvalPolicy: "never",
       threadSandbox: "danger-full-access",
@@ -157,22 +150,7 @@ export function loadSymphonyRuntimePolicyConfig(input: {
     github: {
       repo:
         readOptionalString(environmentSource.SYMPHONY_GITHUB_REPOSITORY) ??
-        readOptionalString(environmentSource.GITHUB_REPOSITORY),
-      webhookSecret: readOptionalString(environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRET),
-      apiToken:
-        readOptionalString(environmentSource.SYMPHONY_GITHUB_API_TOKEN) ??
-        readOptionalString(environmentSource.GITHUB_TOKEN),
-      statePath: githubStatePath,
-      allowedReviewLogins:
-        readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS) ?? [],
-      allowedReworkCommentLogins:
-        readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS) ?? [],
-      ...(readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS)
-        ? {
-            allowedReviewCommentLogins:
-              readStringList(environmentSource.SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS) ?? []
-          }
-        : {})
+        readOptionalString(environmentSource.GITHUB_REPOSITORY)
     } as SymphonyResolvedRuntimePolicy["github"]
   };
 }
@@ -300,6 +278,28 @@ function readPiPolicy(input: {
     stallTimeoutMs: readPositiveInteger(
       environmentSource.SYMPHONY_PI_STALL_TIMEOUT_MS,
       300_000
+    ),
+    toolTimeoutMs: readOptionalPositiveInteger(
+      environmentSource.SYMPHONY_PI_TOOL_TIMEOUT_MS,
+      900_000
     )
   };
+}
+
+function readOptionalPositiveInteger(
+  value: string | undefined,
+  fallback: number | null
+): number | null {
+  if (typeof value !== "string" || value.trim() === "") {
+    return fallback;
+  }
+
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized <= 0) {
+    throw new TypeError(
+      `Invalid Symphony runtime policy: expected a positive integer, received ${JSON.stringify(value)}.`
+    );
+  }
+
+  return normalized;
 }

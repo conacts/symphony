@@ -68,7 +68,8 @@ export async function resolveDispatchBootstrap(input: {
         input.tracker,
         input.issue
       ),
-      runMode: input.runModeOverride
+      runMode: input.runModeOverride,
+      dispatchHandling: "external_run"
     };
   }
 

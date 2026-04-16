@@ -5,16 +5,15 @@ export * from "./shared/protocol.js";
 export * from "./shared/registry.js";
 export * from "./shared/workspace-cwd.js";
 export * from "./pi/definition.js";
-export * from "./pi/event-decoder.js";
-export * from "./pi/analytics-adapter.js";
-export * from "./pi/rpc-process.js";
-export * from "./pi/rpc-client.js";
+export * from "./pi/sdk-runner-contract.js";
+export * from "./pi/sdk-runner-process.js";
+export * from "./pi/sdk-runner-client.js";
+export * from "./pi/sdk-runner-entrypoint.js";
 export {
-  buildPiAppServerSpawnSpec,
+  buildPiSdkRunnerSpawnSpec,
+  defaultPiSdkRunnerExecutablePath,
   listSupportedPiModels,
   piModelLabelPrefix,
   resolvePiIssueModel,
-  resolvePiLaunchSettings,
   resolvePiSdkLaunchSettings,
-  wrapSessionError
 } from "./pi/launch.js";

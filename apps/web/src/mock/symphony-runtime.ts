@@ -1231,7 +1231,7 @@ export function buildMockRuntimeConfigResult(): SymphonyRuntimeConfigResult {
         linearWorkspaceIdentityId: "linear_workspace_local"
       },
       presetSelection: {
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "runtime_manifest",
         repositoryKey: "openai/symphony",
         manifestPath: "/Users/connorsheehan/junction/symphony/.symphony/runtime.ts"
@@ -1853,9 +1853,13 @@ function parseOutcomeFilter(
 ): SymphonyForensicsIssueFilters["outcome"] {
   switch (value) {
     case "completed":
+      return value;
     case "merged":
+      return "completed";
     case "blocked":
+      return value;
     case "merge_blocked":
+      return "blocked";
     case "paused_max_turns":
     case "startup_failed":
     case "rate_limited":

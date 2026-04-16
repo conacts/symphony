@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildIssueTimelineHref } from "@/core/control-plane-routes";
 import { formatTimestamp } from "@/core/display-formatters";
+import { IssueCapabilityStatusCard } from "@/features/issues/components/issue-capability-status-card";
 
 export function IssueRequeuePanel(input: {
   error: string | null;
@@ -17,6 +18,8 @@ export function IssueRequeuePanel(input: {
   issue: SymphonyRuntimeIssueResult | null;
   issueIdentifier: string;
   loading: boolean;
+  runtimeBaseUrl?: string;
+  onCapabilityUpdated?: () => Promise<void> | void;
 }) {
   const piConfig = input.issue?.operator.pi ?? null;
   const selectedModel = piConfig?.selectedModel ?? piConfig?.defaultModel ?? null;
@@ -129,6 +132,14 @@ export function IssueRequeuePanel(input: {
         <p className="text-sm text-muted-foreground">
           No runtime issue context is available yet for this issue.
         </p>
+      ) : null}
+
+      {input.issue ? (
+        <IssueCapabilityStatusCard
+          issue={input.issue}
+          runtimeBaseUrl={input.runtimeBaseUrl}
+          onUpdated={input.onCapabilityUpdated}
+        />
       ) : null}
     </section>
   );

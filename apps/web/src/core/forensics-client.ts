@@ -111,7 +111,7 @@ export async function fetchIssueDetail(
     repo?: string;
   } = {},
   fetchImpl: typeof fetch = fetch
-): Promise<SymphonyForensicsIssueDetailResult> {
+): Promise<SymphonyForensicsIssueDetailResult | null> {
   const endpoint = createRuntimeUrl(
     `/api/v1/issues/${issueIdentifier}`,
     runtimeBaseUrl,
@@ -126,6 +126,10 @@ export async function fetchIssueDetail(
     },
     cache: "no-store"
   });
+
+  if (response.status === 404) {
+    return null;
+  }
 
   if (!response.ok) {
     throw new Error(`Issue detail request failed with ${response.status}.`);

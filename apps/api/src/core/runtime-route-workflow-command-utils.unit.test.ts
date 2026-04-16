@@ -98,6 +98,8 @@ function createRouteWorkflowPortDouble(input?: {
     resumeSessionByWorkflowId: vi.fn(),
     resumeSessionByIssueIdentifier: vi.fn(),
     resumeSessionByScopedIssue: vi.fn(),
+    loadExecutionContractByWorkflowId: vi.fn(),
+    saveExecutionContract: vi.fn(),
     recordRouteResult: vi.fn(),
     appendCommandSettlement
   } as SymphonyRouteWorkflowPort;

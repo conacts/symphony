@@ -41,4 +41,45 @@ describe("issue requeue panel", () => {
     expect(html).toContain("Runtime issue context unavailable");
     expect(html).toContain("404");
   });
+
+  it("renders pre-execution clarification without capability answer controls", () => {
+    const html = renderToStaticMarkup(
+      <IssueRequeuePanel
+        error={null}
+        issueDetail={buildSymphonyForensicsIssueDetailResult()}
+        issue={buildSymphonyRuntimeIssueResult({
+          operator: {
+            pendingClarification: {
+              kind: "contract_intake",
+              requestId: "clarification-167",
+              raisedByCapabilityId: null,
+              workEpoch: null,
+              summary:
+                "Need a repository-scope clarification before Symphony can start execution.",
+              nextAction:
+                'Update the ticket body to answer the missing question: "Should this change stay backend-only?" Then move the issue back to Todo to requeue.',
+              answerPath: null,
+              questions: [
+                {
+                  id: "repo_scope",
+                  prompt: "Should this change stay backend-only?",
+                  context: "The current contract is ambiguous."
+                }
+              ]
+            },
+            capability: null
+          }
+        })}
+        issueIdentifier="COL-167"
+        loading={false}
+      />
+    );
+
+    expect(html).toContain("Ticket clarification");
+    expect(html).toContain("Ticket Clarification");
+    expect(html).toContain("Execution has not started yet");
+    expect(html).toContain("Should this change stay backend-only?");
+    expect(html).toContain("move the issue back to Todo to requeue");
+    expect(html).not.toContain("Submit Clarification");
+  });
 });

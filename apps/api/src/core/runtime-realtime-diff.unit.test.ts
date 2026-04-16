@@ -258,7 +258,7 @@ describe("runtime realtime diff", () => {
     });
     const afterIssue = buildSymphonyRuntimeTrackerIssue({
       ...issue,
-      state: "Approved"
+      state: "Bootstrapping"
     });
     const after = buildSymphonyOrchestratorSnapshot({
       running: [
@@ -317,7 +317,7 @@ describe("runtime realtime diff", () => {
     expect(
       snapshotRequiresRealtimeInvalidation(snapshot, snapshot, {
         before: new Map([[issue.identifier, "In Progress"]]),
-        after: new Map([[issue.identifier, "Approved"]])
+        after: new Map([[issue.identifier, "Bootstrapping"]])
       })
     ).toBe(true);
   });

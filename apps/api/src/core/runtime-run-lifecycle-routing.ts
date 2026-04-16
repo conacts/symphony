@@ -22,6 +22,7 @@ import type {
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   normalizeWorkflowToken,
   readDispatchRunMode,
   readTrackerTransitionState
@@ -170,19 +171,19 @@ async function executeObservationCommands(input: {
 
     switch (command.kind) {
       case "tracker.transition":
-        currentIssue = await executeSettledRouteCommand({
+        currentIssue = await executeSettledTrackerTransitionCommand({
           routeWorkflows: input.routeWorkflows,
           workflowId: input.workflowId,
           session: input.session,
           loadSettlementSession: input.loadSettlementSession,
           command,
           recordedAt: input.recordedAt,
-          async execute(executedCommand) {
-            return await executeTrackerTransition({
-              presetAdapter: input.presetAdapter,
-              command: executedCommand,
-              issue: currentIssue,
-              tracker: input.tracker
+          issue: currentIssue,
+          tracker: input.tracker,
+          readTargetState(executedCommand) {
+            return readTrackerTransitionState({
+              adapter: input.presetAdapter,
+              command: executedCommand
             });
           }
         });
@@ -230,19 +231,19 @@ async function executeCompletionCommands(input: {
 
     switch (command.kind) {
       case "tracker.transition":
-        currentIssue = await executeSettledRouteCommand({
+        currentIssue = await executeSettledTrackerTransitionCommand({
           routeWorkflows: input.routeWorkflows,
           workflowId: input.workflowId,
           session: input.session,
           loadSettlementSession: input.loadSettlementSession,
           command,
           recordedAt: input.recordedAt,
-          async execute(executedCommand) {
-            return await executeTrackerTransition({
-              presetAdapter: input.presetAdapter,
-              command: executedCommand,
-              issue: currentIssue,
-              tracker: input.tracker
+          issue: currentIssue,
+          tracker: input.tracker,
+          readTargetState(executedCommand) {
+            return readTrackerTransitionState({
+              adapter: input.presetAdapter,
+              command: executedCommand
             });
           }
         });
@@ -251,23 +252,6 @@ async function executeCompletionCommands(input: {
   }
 
   return currentIssue;
-}
-
-async function executeTrackerTransition(input: {
-  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  command: WorkflowCommand;
-  issue: SymphonyTrackerIssue;
-  tracker: SymphonyTracker;
-}): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState({
-    adapter: input.presetAdapter,
-    command: input.command
-  });
-  await input.tracker.updateIssueState(input.issue.id, targetState);
-  return {
-    ...input.issue,
-    state: targetState
-  };
 }
 
 async function executeObservedDispatch(input: {

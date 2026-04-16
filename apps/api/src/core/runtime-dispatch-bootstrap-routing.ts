@@ -4,7 +4,8 @@ import {
   type SymphonyDispatchBootstrapRoutingResult
 } from "@symphony/orchestrator";
 import {
-  type WorkflowCommand
+  type WorkflowNodeId,
+  type WorkflowRouter
 } from "@symphony/router";
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type {
@@ -18,14 +19,19 @@ import type {
   RouteWorkflowBindingScope,
   SymphonyRouteWorkflowPort
 } from "./runtime-route-workflows.js";
-import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
+import type {
+  SymphonyCapabilityDispatchAuthorityService
+} from "./symphony-capability-dispatch-authority.js";
 import {
   createRouteCommandSettlementSessionLoader,
   executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   normalizeWorkflowToken,
   readDispatchRunMode,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
+
+type RuntimeWorkflowRouter = WorkflowRouter<WorkflowNodeId, unknown, unknown>;
 
 export async function createRuntimeDispatchBootstrapRouter(input: {
   routeWorkflows: SymphonyRouteWorkflowPort;
@@ -39,8 +45,9 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
   ): Promise<void> | void;
   routing: SymphonyRuntimeRouterPresetSelection;
   sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  capabilityDispatchAuthority: SymphonyCapabilityDispatchAuthorityService;
 }) {
-  const { router } = input.routing;
+  const router = input.routing.router as RuntimeWorkflowRouter;
   const presetAdapter = input.routing.module.runtimeAdapter;
 
   return {
@@ -58,7 +65,8 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         bindingScope: input.bindingScope ?? null,
         routerPresetId: input.routing.presetId,
         router,
-        createdAt: routeInput.startedAt
+        createdAt: routeInput.startedAt,
+        replaceIncompatibleLiveWorkflow: true
       });
       const loaded = await input.sessionLoader.resumeByWorkflowId({
         workflowId: ensured.workflow.workflowId
@@ -94,7 +102,10 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
       });
 
       let preparedIssue = routeInput.issue;
-      let selectedRunMode: SymphonyRunMode | null = null;
+      let selectedDispatchRequest: {
+        commandId: string;
+        runMode: SymphonyRunMode;
+      } | null = null;
       const loadSettlementSession = createRouteCommandSettlementSessionLoader({
         sessionLoader: input.sessionLoader,
         workflowId: ensured.workflow.workflowId,
@@ -104,20 +115,27 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
 
       for (const command of result.decision.commands) {
         if (command.kind === "tracker.transition") {
-          preparedIssue = await executeSettledRouteCommand({
+          preparedIssue = await executeSettledTrackerTransitionCommand({
             routeWorkflows: input.routeWorkflows,
             workflowId: ensured.workflow.workflowId,
             session,
             loadSettlementSession,
             command,
             recordedAt: routeInput.startedAt,
-            async execute(executedCommand) {
+            issue: preparedIssue,
+            tracker: input.tracker,
+            readTargetState(executedCommand) {
+              return readTrackerTransitionState({
+                adapter: presetAdapter,
+                command: executedCommand
+              });
+            },
+            async executeTransition({ issue, tracker, targetState }) {
               return await executeTrackerTransitionCommand({
-                presetAdapter,
-                command: executedCommand,
-                issue: preparedIssue,
-                tracker: input.tracker,
-                trackerConfig: input.trackerConfig
+                issue,
+                tracker,
+                trackerConfig: input.trackerConfig,
+                targetState
               });
             }
           });
@@ -125,7 +143,7 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         }
 
         if (command.kind === "run.dispatch") {
-          selectedRunMode = await executeSettledRouteCommand({
+          selectedDispatchRequest = await executeSettledRouteCommand({
             routeWorkflows: input.routeWorkflows,
             workflowId: ensured.workflow.workflowId,
             session,
@@ -133,10 +151,13 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
             command,
             recordedAt: routeInput.startedAt,
             async execute(executedCommand) {
-              return readDispatchRunMode({
-                adapter: presetAdapter,
-                command: executedCommand
-              });
+              return {
+                commandId: executedCommand.id,
+                runMode: readDispatchRunMode({
+                  adapter: presetAdapter,
+                  command: executedCommand
+                })
+              };
             }
           });
           continue;
@@ -147,34 +168,39 @@ export async function createRuntimeDispatchBootstrapRouter(input: {
         );
       }
 
-      if (!selectedRunMode) {
+      if (!selectedDispatchRequest) {
         throw new TypeError(
           `Route workflow ${ensured.workflow.workflowId} did not produce a dispatch run mode for ${routeInput.issue.identifier}.`
         );
       }
 
+      const dispatchHandling =
+        await input.capabilityDispatchAuthority.handleDispatchRequest({
+          workflowId: ensured.workflow.workflowId,
+          commandId: selectedDispatchRequest.commandId,
+          trackerIssue: preparedIssue,
+          runMode: selectedDispatchRequest.runMode,
+          recordedAt: routeInput.startedAt
+        });
+
       return {
         issue: preparedIssue,
-        runMode: selectedRunMode
+        runMode: selectedDispatchRequest.runMode,
+        dispatchHandling
       };
     }
   };
 }
 
 async function executeTrackerTransitionCommand(input: {
-  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  command: WorkflowCommand;
   issue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
   trackerConfig: SymphonyTrackerConfig;
+  targetState: string;
 }) {
-  const targetState = readTrackerTransitionState({
-    adapter: input.presetAdapter,
-    command: input.command
-  });
-  if (targetState !== "Bootstrapping") {
+  if (input.targetState !== "Bootstrapping") {
     throw new TypeError(
-      `Dispatch bootstrap routing only supports tracker transitions to Bootstrapping. Received ${String(targetState)}.`
+      `Dispatch bootstrap routing only supports tracker transitions to Bootstrapping. Received ${String(input.targetState)}.`
     );
   }
 

@@ -46,10 +46,10 @@ export function buildSymphonyOrchestratorConfig(overrides: {
     teamKey: "COL",
     excludedProjectIds: [],
     assignee: null,
-    dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"],
+    dispatchableStates: ["Todo", "Bootstrapping", "In Progress"],
     terminalStates: ["Canceled", "Done"],
     claimTransitionToState: "Bootstrapping",
-    claimTransitionFromStates: ["Todo", "Rework"],
+    claimTransitionFromStates: ["Todo"],
     startupFailureTransitionToState: "Failed",
     pauseTransitionToState: "Paused",
     blockedTransitionToState: "Blocked",
@@ -114,6 +114,7 @@ export function buildSymphonyOrchestratorConfig(overrides: {
         turnTimeoutMs: 3_600_000,
         readTimeoutMs: 5_000,
         stallTimeoutMs: 300_000,
+        toolTimeoutMs: 900_000,
         ...overrides.runtime?.pi
       },
       agentRuntime: {
@@ -158,7 +159,8 @@ export function createTestOrchestratorRoutingAdapters(input: {
           input.tracker,
           routeInput.issue
         ),
-        runMode: deriveSymphonyRunMode(routeInput.issue.state)
+        runMode: deriveSymphonyRunMode(routeInput.issue.state),
+        dispatchHandling: "external_run"
       };
     },
     async activateRunStart(activationInput) {
@@ -227,13 +229,6 @@ function resolveActivationTargetState(input: {
     return "In Progress";
   }
 
-  if (
-    input.runMode === "approved_merge" &&
-    normalizedState === "approved"
-  ) {
-    return "In Progress";
-  }
-
   return null;
 }
 
@@ -252,21 +247,6 @@ function resolveCompletionTargetState(input: {
 
   if (input.completion.kind === "blocked") {
     return input.config.tracker.blockedTransitionToState;
-  }
-
-  if (input.runMode === "approved_merge") {
-    if (input.completion.kind === "merged") {
-      return "Done";
-    }
-
-    if (
-      input.completion.kind === "merge_blocked" ||
-      input.completion.kind === "failure" ||
-      input.completion.kind === "stalled" ||
-      input.completion.kind === "max_turns_reached"
-    ) {
-      return input.config.tracker.blockedTransitionToState;
-    }
   }
 
   if (

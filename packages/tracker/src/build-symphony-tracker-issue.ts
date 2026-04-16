@@ -9,7 +9,7 @@ export function buildSymphonyTrackerIssue(
     id: overrides.id ?? "issue-123",
     identifier,
     title: overrides.title ?? "Test issue",
-    description: overrides.description ?? "Test description",
+    description: overrides.description ?? buildDefaultCapabilityTicketDescription(),
     priority: overrides.priority ?? 2,
     state: overrides.state ?? "Todo",
     branchName: overrides.branchName ?? issueBranchName(identifier),
@@ -25,4 +25,17 @@ export function buildSymphonyTrackerIssue(
     createdAt: overrides.createdAt ?? "2026-03-31T00:00:00.000Z",
     updatedAt: overrides.updatedAt ?? "2026-03-31T00:00:00.000Z"
   };
+}
+
+function buildDefaultCapabilityTicketDescription(): string {
+  return [
+    "## Objective",
+    "Test description",
+    "",
+    "## Done Definition",
+    "- Deliver the requested change.",
+    "",
+    "## Merge Policy",
+    "manual"
+  ].join("\n");
 }

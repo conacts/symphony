@@ -14,7 +14,7 @@ const baseEnv = {
   SYMPHONY_SOURCE_REPOS: "",
   SYMPHONY_DB_FILE:
     normalizeText(process.env.SYMPHONY_DB_FILE) ??
-    path.join(repoRoot, "symphony.db")
+    path.join(repoRoot, ".symphony", "runtime", "symphony.db")
 };
 
 const services = [

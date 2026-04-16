@@ -73,16 +73,14 @@ out explicitly.
 
 | Lifecycle Surface | Primary Ingress | Router Signal | Allowed Commands Executed By Host | Settlement Path | Canonical Read Side | Audit Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| Dispatch bootstrap | `workflowRoutingAdapter.routeDispatchBootstrap` in `runtime-dispatch-bootstrap-routing.ts` | `createTrackerStateObservedSignal` with ingress-specific id prefix `signal_dispatch_bootstrap_*` | `tracker.transition` to `Bootstrapping`; `run.dispatch` to select the first run mode | `recordRouteResult` plus `executeSettledRouteCommand` for tracker transition and dispatch selection | Snapshot-derived tracker state plus `readLastDispatchModeFromProjection` | Routed and authoritative |
+| Dispatch bootstrap | `workflowRoutingAdapter.routeDispatchBootstrap` in `runtime-dispatch-bootstrap-routing.ts` | `createTrackerStateObservedSignal` with ingress-specific id prefix `signal_dispatch_bootstrap_*` | `tracker.transition` to `Bootstrapping`; `run.dispatch` to start implementation work | `recordRouteResult` plus `executeSettledRouteCommand` for tracker transition and dispatch selection | Snapshot-derived tracker state plus `readLastDispatchModeFromProjection` | Routed and authoritative |
 | Run start activation | `workflowRoutingAdapter.activateRunStart` in `runtime-run-start-activation-routing.ts` | `createRunStartedSignal` with id prefix `signal_run_started_*` | `tracker.transition` to `In Progress` | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
-| Running issue observation | `workflowRoutingAdapter.observeRunningIssueState` in `runtime-run-lifecycle-routing.ts` | `createTrackerStateObservedSignal` with id prefix `signal_running_issue_observed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
+| Running issue observation | `workflowRoutingAdapter.observeRunningIssueState` in `runtime-run-lifecycle-routing.ts` | `createTrackerStateObservedSignal` with id prefix `signal_running_issue_observed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state plus preset-specific projection data | Routed and authoritative |
 | Runtime completion | `workflowRoutingAdapter.routeRunCompletion` in `runtime-run-lifecycle-routing.ts` | `createRuntimeCompletionSignal` with id prefix `signal_run_completed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state, plus preset-specific projection data | Routed and authoritative, including startup failure |
-| Non-running tracker observation, batch | `createRuntimeTrackerStateIngressPort().observeNonRunning` before each poll cycle | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition`; optional `run.dispatch` when idle observation should start work | `recordRouteResult` plus `executeSettledRouteCommand`; dispatch callback hands off to orchestrator after settlement | Snapshot-derived tracker state through `loadCurrentTrackerState` and preset adapter readers | Routed and first-class |
+| Non-running tracker observation, batch | `createRuntimeTrackerStateIngressPort().observeNonRunning` before each poll cycle | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition`; optional `run.dispatch` when idle observation should resume work | `recordRouteResult` plus `executeSettledRouteCommand`; dispatch callback hands off to orchestrator after settlement | Snapshot-derived tracker state through `loadCurrentTrackerState` and preset adapter readers | Routed and first-class |
 | Non-running tracker observation, single issue | `createRuntimeTrackerStateIngressPort().observeNonRunningByIdentifier` and `trackerStateIngress.observeNonRunningIssue` | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition`; optional `run.dispatch` | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state through the route lifecycle service | Routed and first-class |
 | Active tracker observation by identifier | `routeLifecycle.observeActiveIssueStateByIdentifier` in `runtime-route-lifecycle-service.ts` | `createTrackerStateObservedSignal` with id prefix `signal_tracker_state_observed_*` | `tracker.transition` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived active run mode through `readActiveRunModeFromProjection` | Routed recovery surface |
-| Review rework request | GitHub review ingress via `routeLifecycle.routeReviewReworkRequest` in `runtime-services.ts` and `runtime-review-rework-routing.ts` | `createReviewReworkRequestedSignal` with id prefix `signal_review_rework_requested_*` | `tracker.transition` to `Rework` or `Bootstrapping`; optional `run.dispatch` for requeue | `recordRouteResult` plus `executeSettledRouteCommand`; dispatch callback hands off after settlement | Snapshot-derived rework handoff through `readLatestReworkHandoffFromProjection` | Routed and authoritative |
-| Delivery report | Runtime tools port `recordDeliveryReport` through `runtime-tools-port.ts` and `runtime-delivery-routing.ts` | `createDeliveryReportedSignal` with id prefix `signal_delivery_reported_*` | `tracker.transition` to `In Review`, `Approved`, or `Blocked`; `run.dispatch` only for completed delivery and only for `approved_merge` | `recordRouteResult` plus `executeSettledRouteCommand`; dispatch callback hands off after settlement | Snapshot-derived tracker state | Routed and authoritative |
-| Merge result | Runtime tools port `submitMergeResult` through `runtime-tools-port.ts` and `runtime-merge-result-routing.ts` | `createMergeResultReportedSignal` with id prefix `signal_merge_result_reported_*` | `tracker.transition` to `Done` or `Blocked` | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived merge result through `readLatestMergeResultFromProjection` | Routed and authoritative |
+| Delivery report | Runtime delivery ingress through `runtime-delivery-routing.ts` and the preset adapter `createDeliveryReportedSignal(...)` | `createDeliveryReportedSignal` with id prefix `signal_delivery_reported_*` | `tracker.transition` to `Done` or `Blocked` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
 | Runtime state request, spike/cancel class | Runtime tools port `submitSpikeResult` and `cancelIssue` through `runtime-tools-port.ts` and `runtime-state-request-routing.ts` | `createStateRequestedSignal` with id prefix `signal_state_requested_*` | `tracker.transition` only, and it must match the requested target state exactly | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
 | Shutdown pause | `routeLifecycle.routeShutdownPause` through `runtime-run-shutdown-routing.ts` | `createShutdownRequestedSignal` with id prefix `signal_shutdown_requested_*` | `tracker.transition` to `Paused` only | `recordRouteResult` plus `executeSettledRouteCommand` | Snapshot-derived tracker state | Routed and authoritative |
 | Persisted active-run shutdown recovery | `reconcilePersistedActiveRunsOnShutdown` in `runtime-shutdown-reconciliation.ts` | Delegates to `routeShutdownPause`; no separate lifecycle signal family today | Router handles workflow pause; shutdown reconciler finalizes `symphony_runs` and turn records locally | Workflow settlement happens through routed shutdown; run-store finalization remains runtime execution-domain work | Workflow truth from route history; execution truth from `symphony_runs` | Acceptable split authority |
@@ -126,8 +124,7 @@ The authoritative record is the routed signal and the settled command chain.
 When code needs to answer a workflow question such as:
 
 - what tracker state does the workflow currently believe
-- what was the last rework handoff
-- what merge result is currently attached to this workflow
+- what run mode was last dispatched
 - what run mode is active
 
 it should answer that from the routed workflow hydration state, typically through the preset
@@ -136,8 +133,6 @@ adapter projection readers:
 - `readTrackerStateFromProjection`
 - `readLastDispatchModeFromProjection`
 - `readActiveRunModeFromProjection`
-- `readLatestReworkHandoffFromProjection`
-- `readLatestMergeResultFromProjection`
 
 The tracker remains the external observation source.
 
@@ -160,13 +155,11 @@ still incomplete.
 
 The host ingress layer should stay thin.
 
-Variation in behavior between:
+Variation in behavior should come from preset policy and router definitions, not from new ad hoc
+branches in the host.
 
-- `current-flow`
-- `auto-merge`
-- future custom routers
-
-should come from preset policy and router definitions, not from new ad hoc branches in the host.
+Operationally, `intelligent-flow` is now the only lifecycle that should matter day to day. Any
+historical preset compatibility should remain explicitly historical.
 
 That is the architectural path that enables user-authored state machines later.
 

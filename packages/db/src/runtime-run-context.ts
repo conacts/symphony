@@ -59,7 +59,7 @@ function normalizeHarnessKind(value: string | null | undefined): "pi" | null {
     return "pi";
   }
 
-  throw new TypeError(`Unknown runtime harness kind: ${value}`);
+  throw new TypeError(`Invalid persisted Symphony runtime harness: ${value}`);
 }
 
 function normalizeLaunchTarget(value: Record<string, unknown> | null): SymphonyRuntimeLaunchTarget | null {

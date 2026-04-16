@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -15,7 +16,7 @@ export type SymphonyDb = {
 };
 
 export function defaultSymphonyDbFile(cwd = process.cwd()): string {
-  return path.resolve(cwd, "symphony.db");
+  return path.resolve(cwd, ".symphony", "runtime", "symphony.db");
 }
 
 export function initializeSymphonyDb(input: {
@@ -29,6 +30,9 @@ export function initializeSymphonyDb(input: {
   let client: Database.Database;
 
   try {
+    mkdirSync(path.dirname(dbFile), {
+      recursive: true
+    });
     client = new Database(dbFile);
     client.pragma("journal_mode = WAL");
     client.pragma("foreign_keys = ON");

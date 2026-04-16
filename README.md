@@ -22,7 +22,7 @@ cp symphony.env.example ~/.config/symphony/symphony.env
 pnpm dev:host
 ```
 
-`pnpm dev:host` reads the local Symphony env file, keeps the SQLite file at `./symphony.db`,
+`pnpm dev:host` reads the local Symphony env file, keeps the SQLite file at `.symphony/runtime/symphony.db`,
 forces `SYMPHONY_SOURCE_REPO` to this repository, clears inherited `SYMPHONY_SOURCE_REPOS`, and
 points the dashboard at the local API on `http://127.0.0.1:4400`. That avoids stale shell state
 accidentally booting Symphony against some other admitted repository. It also checks required env

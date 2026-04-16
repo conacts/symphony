@@ -12,16 +12,17 @@ import type {
   SymphonyAgentRunTurnQuery,
   SymphonyAgentToolCallListResult,
   SymphonyAgentTurnListResult,
-  SymphonyGitHubReviewIngressResult,
-  SymphonyGitHubWebhookBody,
-  SymphonyGitHubWebhookHeaders,
   SymphonyForensicsIssueTimelineResult,
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeMachineLoadSnapshot,
+  SymphonyRuntimeClarificationAnswerResult,
+  SymphonyRuntimeIssueCapabilityState,
+  SymphonyRuntimeIssuePendingClarification,
   SymphonyRuntimeConfigResult,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
-  SymphonyRuntimeTrackerStateObservationResult
+  SymphonyRuntimeTrackerStateObservationResult,
+  SymphonyRuntimeWorkflowObservabilityResult
 } from "@symphony/contracts";
 import type { SymphonyLogger } from "@symphony/logger";
 import type {
@@ -34,14 +35,10 @@ import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import type { SymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import type { SymphonyRuntimePollSchedulerSnapshot } from "./poll-scheduler.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
-import type { RuntimeToolExecutionResult } from "@symphony/runtime-tools";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyRuntimeBootstrapBinding
 } from "./runtime-bootstrap-contract.js";
-import type {
-  SymphonyRuntimeWorkflowComparison
-} from "./runtime-workflow-comparison.js";
 import type {
   SymphonyRuntimeWorkflowLifecycleView
 } from "./runtime-workflow-lifecycle-view.js";
@@ -58,14 +55,6 @@ export type SymphonyRuntimeOrchestratorPort = {
     runMode: SymphonyRunMode;
     recordedAt: string;
   }): Promise<void>;
-};
-
-export type SymphonyGitHubReviewIngressPort = {
-  ingest(input: {
-    headers: SymphonyGitHubWebhookHeaders;
-    body: SymphonyGitHubWebhookBody;
-    rawBody: string;
-  }): Promise<SymphonyGitHubReviewIngressResult>;
 };
 
 export type SymphonyIssueTimelinePort = {
@@ -101,54 +90,37 @@ export type SymphonyRuntimeWorkflowReadPort = {
   }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
 };
 
-export type SymphonyRuntimeToolsPort = {
-  recordDeliveryReport(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
-  submitSpikeResult(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
-  cancelIssue(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
-  submitMergeResult(input: {
-    runId: string;
-    turnId: string | null;
-    issue: {
-      trackerIssueId: string;
-      identifier: string;
-    };
-    argumentsPayload: unknown;
-  }): Promise<RuntimeToolExecutionResult>;
+export type SymphonyRuntimeCapabilityOperatorInspection = {
+  capability: SymphonyRuntimeIssueCapabilityState | null;
+  pendingClarification: SymphonyRuntimeIssuePendingClarification | null;
 };
 
-export type SymphonyRuntimeWorkflowComparisonPort = {
-  compareByWorkflowId(input: {
-    workflowId: string;
-    presetIds?: ReadonlyArray<string>;
-  }): Promise<SymphonyRuntimeWorkflowComparison | null>;
-  compareByIssueIdentifier(input: {
+export type SymphonyRuntimeCapabilityOperatorPort = {
+  inspectByIssueIdentifier(input: {
     issueIdentifier: string;
-    presetIds?: ReadonlyArray<string>;
-  }): Promise<SymphonyRuntimeWorkflowComparison | null>;
+    recordedAt: string;
+  }): Promise<SymphonyRuntimeCapabilityOperatorInspection | null>;
+  answerPendingClarificationByWorkflowId(input: {
+    workflowId: string;
+    recordedAt: string;
+    requestId: string;
+    answers: Record<string, string>;
+  }): Promise<SymphonyRuntimeClarificationAnswerResult>;
+};
+
+export type SymphonyRuntimeWorkflowObservabilityPort = {
+  loadByWorkflowId(input: {
+    workflowId: string;
+    recordedAt: string;
+    historyLimit?: number;
+    decisionLimit?: number;
+  }): Promise<SymphonyRuntimeWorkflowObservabilityResult | null>;
+  loadByIssueIdentifier(input: {
+    issueIdentifier: string;
+    recordedAt: string;
+    historyLimit?: number;
+    decisionLimit?: number;
+  }): Promise<SymphonyRuntimeWorkflowObservabilityResult | null>;
 };
 
 export type SymphonyAgentAnalyticsReadPort = {
@@ -208,10 +180,9 @@ export type SymphonyRuntimeAppServices = {
   health: SymphonyRuntimeHealthPort;
   trackerStateIngress: SymphonyRuntimeTrackerObservationPort;
   workflowRead: SymphonyRuntimeWorkflowReadPort;
-  runtimeTools: SymphonyRuntimeToolsPort;
-  workflowComparison: SymphonyRuntimeWorkflowComparisonPort;
+  capabilityOperator: SymphonyRuntimeCapabilityOperatorPort;
+  workflowObservability: SymphonyRuntimeWorkflowObservabilityPort;
   routeWorkflows: SymphonyRouteWorkflowPort;
-  githubReviewIngress: SymphonyGitHubReviewIngressPort;
   realtime: SymphonyRealtimeHub;
   shutdown(): Promise<void>;
 };

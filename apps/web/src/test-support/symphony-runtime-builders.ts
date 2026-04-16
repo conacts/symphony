@@ -9,6 +9,7 @@ import type {
   SymphonyForensicsSuccessMetricsResult,
   SymphonyRuntimeHealthResult,
   SymphonyRuntimeIssueResult,
+  SymphonyRuntimeWorkflowObservabilityResult,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
   SymphonyRuntimeLogEntry,
@@ -246,11 +247,16 @@ export function buildSymphonyRuntimeRefreshResult(
 
 export function buildSymphonyRuntimeIssueResult(
   overrides: Partial<
-    Omit<SymphonyRuntimeIssueResult, "workspace" | "running" | "retry">
+    Omit<SymphonyRuntimeIssueResult, "workspace" | "running" | "retry" | "operator">
   > & {
     workspace?: Partial<SymphonyRuntimeIssueResult["workspace"]>;
     running?: Partial<NonNullable<SymphonyRuntimeIssueResult["running"]>> | null;
     retry?: Partial<NonNullable<SymphonyRuntimeIssueResult["retry"]>> | null;
+    operator?: Partial<
+      Omit<SymphonyRuntimeIssueResult["operator"], "pi">
+    > & {
+      pi?: Partial<SymphonyRuntimeIssueResult["operator"]["pi"]>;
+    };
   } = {}
 ): SymphonyRuntimeIssueResult {
   const defaultWorkspace: SymphonyRuntimeIssueResult["workspace"] = {
@@ -324,6 +330,26 @@ export function buildSymphonyRuntimeIssueResult(
       totalTokens: 20
     }
   };
+  const defaultOperator: SymphonyRuntimeIssueResult["operator"] = {
+    refreshPath: "/api/v1/refresh",
+    refreshDelegatesTo: ["poll", "reconcile"],
+    githubPullRequestSearchUrl:
+      "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-167",
+    pi: {
+      defaultModel: "xiaomi/mimo-v2-pro",
+      selectedModel: "xiaomi/mimo-v2-pro",
+      availableModels: [
+        "xiaomi/mimo-v2-pro",
+        "gpt-5.4",
+        "gpt-5.4-mini"
+      ],
+      modelOverrideLabelPrefix: "model:",
+      selectionHelpText:
+        "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
+    },
+    pendingClarification: null,
+    capability: null
+  };
 
   return {
     issueIdentifier: "COL-167",
@@ -367,33 +393,409 @@ export function buildSymphonyRuntimeIssueResult(
       projectName: "Symphony",
       teamKey: "COL"
     },
-    operator: {
-      refreshPath: "/api/v1/refresh",
-      refreshDelegatesTo: ["poll", "reconcile"],
-      githubPullRequestSearchUrl:
-        "https://github.com/openai/symphony/pulls?q=is%3Apr+head%3Asymphony%2FCOL-167",
-      requeueDelegatesTo: ["linear", "github_rework_comment"],
-      requeueCommand: "/rework",
-      requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
-      pi: {
-        defaultModel: "xiaomi/mimo-v2-pro",
-        selectedModel: "xiaomi/mimo-v2-pro",
-        availableModels: [
-          "xiaomi/mimo-v2-pro",
-          "gpt-5.4",
-          "gpt-5.4-mini"
-        ],
-        modelOverrideLabelPrefix: "model:",
-        selectionHelpText:
-          "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
-      }
-    },
+    operator:
+      overrides.operator === undefined
+        ? defaultOperator
+        : {
+            ...defaultOperator,
+            ...overrides.operator,
+            pi: {
+              ...defaultOperator.pi,
+              ...overrides.operator.pi
+            },
+            pendingClarification:
+              overrides.operator.pendingClarification === undefined
+                ? defaultOperator.pendingClarification
+                : overrides.operator.pendingClarification,
+            capability:
+              overrides.operator.capability === undefined
+                ? defaultOperator.capability
+                : overrides.operator.capability
+          },
     ...Object.fromEntries(
       Object.entries(overrides).filter(
-        ([key]) => key !== "workspace" && key !== "running" && key !== "retry"
+        ([key]) =>
+          key !== "workspace" &&
+          key !== "running" &&
+          key !== "retry" &&
+          key !== "operator"
       )
     )
+  };
+}
+
+export function buildSymphonyRuntimeWorkflowObservabilityResult(
+  overrides: Partial<SymphonyRuntimeWorkflowObservabilityResult> = {}
+): SymphonyRuntimeWorkflowObservabilityResult {
+  return {
+    workflow: {
+      workflowId: "workflow-167",
+      trackerIssueId: "issue-167",
+      repositoryKey: DEFAULT_REPOSITORY_KEY,
+      issueIdentifier: "COL-167",
+      bindingScope: null,
+      routerPresetId: "intelligent-flow",
+      routerName: "intelligent-flow",
+      routerVersion: "1",
+      archivedAt: null,
+      insertedAt: "2026-04-13T18:00:00.000Z",
+      updatedAt: "2026-04-13T18:07:00.000Z"
+    },
+    trackerState: "In Progress",
+    capability: {
+      workflowId: "workflow-167",
+      contractId: "contract-167",
+      policyId: "default",
+      planKind: "execute",
+      summary: "Next capability execution is implement.spec.",
+      decidedAt: "2026-04-13T18:07:00.000Z",
+      capabilityId: "implement.spec",
+      modelProfileId: "builder_fast",
+      workEpoch: 2,
+      pendingClarification: null,
+      completion: null
+    },
+    pendingClarification: null,
+    snapshot: {
+      eventSequence: 6,
+      currentNode: "implementation",
+      terminal: false,
+      lastSignalId: "signal_runtime_completed",
+      lastDecisionId: "decision_runtime_completed",
+      pendingCommandCount: 1,
+      projection: {
+        workflowId: "workflow-167",
+        currentNode: "implementation",
+        pendingCommands: [
+          {
+            id: "command-review",
+            kind: "request.review",
+            payload: {
+              workflowId: "workflow-167"
+            },
+            dedupeKey: null
+          }
+        ],
+        recordedSignalIds: ["signal_todo_observed", "signal_runtime_completed"],
+        emittedCommandIds: ["command-review"],
+        terminal: false,
+        sequence: 6,
+        data: {
+          trackerState: "In Progress"
+        },
+        lastSignal: {
+          id: "signal_runtime_completed",
+          type: "runtime.completed",
+          source: "runtime",
+          occurredAt: "2026-04-13T18:07:00.000Z",
+          causationId: null,
+          correlationId: "COL-167",
+          payload: {
+            kind: "delivered",
+            runId: "run-167",
+            runMode: "implementation",
+            reason: null
+          }
+        },
+        lastDecision: {
+          id: "decision_runtime_completed",
+          fromNode: "bootstrapping",
+          toNode: "implementation",
+          edgeId: "bootstrapping_to_implementation",
+          reasonCode: "runtime_completed",
+          commands: [
+            {
+              id: "command-review",
+              kind: "request.review",
+              payload: {
+                workflowId: "workflow-167"
+              },
+              dedupeKey: null
+            }
+          ],
+          trace: [
+            {
+              kind: "strategy_selected",
+              ref: "bootstrapping_to_implementation",
+              detail: {
+                score: 1
+              }
+            }
+          ],
+          selectionMetadata: {
+            score: 1
+          }
+        }
+      }
+    },
+    replay: {
+      recordedEventCount: 6,
+      recordedSignalCount: 2,
+      recordedDecisionCount: 1,
+      recordedCommandCount: 1,
+      settledCommandCount: 1,
+      signals: [
+        {
+          id: "signal_todo_observed",
+          type: "tracker.state_observed",
+          source: "tracker",
+          occurredAt: "2026-04-13T18:00:00.000Z",
+          causationId: null,
+          correlationId: "COL-167",
+          payload: {
+            trackerState: "Todo"
+          }
+        },
+        {
+          id: "signal_runtime_completed",
+          type: "runtime.completed",
+          source: "runtime",
+          occurredAt: "2026-04-13T18:07:00.000Z",
+          causationId: null,
+          correlationId: "COL-167",
+          payload: {
+            kind: "delivered",
+            runId: "run-167",
+            runMode: "implementation",
+            reason: null
+          }
+        }
+      ]
+    },
+    routerDecision: null,
+    currentModule: {
+      executionId: null,
+      module: {
+        moduleId: "implement.spec",
+        phase: "implementing",
+        executionKind: "agent",
+        summary: "Implement the requested ticket slice.",
+        description:
+          "Produces the canonical change set for the current work epoch.",
+        enabledByDefault: true,
+        runtimeSupported: true,
+        supportedModelProfileIds: ["builder_fast", "builder_deep"],
+        producesEvidenceIds: ["change_set"],
+        requiresEvidenceIds: []
+      },
+      workEpoch: 2,
+      attempt: null,
+      state: "selected",
+      summary: "Next capability execution is implement.spec.",
+      modelProfileId: "builder_fast",
+      selectedAt: "2026-04-13T18:07:00.000Z",
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision: null
+    },
+    recentModuleRuns: [],
+    history: [
+      {
+        eventId: "event-1",
+        eventSequence: 1,
+        kind: "signal_recorded",
+        recordedAt: "2026-04-13T18:00:00.000Z",
+        signalId: "signal_todo_observed",
+        signalType: "tracker.state_observed",
+        signalSource: "tracker",
+        decisionId: null,
+        commandId: null,
+        fromNode: null,
+        toNode: null,
+        edgeId: null,
+        reasonCode: null,
+        event: {
+          kind: "signal_recorded",
+          recordedAt: "2026-04-13T18:00:00.000Z",
+          signal: {
+            id: "signal_todo_observed",
+            type: "tracker.state_observed",
+            source: "tracker",
+            occurredAt: "2026-04-13T18:00:00.000Z",
+            causationId: null,
+            correlationId: "COL-167",
+            payload: {
+              trackerState: "Todo"
+            }
+          }
+        }
+      },
+      {
+        eventId: "event-2",
+        eventSequence: 2,
+        kind: "decision_recorded",
+        recordedAt: "2026-04-13T18:07:00.000Z",
+        signalId: "signal_runtime_completed",
+        signalType: "runtime.completed",
+        signalSource: "runtime",
+        decisionId: "decision_runtime_completed",
+        commandId: null,
+        fromNode: "bootstrapping",
+        toNode: "implementation",
+        edgeId: "bootstrapping_to_implementation",
+        reasonCode: "runtime_completed",
+        event: {
+          kind: "decision_recorded",
+          recordedAt: "2026-04-13T18:07:00.000Z",
+          decision: {
+            id: "decision_runtime_completed",
+            fromNode: "bootstrapping",
+            toNode: "implementation",
+            edgeId: "bootstrapping_to_implementation",
+            reasonCode: "runtime_completed",
+            commands: [
+              {
+                id: "command-review",
+                kind: "request.review",
+                payload: {
+                  workflowId: "workflow-167"
+                },
+                dedupeKey: null
+              }
+            ],
+            trace: [
+              {
+                kind: "strategy_selected",
+                ref: "bootstrapping_to_implementation",
+                detail: {
+                  score: 1
+                }
+              }
+            ],
+            selectionMetadata: {
+              score: 1
+            }
+          }
+        }
+      },
+      {
+        eventId: "event-3",
+        eventSequence: 3,
+        kind: "command_emitted",
+        recordedAt: "2026-04-13T18:07:00.500Z",
+        signalId: null,
+        signalType: null,
+        signalSource: null,
+        decisionId: "decision_runtime_completed",
+        commandId: "command-review",
+        fromNode: "bootstrapping",
+        toNode: "implementation",
+        edgeId: "bootstrapping_to_implementation",
+        reasonCode: "runtime_completed",
+        event: {
+          kind: "command_emitted",
+          decisionId: "decision_runtime_completed",
+          recordedAt: "2026-04-13T18:07:00.500Z",
+          command: {
+            id: "command-review",
+            kind: "request.review",
+            payload: {
+              workflowId: "workflow-167"
+            },
+            dedupeKey: null
+          }
+        }
+      },
+      {
+        eventId: "event-4",
+        eventSequence: 4,
+        kind: "command_settled",
+        recordedAt: "2026-04-13T18:07:01.000Z",
+        signalId: null,
+        signalType: null,
+        signalSource: null,
+        decisionId: null,
+        commandId: "command-review",
+        fromNode: "implementation",
+        toNode: "implementation",
+        edgeId: null,
+        reasonCode: null,
+        event: {
+          kind: "command_settled",
+          commandId: "command-review",
+          status: "succeeded",
+          payload: {
+            accepted: true
+          },
+          recordedAt: "2026-04-13T18:07:01.000Z"
+        }
+      }
+    ],
+    decisions: [
+      {
+        decisionId: "decision_runtime_completed",
+        eventSequence: 2,
+        signalId: "signal_runtime_completed",
+        fromNode: "bootstrapping",
+        toNode: "implementation",
+        edgeId: "bootstrapping_to_implementation",
+        reasonCode: "runtime_completed",
+        policy: {
+          presetId: "intelligent-flow"
+        },
+        projectionBefore: {
+          currentNode: "bootstrapping",
+          terminal: false,
+          pendingCommands: []
+        },
+        projectionAfter: {
+          currentNode: "implementation",
+          terminal: false,
+          pendingCommands: [
+            {
+              id: "command-review",
+              kind: "request.review",
+              payload: {
+                workflowId: "workflow-167"
+              },
+              dedupeKey: null
+            }
+          ]
+        },
+        commands: [
+          {
+            commandId: "command-review",
+            kind: "request.review",
+            dedupeKey: null,
+            payload: {
+              workflowId: "workflow-167"
+            },
+            settled: {
+              eventId: "event-4",
+              eventSequence: 4,
+              recordedAt: "2026-04-13T18:07:01.000Z",
+              status: "succeeded",
+              payload: {
+                accepted: true
+              }
+            }
+          }
+        ],
+        trace: [
+          {
+            kind: "strategy_selected",
+            ref: "bootstrapping_to_implementation",
+            detail: {
+              score: 1
+            }
+          }
+        ],
+        selectionMetadata: {
+          score: 1
+        },
+        recordedAt: "2026-04-13T18:07:00.000Z",
+        insertedAt: "2026-04-13T18:07:00.000Z"
+      }
+    ],
+    filters: {
+      historyLimit: 120,
+      decisionLimit: 40
+    },
+    ...overrides
   };
 }
 

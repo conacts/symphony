@@ -9,12 +9,19 @@ import {
 } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type {
+  SymphonyIntelligentFlowRouterDecision,
   WorkflowCommand,
+  WorkflowCapabilityExecutionCommand,
+  WorkflowCapabilityId,
+  WorkflowCapabilityPlan,
+  WorkflowEvidenceId,
   WorkflowJournalEvent,
+  WorkflowModelProfileId,
   WorkflowNodeId,
   WorkflowProjection,
   WorkflowRouteResult,
   WorkflowSignalSource,
+  WorkflowTicketExecutionContract,
   WorkflowTraceEntry
 } from "@symphony/router";
 import {
@@ -28,9 +35,12 @@ import {
   type SymphonyLifecycleBindingScope
 } from "./lifecycle-binding-scope.js";
 import {
+  routeWorkflowCapabilityPlannerCommandsTable,
+  routeWorkflowCapabilityPlannerDecisionsTable,
   routeDecisionsTable,
   routeHistoryEventsTable,
   routeProjectionSnapshotsTable,
+  routeWorkflowExecutionContractsTable,
   routeWorkflowsTable,
   symphonyIssuesTable
 } from "./schema.js";
@@ -78,6 +88,55 @@ type RouteWorkflowRecordRow = {
   archivedAt: string | null;
   insertedAt: string;
   updatedAt: string;
+};
+
+type RouteWorkflowExecutionContractRow = {
+  workflowId: string;
+  contractId: string;
+  issueIdentifier: string;
+  repositoryKey: string;
+  summary: string;
+  objective: string;
+  doneDefinition: string;
+  requiredCapabilityIdsJson: unknown;
+  preferredCapabilityIdsJson: unknown;
+  forbiddenCapabilityIdsJson: unknown;
+  requiredEvidenceIdsJson: unknown;
+  allowedModelProfileIdsJson: unknown;
+  clarificationMode: string;
+  reviewStrictness: string;
+  maxRetryCount: number;
+  insertedAt: string;
+  updatedAt: string;
+};
+
+type RouteWorkflowCapabilityPlannerDecisionRow = {
+  decisionId: string;
+  workflowId: string;
+  contractId: string;
+  contractUpdatedAt: string;
+  policyId: string;
+  historyEventSequence: number;
+  lifecycleProjectionSequence: number;
+  lifecycleCurrentNode: string | null;
+  planKind: string;
+  planJson: unknown;
+  intelligentFlowRouterDecisionJson: unknown;
+  recordedAt: string;
+  insertedAt: string;
+};
+
+type RouteWorkflowCapabilityPlannerCommandRow = {
+  commandId: string;
+  workflowId: string;
+  decisionId: string;
+  contractId: string;
+  historyEventSequence: number;
+  dedupeKey: string | null;
+  kind: string;
+  commandJson: unknown;
+  emittedAt: string;
+  insertedAt: string;
 };
 
 export type RouteHistoryEventRecord<
@@ -138,6 +197,57 @@ export type RouteProjectionSnapshotRecord<
   updatedAt: string;
 };
 
+export type RouteWorkflowExecutionContractRecord<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId> & {
+  insertedAt: string;
+};
+
+export type RouteWorkflowCapabilityPlannerPlanKind =
+  | "execute"
+  | "awaiting_input"
+  | "blocked"
+  | "ready_for_completion";
+
+export type RouteWorkflowCapabilityPlannerDecisionRecord<
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = {
+  decisionId: string;
+  workflowId: string;
+  contractId: string;
+  contractUpdatedAt: string;
+  policyId: string;
+  historyEventSequence: number;
+  lifecycleProjectionSequence: number;
+  lifecycleCurrentNode: string | null;
+  planKind: RouteWorkflowCapabilityPlannerPlanKind;
+  plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+  intelligentFlowRouterDecision: SymphonyIntelligentFlowRouterDecision | null;
+  recordedAt: string;
+  insertedAt: string;
+};
+
+export type RouteWorkflowCapabilityPlannerCommandRecord<
+  Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
+  CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+  ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+> = {
+  commandId: string;
+  workflowId: string;
+  decisionId: string;
+  contractId: string;
+  historyEventSequence: number;
+  dedupeKey: string | null;
+  kind: "capability.execute";
+  command: WorkflowCapabilityExecutionCommand<Contract, CapabilityId, ProfileId>;
+  emittedAt: string;
+  insertedAt: string;
+};
+
 export type RouteWorkflowHydrationState<
   Node extends WorkflowNodeId = WorkflowNodeId,
   Data = unknown,
@@ -161,7 +271,46 @@ export interface RouteWorkflowStore {
     routerVersion: string;
     createdAt: string;
   }): Promise<string>;
+  archiveWorkflow(input: {
+    workflowId: string;
+    archivedAt: string;
+  }): Promise<boolean>;
   getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null>;
+  getExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(
+    workflowId: string
+  ): Promise<
+    RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+  >;
+  getCapabilityPlannerDecisionForState<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    historyEventSequence: number;
+    contractUpdatedAt: string;
+    policyId: string;
+  }): Promise<
+    RouteWorkflowCapabilityPlannerDecisionRecord<CapabilityId, EvidenceId, ProfileId> | null
+  >;
+  getCapabilityPlannerCommandByDecisionId<
+    Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(decisionId: string): Promise<
+    RouteWorkflowCapabilityPlannerCommandRecord<Contract, CapabilityId, ProfileId> | null
+  >;
+  listCapabilityPlannerCommands<
+    Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(workflowId: string): Promise<
+    RouteWorkflowCapabilityPlannerCommandRecord<Contract, CapabilityId, ProfileId>[]
+  >;
   getWorkflowForTrackerIssueId(trackerIssueId: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForIssue(issueIdentifier: string): Promise<RouteWorkflowRecord | null>;
   getWorkflowForScopedIssue(input: {
@@ -238,6 +387,47 @@ export interface RouteWorkflowStore {
   }): Promise<{
     historyEvent: RouteHistoryEventRecord<Node>;
     snapshot: RouteProjectionSnapshotRecord<Node, Data>;
+  }>;
+  saveExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    recordedAt: string;
+  }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>>;
+  saveCapabilityPlannerDecision<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    decisionId: string;
+    policyId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    historyEventSequence: number;
+    lifecycleProjectionSequence: number;
+    lifecycleCurrentNode: string | null;
+    plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+    intelligentFlowRouterDecision?: SymphonyIntelligentFlowRouterDecision | null;
+    command?: WorkflowCapabilityExecutionCommand<
+      WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
+      CapabilityId,
+      ProfileId
+    > | null;
+    recordedAt: string;
+  }): Promise<{
+    decision: RouteWorkflowCapabilityPlannerDecisionRecord<
+      CapabilityId,
+      EvidenceId,
+      ProfileId
+    >;
+    command: RouteWorkflowCapabilityPlannerCommandRecord<
+      WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
+      CapabilityId,
+      ProfileId
+    > | null;
   }>;
 }
 
@@ -326,12 +516,130 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     return workflowId;
   }
 
+  async archiveWorkflow(input: {
+    workflowId: string;
+    archivedAt: string;
+  }): Promise<boolean> {
+    const workflowId = sanitizeRequiredText(input.workflowId, "workflowId");
+    const archivedAt = sanitizeRequiredText(input.archivedAt, "archivedAt");
+    const result = this.#db.update(routeWorkflowsTable)
+      .set({
+        archivedAt,
+        updatedAt: archivedAt
+      })
+      .where(
+        and(
+          eq(routeWorkflowsTable.workflowId, workflowId),
+          isNull(routeWorkflowsTable.archivedAt)
+        )
+      )
+      .run();
+
+    return result.changes > 0;
+  }
+
   async getWorkflow(workflowId: string): Promise<RouteWorkflowRecord | null> {
     const row = this.#selectWorkflowRecordByWorkflowId(
       sanitizeRequiredText(workflowId, "workflowId")
     );
 
     return row ? mapWorkflowRow(row) : null;
+  }
+
+  async getExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(
+    workflowId: string
+  ): Promise<
+    RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+  > {
+    const row = this.#selectExecutionContractByWorkflowId(
+      sanitizeRequiredText(workflowId, "workflowId")
+    );
+
+    return row
+      ? mapExecutionContractRow<CapabilityId, EvidenceId, ProfileId>(row)
+      : null;
+  }
+
+  async getCapabilityPlannerDecisionForState<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    historyEventSequence: number;
+    contractUpdatedAt: string;
+    policyId: string;
+  }): Promise<
+    RouteWorkflowCapabilityPlannerDecisionRecord<CapabilityId, EvidenceId, ProfileId> | null
+  > {
+    const row = this.#selectCapabilityPlannerDecisionByState({
+      workflowId: sanitizeRequiredText(input.workflowId, "workflowId"),
+      historyEventSequence: sanitizeEventSequence(
+        input.historyEventSequence,
+        "historyEventSequence"
+      ),
+      contractUpdatedAt: sanitizeRequiredText(
+        input.contractUpdatedAt,
+        "contractUpdatedAt"
+      ),
+      policyId: sanitizeRequiredText(input.policyId, "policyId")
+    });
+
+    return row
+      ? mapCapabilityPlannerDecisionRow<CapabilityId, EvidenceId, ProfileId>(row)
+      : null;
+  }
+
+  async getCapabilityPlannerCommandByDecisionId<
+    Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(decisionId: string): Promise<
+    RouteWorkflowCapabilityPlannerCommandRecord<Contract, CapabilityId, ProfileId> | null
+  > {
+    const row = this.#selectCapabilityPlannerCommandByDecisionId(
+      sanitizeRequiredText(decisionId, "decisionId")
+    );
+
+    return row
+      ? mapCapabilityPlannerCommandRow<Contract, CapabilityId, ProfileId>(row)
+      : null;
+  }
+
+  async listCapabilityPlannerCommands<
+    Contract extends WorkflowTicketExecutionContract = WorkflowTicketExecutionContract,
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(workflowId: string): Promise<
+    RouteWorkflowCapabilityPlannerCommandRecord<Contract, CapabilityId, ProfileId>[]
+  > {
+    const normalizedWorkflowId = sanitizeRequiredText(workflowId, "workflowId");
+
+    return this.#db
+      .select({
+        commandId: routeWorkflowCapabilityPlannerCommandsTable.commandId,
+        workflowId: routeWorkflowCapabilityPlannerCommandsTable.workflowId,
+        decisionId: routeWorkflowCapabilityPlannerCommandsTable.decisionId,
+        contractId: routeWorkflowCapabilityPlannerCommandsTable.contractId,
+        historyEventSequence:
+          routeWorkflowCapabilityPlannerCommandsTable.historyEventSequence,
+        dedupeKey: routeWorkflowCapabilityPlannerCommandsTable.dedupeKey,
+        kind: routeWorkflowCapabilityPlannerCommandsTable.kind,
+        commandJson: routeWorkflowCapabilityPlannerCommandsTable.commandJson,
+        emittedAt: routeWorkflowCapabilityPlannerCommandsTable.emittedAt,
+        insertedAt: routeWorkflowCapabilityPlannerCommandsTable.insertedAt
+      })
+      .from(routeWorkflowCapabilityPlannerCommandsTable)
+      .where(eq(routeWorkflowCapabilityPlannerCommandsTable.workflowId, normalizedWorkflowId))
+      .orderBy(asc(routeWorkflowCapabilityPlannerCommandsTable.emittedAt))
+      .all()
+      .map((row) =>
+        mapCapabilityPlannerCommandRow<Contract, CapabilityId, ProfileId>(row)
+      );
   }
 
   async getWorkflowForTrackerIssueId(
@@ -688,6 +996,372 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
     };
   }
 
+  async saveExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    recordedAt: string;
+  }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>> {
+    const workflowId = sanitizeRequiredText(input.workflowId, "workflowId");
+    const contract = input.contract;
+    const recordedAt = sanitizeRequiredText(input.recordedAt, "recordedAt");
+
+    if (sanitizeRequiredText(contract.workflowId, "contract.workflowId") !== workflowId) {
+      throw new TypeError(
+        `Execution contract workflowId ${contract.workflowId} does not match route workflow ${workflowId}.`
+      );
+    }
+
+    const contractId = sanitizeRequiredText(contract.contractId, "contract.contractId");
+    const summary = sanitizeRequiredText(contract.summary, "contract.summary");
+    const objective = sanitizeRequiredText(contract.objective, "contract.objective");
+    const doneDefinition = sanitizeRequiredText(
+      contract.doneDefinition,
+      "contract.doneDefinition"
+    );
+    const existing = this.#selectExecutionContractByWorkflowId(workflowId);
+
+    if (existing && existing.contractId !== contractId) {
+      throw new TypeError(
+        `Route workflow ${workflowId} already has execution contract ${existing.contractId}, not ${contractId}.`
+      );
+    }
+
+    const requiredCapabilityIds = requireStringArray(
+      contract.routingDirectives.requiredCapabilityIds,
+      "contract.routingDirectives.requiredCapabilityIds"
+    );
+    const preferredCapabilityIds = requireStringArray(
+      contract.routingDirectives.preferredCapabilityIds,
+      "contract.routingDirectives.preferredCapabilityIds"
+    );
+    const forbiddenCapabilityIds = requireStringArray(
+      contract.routingDirectives.forbiddenCapabilityIds,
+      "contract.routingDirectives.forbiddenCapabilityIds"
+    );
+    const requiredEvidenceIds = requireStringArray(
+      contract.routingDirectives.requiredEvidenceIds,
+      "contract.routingDirectives.requiredEvidenceIds"
+    );
+    const allowedModelProfileIds = requireStringArray(
+      contract.routingDirectives.allowedModelProfileIds,
+      "contract.routingDirectives.allowedModelProfileIds"
+    );
+    const maxRetryCount = sanitizeNonNegativeInteger(
+      contract.routingDirectives.maxRetryCount,
+      "contract.routingDirectives.maxRetryCount"
+    );
+
+    this.#db.transaction((tx) => {
+      this.#requireWorkflow(tx, workflowId);
+
+      tx.insert(routeWorkflowExecutionContractsTable)
+        .values({
+          workflowId,
+          contractId,
+          summary,
+          objective,
+          doneDefinition,
+          requiredCapabilityIdsJson: requiredCapabilityIds,
+          preferredCapabilityIdsJson: preferredCapabilityIds,
+          forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
+          requiredEvidenceIdsJson: requiredEvidenceIds,
+          allowedModelProfileIdsJson: allowedModelProfileIds,
+          clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
+          reviewStrictness: contract.routingDirectives.reviewStrictness,
+          maxRetryCount,
+          insertedAt: existing?.insertedAt ?? recordedAt,
+          updatedAt: recordedAt
+        })
+        .onConflictDoUpdate({
+          target: routeWorkflowExecutionContractsTable.workflowId,
+          set: {
+            summary,
+            objective,
+            doneDefinition,
+            requiredCapabilityIdsJson: requiredCapabilityIds,
+            preferredCapabilityIdsJson: preferredCapabilityIds,
+            forbiddenCapabilityIdsJson: forbiddenCapabilityIds,
+            requiredEvidenceIdsJson: requiredEvidenceIds,
+            allowedModelProfileIdsJson: allowedModelProfileIds,
+            clarificationMode: contract.routingDirectives.clarificationPolicy.mode,
+            reviewStrictness: contract.routingDirectives.reviewStrictness,
+            maxRetryCount,
+            updatedAt: recordedAt
+          }
+        })
+        .run();
+
+      tx.update(routeWorkflowsTable)
+        .set({
+          updatedAt: recordedAt
+        })
+        .where(eq(routeWorkflowsTable.workflowId, workflowId))
+        .run();
+    });
+
+    const saved = this.#selectExecutionContractByWorkflowId(workflowId);
+    if (!saved) {
+      throw new TypeError(
+        `Route workflow ${workflowId} did not persist an execution contract.`
+      );
+    }
+
+  return mapExecutionContractRow<CapabilityId, EvidenceId, ProfileId>(saved);
+  }
+
+  async saveCapabilityPlannerDecision<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    decisionId: string;
+    policyId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    historyEventSequence: number;
+    lifecycleProjectionSequence: number;
+    lifecycleCurrentNode: string | null;
+    plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+    intelligentFlowRouterDecision?: SymphonyIntelligentFlowRouterDecision | null;
+    command?: WorkflowCapabilityExecutionCommand<
+      WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
+      CapabilityId,
+      ProfileId
+    > | null;
+    recordedAt: string;
+  }): Promise<{
+    decision: RouteWorkflowCapabilityPlannerDecisionRecord<
+      CapabilityId,
+      EvidenceId,
+      ProfileId
+    >;
+    command: RouteWorkflowCapabilityPlannerCommandRecord<
+      WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
+      CapabilityId,
+      ProfileId
+    > | null;
+  }> {
+    const workflowId = sanitizeRequiredText(input.workflowId, "workflowId");
+    const decisionId = sanitizeRequiredText(input.decisionId, "decisionId");
+    const policyId = sanitizeRequiredText(input.policyId, "policyId");
+    const contract = input.contract;
+    const recordedAt = sanitizeRequiredText(input.recordedAt, "recordedAt");
+
+    if (sanitizeRequiredText(contract.workflowId, "contract.workflowId") !== workflowId) {
+      throw new TypeError(
+        `Capability planner contract workflowId ${contract.workflowId} does not match route workflow ${workflowId}.`
+      );
+    }
+
+    const contractId = sanitizeRequiredText(contract.contractId, "contract.contractId");
+    const contractUpdatedAt = sanitizeRequiredText(
+      contract.updatedAt,
+      "contract.updatedAt"
+    );
+    const historyEventSequence = sanitizeEventSequence(
+      input.historyEventSequence,
+      "historyEventSequence"
+    );
+    const lifecycleProjectionSequence = sanitizeEventSequence(
+      input.lifecycleProjectionSequence,
+      "lifecycleProjectionSequence"
+    );
+    const lifecycleCurrentNode = sanitizeOptionalText(input.lifecycleCurrentNode);
+    const planKind = sanitizeCapabilityPlannerPlanKind(input.plan.kind);
+    const intelligentFlowRouterDecision =
+      input.intelligentFlowRouterDecision === undefined
+        ? null
+        : validateIntelligentFlowRouterDecision({
+            decision: input.intelligentFlowRouterDecision,
+            decisionId,
+            workflowId,
+            policyId,
+            recordedAt,
+            plan: input.plan
+          });
+
+    if (planKind === "execute") {
+      if (!input.command) {
+        throw new TypeError(
+          "Capability planner execute decisions must persist a capability.execute command."
+        );
+      }
+    } else if (input.command) {
+      throw new TypeError(
+        `Capability planner decision kind ${planKind} cannot persist a command.`
+      );
+    }
+
+    if (input.command) {
+      if (input.command.kind !== "capability.execute") {
+        throw new TypeError(
+          `Unsupported capability planner command kind ${input.command.kind}.`
+        );
+      }
+      if (
+        sanitizeRequiredText(
+          input.command.payload.workflowId,
+          "command.payload.workflowId"
+        ) !== workflowId
+      ) {
+        throw new TypeError(
+          `Capability planner command workflowId ${input.command.payload.workflowId} does not match route workflow ${workflowId}.`
+        );
+      }
+      if (
+        sanitizeRequiredText(
+          input.command.payload.contract.contractId,
+          "command.payload.contract.contractId"
+        ) !== contractId
+      ) {
+        throw new TypeError(
+          `Capability planner command contract ${input.command.payload.contract.contractId} does not match planner contract ${contractId}.`
+        );
+      }
+      if (input.plan.kind !== "execute") {
+        throw new TypeError(
+          "Capability planner command persistence requires an execute plan."
+        );
+      }
+      if (
+        input.command.payload.capabilityId !== input.plan.decision.capabilityId ||
+        input.command.payload.modelProfileId !== input.plan.decision.modelProfileId
+      ) {
+        throw new TypeError(
+          "Capability planner command does not match the execute decision."
+        );
+      }
+    }
+
+    return this.#db.transaction((tx) => {
+      this.#requireWorkflow(tx, workflowId);
+
+      const existingDecision = this.#selectCapabilityPlannerDecisionByState(
+        {
+          workflowId,
+          historyEventSequence,
+          contractUpdatedAt,
+          policyId
+        },
+        tx
+      );
+      if (existingDecision) {
+        return {
+          decision: mapCapabilityPlannerDecisionRow<
+            CapabilityId,
+            EvidenceId,
+            ProfileId
+          >(existingDecision),
+          command: existingDecision.planKind === "execute"
+            ? (() => {
+                const existingCommand = this.#selectCapabilityPlannerCommandByDecisionId(
+                  existingDecision.decisionId,
+                  tx
+                );
+                if (!existingCommand) {
+                  throw new TypeError(
+                    `Capability planner decision ${existingDecision.decisionId} is missing its emitted command.`
+                  );
+                }
+
+                return mapCapabilityPlannerCommandRow<
+                  WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
+                  CapabilityId,
+                  ProfileId
+                >(existingCommand);
+              })()
+            : null
+        };
+      }
+
+      tx.insert(routeWorkflowCapabilityPlannerDecisionsTable)
+        .values({
+          decisionId,
+          workflowId,
+          contractId,
+          contractUpdatedAt,
+          policyId,
+          historyEventSequence,
+          lifecycleProjectionSequence,
+          lifecycleCurrentNode,
+          planKind,
+          planJson: input.plan,
+          intelligentFlowRouterDecisionJson: intelligentFlowRouterDecision,
+          recordedAt,
+          insertedAt: recordedAt
+        })
+        .run();
+
+      let command: RouteWorkflowCapabilityPlannerCommandRecord<
+        WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>,
+        CapabilityId,
+        ProfileId
+      > | null = null;
+
+      if (input.command) {
+        const commandId = sanitizeRequiredText(input.command.id, "command.id");
+
+        tx.insert(routeWorkflowCapabilityPlannerCommandsTable)
+          .values({
+            commandId,
+            workflowId,
+            decisionId,
+            contractId,
+            historyEventSequence,
+            dedupeKey: input.command.dedupeKey,
+            kind: input.command.kind,
+            commandJson: input.command,
+            emittedAt: recordedAt,
+            insertedAt: recordedAt
+          })
+          .run();
+
+        command = {
+          commandId,
+          workflowId,
+          decisionId,
+          contractId,
+          historyEventSequence,
+          dedupeKey: input.command.dedupeKey,
+          kind: "capability.execute",
+          command: input.command,
+          emittedAt: recordedAt,
+          insertedAt: recordedAt
+        };
+      }
+
+      tx.update(routeWorkflowsTable)
+        .set({
+          updatedAt: recordedAt
+        })
+        .where(eq(routeWorkflowsTable.workflowId, workflowId))
+        .run();
+
+      return {
+        decision: {
+          decisionId,
+          workflowId,
+          contractId,
+          contractUpdatedAt,
+          policyId,
+          historyEventSequence,
+          lifecycleProjectionSequence,
+          lifecycleCurrentNode,
+          planKind,
+          plan: input.plan,
+          intelligentFlowRouterDecision,
+          recordedAt,
+          insertedAt: recordedAt
+        },
+        command
+      };
+    });
+  }
+
   async #appendHistoryEvent<
     Node extends WorkflowNodeId,
     Data = unknown,
@@ -907,6 +1581,121 @@ class SqliteRouteWorkflowStore implements RouteWorkflowStore {
         eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
       )
       .where(whereClause)
+      .get();
+  }
+
+  #selectExecutionContractByWorkflowId(
+    workflowId: string,
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): RouteWorkflowExecutionContractRow | undefined {
+    return db
+      .select({
+        workflowId: routeWorkflowExecutionContractsTable.workflowId,
+        contractId: routeWorkflowExecutionContractsTable.contractId,
+        issueIdentifier: symphonyIssuesTable.issueIdentifier,
+        repositoryKey: symphonyIssuesTable.repositoryKey,
+        summary: routeWorkflowExecutionContractsTable.summary,
+        objective: routeWorkflowExecutionContractsTable.objective,
+        doneDefinition: routeWorkflowExecutionContractsTable.doneDefinition,
+        requiredCapabilityIdsJson:
+          routeWorkflowExecutionContractsTable.requiredCapabilityIdsJson,
+        preferredCapabilityIdsJson:
+          routeWorkflowExecutionContractsTable.preferredCapabilityIdsJson,
+        forbiddenCapabilityIdsJson:
+          routeWorkflowExecutionContractsTable.forbiddenCapabilityIdsJson,
+        requiredEvidenceIdsJson:
+          routeWorkflowExecutionContractsTable.requiredEvidenceIdsJson,
+        allowedModelProfileIdsJson:
+          routeWorkflowExecutionContractsTable.allowedModelProfileIdsJson,
+        clarificationMode: routeWorkflowExecutionContractsTable.clarificationMode,
+        reviewStrictness: routeWorkflowExecutionContractsTable.reviewStrictness,
+        maxRetryCount: routeWorkflowExecutionContractsTable.maxRetryCount,
+        insertedAt: routeWorkflowExecutionContractsTable.insertedAt,
+        updatedAt: routeWorkflowExecutionContractsTable.updatedAt
+      })
+      .from(routeWorkflowExecutionContractsTable)
+      .innerJoin(
+        routeWorkflowsTable,
+        eq(
+          routeWorkflowExecutionContractsTable.workflowId,
+          routeWorkflowsTable.workflowId
+        )
+      )
+      .innerJoin(
+        symphonyIssuesTable,
+        eq(routeWorkflowsTable.trackerIssueId, symphonyIssuesTable.trackerIssueId)
+      )
+      .where(eq(routeWorkflowExecutionContractsTable.workflowId, workflowId))
+      .get();
+  }
+
+  #selectCapabilityPlannerDecisionByState(
+    input: {
+      workflowId: string;
+      historyEventSequence: number;
+      contractUpdatedAt: string;
+      policyId: string;
+    },
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): RouteWorkflowCapabilityPlannerDecisionRow | undefined {
+    return db
+      .select({
+        decisionId: routeWorkflowCapabilityPlannerDecisionsTable.decisionId,
+        workflowId: routeWorkflowCapabilityPlannerDecisionsTable.workflowId,
+        contractId: routeWorkflowCapabilityPlannerDecisionsTable.contractId,
+        contractUpdatedAt: routeWorkflowCapabilityPlannerDecisionsTable.contractUpdatedAt,
+        policyId: routeWorkflowCapabilityPlannerDecisionsTable.policyId,
+        historyEventSequence:
+          routeWorkflowCapabilityPlannerDecisionsTable.historyEventSequence,
+        lifecycleProjectionSequence:
+          routeWorkflowCapabilityPlannerDecisionsTable.lifecycleProjectionSequence,
+        lifecycleCurrentNode:
+          routeWorkflowCapabilityPlannerDecisionsTable.lifecycleCurrentNode,
+        planKind: routeWorkflowCapabilityPlannerDecisionsTable.planKind,
+        planJson: routeWorkflowCapabilityPlannerDecisionsTable.planJson,
+        intelligentFlowRouterDecisionJson:
+          routeWorkflowCapabilityPlannerDecisionsTable.intelligentFlowRouterDecisionJson,
+        recordedAt: routeWorkflowCapabilityPlannerDecisionsTable.recordedAt,
+        insertedAt: routeWorkflowCapabilityPlannerDecisionsTable.insertedAt
+      })
+      .from(routeWorkflowCapabilityPlannerDecisionsTable)
+      .where(
+        and(
+          eq(routeWorkflowCapabilityPlannerDecisionsTable.workflowId, input.workflowId),
+          eq(
+            routeWorkflowCapabilityPlannerDecisionsTable.historyEventSequence,
+            input.historyEventSequence
+          ),
+          eq(
+            routeWorkflowCapabilityPlannerDecisionsTable.contractUpdatedAt,
+            input.contractUpdatedAt
+          ),
+          eq(routeWorkflowCapabilityPlannerDecisionsTable.policyId, input.policyId)
+        )
+      )
+      .get();
+  }
+
+  #selectCapabilityPlannerCommandByDecisionId(
+    decisionId: string,
+    db: BetterSQLite3Database<typeof import("./schema.js").symphonySchema> = this.#db
+  ): RouteWorkflowCapabilityPlannerCommandRow | undefined {
+    return db
+      .select({
+        commandId: routeWorkflowCapabilityPlannerCommandsTable.commandId,
+        workflowId: routeWorkflowCapabilityPlannerCommandsTable.workflowId,
+        decisionId: routeWorkflowCapabilityPlannerCommandsTable.decisionId,
+        contractId: routeWorkflowCapabilityPlannerCommandsTable.contractId,
+        historyEventSequence:
+          routeWorkflowCapabilityPlannerCommandsTable.historyEventSequence,
+        dedupeKey: routeWorkflowCapabilityPlannerCommandsTable.dedupeKey,
+        kind: routeWorkflowCapabilityPlannerCommandsTable.kind,
+        commandJson: routeWorkflowCapabilityPlannerCommandsTable.commandJson,
+        emittedAt: routeWorkflowCapabilityPlannerCommandsTable.emittedAt,
+        insertedAt: routeWorkflowCapabilityPlannerCommandsTable.insertedAt
+      })
+      .from(routeWorkflowCapabilityPlannerCommandsTable)
+      .where(eq(routeWorkflowCapabilityPlannerCommandsTable.decisionId, decisionId))
       .get();
   }
 
@@ -1259,6 +2048,392 @@ function mapSnapshotRow<
   };
 }
 
+function mapExecutionContractRow<
+  CapabilityId extends WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId,
+>(
+  row: RouteWorkflowExecutionContractRow
+): RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> {
+  return {
+    contractId: row.contractId,
+    workflowId: row.workflowId,
+    issueIdentifier: row.issueIdentifier,
+    repositoryKey: row.repositoryKey,
+    summary: row.summary,
+    objective: row.objective,
+    doneDefinition: row.doneDefinition,
+    routingDirectives: {
+      requiredCapabilityIds: requireJsonStringArray<CapabilityId>(
+        row.requiredCapabilityIdsJson,
+        "requiredCapabilityIdsJson"
+      ),
+      preferredCapabilityIds: requireJsonStringArray<CapabilityId>(
+        row.preferredCapabilityIdsJson,
+        "preferredCapabilityIdsJson"
+      ),
+      forbiddenCapabilityIds: requireJsonStringArray<CapabilityId>(
+        row.forbiddenCapabilityIdsJson,
+        "forbiddenCapabilityIdsJson"
+      ),
+      requiredEvidenceIds: requireJsonStringArray<EvidenceId>(
+        row.requiredEvidenceIdsJson,
+        "requiredEvidenceIdsJson"
+      ),
+      allowedModelProfileIds: requireJsonStringArray<ProfileId>(
+        row.allowedModelProfileIdsJson,
+        "allowedModelProfileIdsJson"
+      ),
+      clarificationPolicy: {
+        mode: row.clarificationMode as RouteWorkflowExecutionContractRecord<
+          CapabilityId,
+          EvidenceId,
+          ProfileId
+        >["routingDirectives"]["clarificationPolicy"]["mode"]
+      },
+      reviewStrictness: row.reviewStrictness as RouteWorkflowExecutionContractRecord<
+        CapabilityId,
+        EvidenceId,
+        ProfileId
+      >["routingDirectives"]["reviewStrictness"],
+      maxRetryCount: sanitizeNonNegativeInteger(row.maxRetryCount, "maxRetryCount")
+    },
+    createdAt: row.insertedAt,
+    updatedAt: row.updatedAt,
+    insertedAt: row.insertedAt
+  };
+}
+
+function mapCapabilityPlannerDecisionRow<
+  CapabilityId extends WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId,
+>(
+  row: RouteWorkflowCapabilityPlannerDecisionRow
+): RouteWorkflowCapabilityPlannerDecisionRecord<CapabilityId, EvidenceId, ProfileId> {
+  const planKind = sanitizeCapabilityPlannerPlanKind(row.planKind);
+  const plan = requireJsonCapabilityPlan<CapabilityId, EvidenceId, ProfileId>(
+    row.planJson,
+    "planJson"
+  );
+
+  if (sanitizeCapabilityPlannerPlanKind(plan.kind) !== planKind) {
+    throw new TypeError(
+      `Capability planner decision ${row.decisionId} stores mismatched plan kind ${plan.kind}.`
+    );
+  }
+
+  return {
+    decisionId: row.decisionId,
+    workflowId: row.workflowId,
+    contractId: row.contractId,
+    contractUpdatedAt: row.contractUpdatedAt,
+    policyId: sanitizeRequiredText(row.policyId, "policyId"),
+    historyEventSequence: sanitizeEventSequence(
+      row.historyEventSequence,
+      "historyEventSequence"
+    ),
+    lifecycleProjectionSequence: sanitizeEventSequence(
+      row.lifecycleProjectionSequence,
+      "lifecycleProjectionSequence"
+    ),
+    lifecycleCurrentNode: row.lifecycleCurrentNode ?? null,
+    planKind,
+    plan,
+    intelligentFlowRouterDecision:
+      row.intelligentFlowRouterDecisionJson === null
+        ? null
+        : readStoredIntelligentFlowRouterDecision(
+            row.intelligentFlowRouterDecisionJson
+          ),
+    recordedAt: row.recordedAt,
+    insertedAt: row.insertedAt
+  };
+}
+
+function validateIntelligentFlowRouterDecision<
+  CapabilityId extends WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId,
+>(input: {
+  decision: SymphonyIntelligentFlowRouterDecision | null;
+  decisionId: string;
+  workflowId: string;
+  policyId: string;
+  recordedAt: string;
+  plan: WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+}): SymphonyIntelligentFlowRouterDecision | null {
+  if (input.decision === null) {
+    return null;
+  }
+
+  const decision = readStoredIntelligentFlowRouterDecision(input.decision);
+  if (decision.decisionId !== input.decisionId) {
+    throw new TypeError(
+      `Intelligent-flow router decision ${decision.decisionId} does not match planner decision ${input.decisionId}.`
+    );
+  }
+  if (decision.workflowId !== input.workflowId) {
+    throw new TypeError(
+      `Intelligent-flow router decision workflow ${decision.workflowId} does not match route workflow ${input.workflowId}.`
+    );
+  }
+  if (decision.policyId !== input.policyId) {
+    throw new TypeError(
+      `Intelligent-flow router decision policy ${decision.policyId} does not match planner policy ${input.policyId}.`
+    );
+  }
+  if (decision.recordedAt !== input.recordedAt) {
+    throw new TypeError(
+      `Intelligent-flow router decision recordedAt ${decision.recordedAt} does not match planner recordedAt ${input.recordedAt}.`
+    );
+  }
+  if (input.plan.kind !== "execute") {
+    throw new TypeError(
+      `Intelligent-flow router decision ${decision.decisionId} requires an execute planner decision.`
+    );
+  }
+  if (decision.selectedModuleId !== input.plan.candidate.capabilityId) {
+    throw new TypeError(
+      `Intelligent-flow router decision selected module ${decision.selectedModuleId} does not match execute candidate ${input.plan.candidate.capabilityId}.`
+    );
+  }
+  if (decision.selectionRationale !== input.plan.decision.rationale) {
+    throw new TypeError(
+      `Intelligent-flow router decision rationale does not match planner decision ${input.plan.decision.decisionId}.`
+    );
+  }
+
+  return decision;
+}
+
+function readStoredIntelligentFlowRouterDecision(
+  value: unknown
+): SymphonyIntelligentFlowRouterDecision {
+  if (!isRecord(value)) {
+    throw new TypeError("Stored intelligent-flow router decision must be an object.");
+  }
+
+  const candidateSetValue = value.candidateSet;
+  if (!isRecord(candidateSetValue)) {
+    throw new TypeError("Stored intelligent-flow router decision candidateSet is required.");
+  }
+
+  const admissible = readStoredIntelligentFlowCandidateArray(
+    candidateSetValue.admissible,
+    "admissible"
+  );
+  const rejected = readStoredIntelligentFlowCandidateArray(
+    candidateSetValue.rejected,
+    "rejected"
+  );
+  const selectedModuleId = sanitizeRequiredText(
+    readStoredRecordText(value, "selectedModuleId"),
+    "selectedModuleId"
+  ) as SymphonyIntelligentFlowRouterDecision["selectedModuleId"];
+  const selectionMode = readStoredIntelligentFlowSelectionMode(
+    value.selectionMode
+  );
+  const confidence = readStoredIntelligentFlowConfidence(value.confidence);
+  const fallbackReason = readStoredNullableText(value.fallbackReason, "fallbackReason");
+
+  if (!admissible.some((candidate) => candidate.moduleId === selectedModuleId)) {
+    throw new TypeError(
+      `Stored intelligent-flow router decision selected module ${selectedModuleId} must appear in the admissible candidate set.`
+    );
+  }
+  if (selectionMode === "llm_selected" && confidence === null) {
+    throw new TypeError(
+      "Stored intelligent-flow router decision requires confidence for llm_selected mode."
+    );
+  }
+  if (selectionMode === "fallback_default" && fallbackReason === null) {
+    throw new TypeError(
+      "Stored intelligent-flow router decision requires a fallback reason for fallback_default mode."
+    );
+  }
+
+  return {
+    decisionId: sanitizeRequiredText(readStoredRecordText(value, "decisionId"), "decisionId"),
+    workflowId: sanitizeRequiredText(readStoredRecordText(value, "workflowId"), "workflowId"),
+    policyId: sanitizeRequiredText(readStoredRecordText(value, "policyId"), "policyId"),
+    recordedAt: sanitizeRequiredText(readStoredRecordText(value, "recordedAt"), "recordedAt"),
+    candidateSet: {
+      admissible: admissible as SymphonyIntelligentFlowRouterDecision["candidateSet"]["admissible"],
+      rejected: rejected as SymphonyIntelligentFlowRouterDecision["candidateSet"]["rejected"]
+    },
+    selectedModuleId,
+    selectionMode,
+    selectionSummary: sanitizeRequiredText(
+      readStoredRecordText(value, "selectionSummary"),
+      "selectionSummary"
+    ),
+    selectionRationale: sanitizeRequiredText(
+      readStoredRecordText(value, "selectionRationale"),
+      "selectionRationale"
+    ),
+    confidence,
+    inputProjectionFingerprint: sanitizeRequiredText(
+      readStoredRecordText(value, "inputProjectionFingerprint"),
+      "inputProjectionFingerprint"
+    ),
+    fallbackReason
+  };
+}
+
+function readStoredIntelligentFlowCandidateArray(
+  value: unknown,
+  field: "admissible" | "rejected"
+) {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`Stored intelligent-flow candidate set ${field} must be an array.`);
+  }
+
+  return value.map((candidate, index) => {
+    if (!isRecord(candidate)) {
+      throw new TypeError(
+        `Stored intelligent-flow candidate ${field}[${index}] must be an object.`
+      );
+    }
+
+    const moduleId = sanitizeRequiredText(
+      readStoredRecordText(candidate, "moduleId"),
+      `${field}[${index}].moduleId`
+    );
+    const reasonCode = sanitizeRequiredText(
+      readStoredRecordText(candidate, "reasonCode"),
+      `${field}[${index}].reasonCode`
+    );
+    const summary = sanitizeRequiredText(
+      readStoredRecordText(candidate, "summary"),
+      `${field}[${index}].summary`
+    );
+
+    if (field === "admissible") {
+      const rank = sanitizeEventSequence(
+        readStoredRecordInteger(candidate, "rank"),
+        `${field}[${index}].rank`
+      );
+
+      return {
+        moduleId,
+        rank,
+        reasonCode,
+        summary
+      };
+    }
+
+    return {
+      moduleId,
+      reasonCode,
+      summary
+    };
+  });
+}
+
+function readStoredIntelligentFlowSelectionMode(
+  value: unknown
+): SymphonyIntelligentFlowRouterDecision["selectionMode"] {
+  const selectionMode = sanitizeRequiredText(
+    readStoredScalarText(value, "selectionMode"),
+    "selectionMode"
+  );
+  switch (selectionMode) {
+    case "deterministic":
+    case "llm_selected":
+    case "fallback_default":
+    case "reused_cached_decision":
+      return selectionMode;
+    default:
+      throw new TypeError(
+        `Stored intelligent-flow router decision has unknown selection mode ${selectionMode}.`
+      );
+  }
+}
+
+function readStoredIntelligentFlowConfidence(value: unknown): number | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new TypeError("Stored intelligent-flow router decision confidence must be 0-1.");
+  }
+
+  return value;
+}
+
+function readStoredNullableText(value: unknown, field: string): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  return sanitizeRequiredText(readStoredScalarText(value, field), field);
+}
+
+function readStoredRecordText(
+  value: Record<string, unknown>,
+  field: string
+): string {
+  return readStoredScalarText(value[field], field);
+}
+
+function readStoredRecordInteger(
+  value: Record<string, unknown>,
+  field: string
+): number {
+  const raw = value[field];
+  if (typeof raw !== "number" || !Number.isInteger(raw)) {
+    throw new TypeError(`Stored intelligent-flow router decision ${field} must be an integer.`);
+  }
+
+  return raw;
+}
+
+function readStoredScalarText(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(`Stored intelligent-flow router decision ${field} must be text.`);
+  }
+
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function mapCapabilityPlannerCommandRow<
+  Contract extends WorkflowTicketExecutionContract,
+  CapabilityId extends WorkflowCapabilityId,
+  ProfileId extends WorkflowModelProfileId,
+>(
+  row: RouteWorkflowCapabilityPlannerCommandRow
+): RouteWorkflowCapabilityPlannerCommandRecord<Contract, CapabilityId, ProfileId> {
+  if (row.kind !== "capability.execute") {
+    throw new TypeError(
+      `Unsupported capability planner command kind ${row.kind}.`
+    );
+  }
+
+  return {
+    commandId: row.commandId,
+    workflowId: row.workflowId,
+    decisionId: row.decisionId,
+    contractId: row.contractId,
+    historyEventSequence: sanitizeEventSequence(
+      row.historyEventSequence,
+      "historyEventSequence"
+    ),
+    dedupeKey: row.dedupeKey ?? null,
+    kind: "capability.execute",
+    command: requireJsonCapabilityExecutionCommand<Contract, CapabilityId, ProfileId>(
+      row.commandJson,
+      "commandJson"
+    ),
+    emittedAt: row.emittedAt,
+    insertedAt: row.insertedAt
+  };
+}
+
 function normalizeRouteHistoryEventKind(value: string): RouteHistoryEventKind {
   switch (value) {
     case "signal_recorded":
@@ -1268,6 +2443,20 @@ function normalizeRouteHistoryEventKind(value: string): RouteHistoryEventKind {
       return value;
     default:
       throw new TypeError(`Unknown route history event kind: ${value}`);
+  }
+}
+
+function sanitizeCapabilityPlannerPlanKind(
+  value: string
+): RouteWorkflowCapabilityPlannerPlanKind {
+  switch (value) {
+    case "execute":
+    case "awaiting_input":
+    case "blocked":
+    case "ready_for_completion":
+      return value;
+    default:
+      throw new TypeError(`Unknown capability planner plan kind: ${value}`);
   }
 }
 
@@ -1325,6 +2514,102 @@ function requireNullableRecord(
 ): Record<string, unknown> | null {
   if (value === undefined) {
     throw new TypeError(`${field} is required.`);
+  }
+
+  return value;
+}
+
+function requireStringArray(value: string[], field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${field} must be an array.`);
+  }
+
+  return value.map((entry, index) =>
+    sanitizeRequiredText(entry, `${field}[${index}]`)
+  );
+}
+
+function requireJsonStringArray<Value extends string>(
+  value: unknown,
+  field: string
+): Value[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${field} must be a JSON array.`);
+  }
+
+  return value.map((entry, index) =>
+    sanitizeRequiredText(
+      typeof entry === "string" ? entry : null,
+      `${field}[${index}]`
+    ) as Value
+  );
+}
+
+function requireJsonCapabilityPlan<
+  CapabilityId extends WorkflowCapabilityId,
+  EvidenceId extends WorkflowEvidenceId,
+  ProfileId extends WorkflowModelProfileId,
+>(
+  value: unknown,
+  field: string
+): WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId> {
+  const normalized = requireJsonRecordObject(value, field);
+  sanitizeCapabilityPlannerPlanKind(
+    sanitizeRequiredText(readJsonTextField(normalized, "kind"), `${field}.kind`)
+  );
+  return normalized as WorkflowCapabilityPlan<CapabilityId, EvidenceId, ProfileId>;
+}
+
+function requireJsonCapabilityExecutionCommand<
+  Contract extends WorkflowTicketExecutionContract,
+  CapabilityId extends WorkflowCapabilityId,
+  ProfileId extends WorkflowModelProfileId,
+>(
+  value: unknown,
+  field: string
+): WorkflowCapabilityExecutionCommand<Contract, CapabilityId, ProfileId> {
+  const normalized = requireJsonRecordObject(value, field);
+  const kind = sanitizeRequiredText(
+    readJsonTextField(normalized, "kind"),
+    `${field}.kind`
+  );
+  if (kind !== "capability.execute") {
+    throw new TypeError(`${field}.kind must be capability.execute.`);
+  }
+
+  return normalized as WorkflowCapabilityExecutionCommand<
+    Contract,
+    CapabilityId,
+    ProfileId
+  >;
+}
+
+function requireJsonRecordObject(
+  value: unknown,
+  field: string
+): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError(`${field} must be a JSON object.`);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function readJsonTextField(
+  value: Record<string, unknown>,
+  field: string
+): string | null {
+  const entry = value[field];
+  return typeof entry === "string" ? entry : null;
+}
+
+function sanitizeOptionalText(value: string | null | undefined): string | null {
+  return sanitizeText(value);
+}
+
+function sanitizeNonNegativeInteger(value: number, field: string): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new TypeError(`${field} must be a non-negative integer.`);
   }
 
   return value;

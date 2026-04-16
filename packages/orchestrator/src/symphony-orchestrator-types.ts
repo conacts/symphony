@@ -2,7 +2,10 @@ import type {
   AgentRuntimeLaunchTarget
 } from "./agent-runtime.js";
 import type { JsonObject } from "@symphony/contracts";
-import type { SymphonyRunMode } from "@symphony/runtime-contract";
+import type {
+  SymphonyImplementationModuleResult,
+  SymphonyRunMode
+} from "@symphony/runtime-contract";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import type {
   PreparedWorkspace,
@@ -35,6 +38,7 @@ export type SymphonyStartupFailureOrigin =
   | "image_tooling_contract"
   | "docker_backend_contract"
   | "pi_auth_contract"
+  | "capability_contract_intake"
   | "runtime_launch"
   | "pi_startup";
 
@@ -100,9 +104,14 @@ export type SymphonyDispatchBootstrapRoutingInput = {
   startedAt: string;
 };
 
+export type SymphonyDispatchHandling =
+  | "external_run"
+  | "handled_in_process";
+
 export type SymphonyDispatchBootstrapRoutingResult = {
   issue: SymphonyTrackerIssue;
   runMode: SymphonyRunMode;
+  dispatchHandling: SymphonyDispatchHandling;
 };
 
 export type SymphonyRunStartActivationInput = {
@@ -140,6 +149,7 @@ export type SymphonyRunLifecycleCompletionInput = {
 
 export type SymphonyRunLifecycleCompletionResult = {
   issue: SymphonyTrackerIssue;
+  continueWithRunMode?: SymphonyRunMode | null;
 };
 
 export interface SymphonyWorkflowRoutingAdapter {
@@ -194,10 +204,21 @@ export type SymphonyOrchestratorState = {
 };
 
 export type SymphonyAgentRuntimeCompletion =
-  | { kind: "delivered" }
-  | { kind: "merged" }
-  | { kind: "blocked"; reason: string }
-  | { kind: "merge_blocked"; reason: string }
+  | {
+      kind: "delivered";
+      moduleResult?: SymphonyImplementationModuleResult | null;
+    }
+  | {
+      kind: "awaiting_input";
+      reason: string;
+      prompt: string;
+      moduleResult: SymphonyImplementationModuleResult;
+    }
+  | {
+      kind: "blocked";
+      reason: string;
+      moduleResult?: SymphonyImplementationModuleResult | null;
+    }
   | { kind: "max_turns_reached"; reason: string; maxTurns: number }
   | {
       kind: "startup_failure";
@@ -212,6 +233,7 @@ export type SymphonyAgentRuntimeCompletion =
   | { kind: "rate_limited"; reason: string }
   | { kind: "provider_transient"; reason: string }
   | { kind: "stalled"; reason: string }
+  | { kind: "terminal_result_failure"; reason: string }
   | { kind: "failure"; reason: string };
 
 export type SymphonyAgentRuntimeUpdate = {

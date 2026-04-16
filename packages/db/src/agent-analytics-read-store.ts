@@ -776,8 +776,8 @@ function deriveFailureKind(run: typeof symphonyRunsTable.$inferSelect): string |
   return outcome && isProblemOutcome(outcome) ? outcome : null;
 }
 
-function buildUsage(legacyUsage: unknown): SymphonyAgentTurnRecord["usage"] {
-  return parseLegacyUsage(legacyUsage);
+function buildUsage(storedUsage: unknown): SymphonyAgentTurnRecord["usage"] {
+  return parseStoredTurnUsage(storedUsage);
 }
 
 function castJsonObject(value: unknown): JsonObject | null {
@@ -1762,14 +1762,14 @@ function mapForensicsTurnRecord(
   };
 }
 
-function parseLegacyUsage(
-  legacyUsage: unknown
+function parseStoredTurnUsage(
+  storedUsage: unknown
 ): SymphonyAgentTurnRecord["usage"] {
-  if (!legacyUsage || typeof legacyUsage !== "object" || Array.isArray(legacyUsage)) {
+  if (!storedUsage || typeof storedUsage !== "object" || Array.isArray(storedUsage)) {
     return null;
   }
 
-  const value = legacyUsage as Record<string, unknown>;
+  const value = storedUsage as Record<string, unknown>;
   return typeof value.input_tokens === "number" &&
     typeof value.cached_input_tokens === "number" &&
     typeof value.output_tokens === "number"

@@ -1,15 +1,13 @@
 import type { SymphonyRunMode } from "@symphony/runtime-contract";
-import { type WorkflowCommand } from "@symphony/router";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
 } from "@symphony/tracker";
 import type { SymphonyRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-loader.js";
 import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
-import type { SymphonyRuntimeWorkflowPresetAdapter } from "./runtime-workflow-preset-adapter.js";
 import {
   createRouteCommandSettlementSessionLoader,
-  executeSettledRouteCommand,
+  executeSettledTrackerTransitionCommand,
   normalizeWorkflowToken,
   readTrackerTransitionState
 } from "./runtime-route-workflow-command-utils.js";
@@ -87,19 +85,26 @@ export async function createRuntimeRunShutdownRouter(input: {
           );
         }
 
-        pausedProjectedIssue = await executeSettledRouteCommand({
+        pausedProjectedIssue = await executeSettledTrackerTransitionCommand({
           routeWorkflows: input.routeWorkflows,
           workflowId: resumed.hydrationState.workflow.workflowId,
           session: resumed.session,
           loadSettlementSession,
           command,
           recordedAt: shutdownInput.recordedAt,
-          async execute(executedCommand) {
+          issue: pausedProjectedIssue,
+          tracker: input.tracker,
+          readTargetState(executedCommand) {
+            return readTrackerTransitionState({
+              adapter: presetAdapter,
+              command: executedCommand
+            });
+          },
+          async executeTransition({ issue, tracker, targetState }) {
             return await executePausedTransition({
-              presetAdapter,
-              command: executedCommand,
-              projectedIssue: pausedProjectedIssue,
-              tracker: input.tracker
+              projectedIssue: issue,
+              tracker,
+              targetState
             });
           }
         });
@@ -113,25 +118,20 @@ export async function createRuntimeRunShutdownRouter(input: {
 }
 
 async function executePausedTransition(input: {
-  presetAdapter: SymphonyRuntimeWorkflowPresetAdapter;
-  command: WorkflowCommand;
   projectedIssue: SymphonyTrackerIssue;
   tracker: SymphonyTracker;
+  targetState: string;
 }): Promise<SymphonyTrackerIssue> {
-  const targetState = readTrackerTransitionState({
-    adapter: input.presetAdapter,
-    command: input.command
-  });
-  if (targetState !== "Paused") {
+  if (input.targetState !== "Paused") {
     throw new TypeError(
-      `Run shutdown routing only supports tracker transitions to Paused. Received ${String(targetState)}.`
+      `Run shutdown routing only supports tracker transitions to Paused. Received ${String(input.targetState)}.`
     );
   }
 
-  await input.tracker.updateIssueState(input.projectedIssue.id, targetState);
+  await input.tracker.updateIssueState(input.projectedIssue.id, input.targetState);
   return {
     ...input.projectedIssue,
-    state: targetState
+    state: input.targetState
   };
 }
 

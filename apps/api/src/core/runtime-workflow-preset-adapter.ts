@@ -1,6 +1,5 @@
 import type { SymphonyAgentRuntimeCompletion } from "@symphony/orchestrator";
-import type { SymphonyReworkHandoff, SymphonyRunMode } from "@symphony/runtime-contract";
-import type { RuntimeMergeResult } from "@symphony/runtime-tools";
+import type { SymphonyRunMode } from "@symphony/runtime-contract";
 import type { WorkflowCommand, WorkflowSignal } from "@symphony/router";
 
 export type SymphonyRuntimeTrackerStateObservedSignalInput = {
@@ -28,32 +27,6 @@ export type SymphonyRuntimeCompletionSignalInput = {
   runId: string | null;
   runMode: SymphonyRunMode;
   completion: SymphonyAgentRuntimeCompletion;
-  causationId: string | null;
-  correlationId: string | null;
-};
-
-export type SymphonyRuntimeDeliveryReportedSignalInput = {
-  id: string;
-  occurredAt: string;
-  runId: string;
-  status: string;
-  causationId: string | null;
-  correlationId: string | null;
-};
-
-export type SymphonyRuntimeMergeResultReportedSignalInput = {
-  id: string;
-  occurredAt: string;
-  runId: string;
-  mergeResult: RuntimeMergeResult;
-  causationId: string | null;
-  correlationId: string | null;
-};
-
-export type SymphonyRuntimeReviewReworkRequestedSignalInput = {
-  id: string;
-  occurredAt: string;
-  handoff: SymphonyReworkHandoff;
   causationId: string | null;
   correlationId: string | null;
 };
@@ -88,15 +61,6 @@ export type SymphonyRuntimeWorkflowPresetAdapter = {
   createRuntimeCompletionSignal(
     input: SymphonyRuntimeCompletionSignalInput
   ): WorkflowSignal;
-  createDeliveryReportedSignal(
-    input: SymphonyRuntimeDeliveryReportedSignalInput
-  ): WorkflowSignal;
-  createMergeResultReportedSignal(
-    input: SymphonyRuntimeMergeResultReportedSignalInput
-  ): WorkflowSignal;
-  createReviewReworkRequestedSignal(
-    input: SymphonyRuntimeReviewReworkRequestedSignalInput
-  ): WorkflowSignal;
   createStateRequestedSignal(
     input: SymphonyRuntimeStateRequestedSignalInput
   ): WorkflowSignal;
@@ -121,15 +85,6 @@ export type SymphonyRuntimeWorkflowPresetAdapter = {
     workflowId: string;
     data: unknown;
   }): SymphonyRunMode;
-  readLatestReworkHandoffFromProjection(input: {
-    workflowId: string;
-    data: unknown;
-  }): SymphonyReworkHandoff | null;
-  readLatestMergeResultFromProjection(input: {
-    workflowId: string;
-    data: unknown;
-    runId: string;
-  }): RuntimeMergeResult | null;
   readTrackerTransitionState(command: WorkflowCommand): string;
   readDispatchRunMode(command: WorkflowCommand): SymphonyRunMode;
 };

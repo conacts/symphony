@@ -11,7 +11,7 @@ export default defineSymphonyRuntime({
     workingDirectory: "."
   },
   pi: {
-    defaultPreset: "advanced",
+    defaultPreset: "premium",
     presets: {
       basic: {
         model: "minimax/minimax-m2.7",
@@ -55,7 +55,7 @@ export default defineSymphonyRuntime({
     }
   },
   workflow: {
-    defaultRouterPreset: "current-flow"
+    defaultRouterPreset: "intelligent-flow"
   },
   lifecycle: {
     bootstrap: [

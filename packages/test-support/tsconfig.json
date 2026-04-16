@@ -14,9 +14,6 @@
       "path": "../db/tsconfig.build.json"
     },
     {
-      "path": "../github-review/tsconfig.build.json"
-    },
-    {
       "path": "../orchestrator/tsconfig.build.json"
     },
     {

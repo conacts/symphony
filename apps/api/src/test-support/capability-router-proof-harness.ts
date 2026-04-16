@@ -1,0 +1,658 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import path from "node:path";
+import { tmpdir } from "node:os";
+import {
+  createRouteWorkflowStore,
+  createSymphonyIssueStore,
+  initializeSymphonyDb,
+  type RouteWorkflowExecutionContractRecord,
+  type RouteWorkflowStore
+} from "@symphony/db";
+import {
+  createSymphonyWorkflowClarificationAnsweredSignal,
+  createSymphonyIntelligentFlowRouterAsync,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowDefaultModuleRegistry,
+  projectWorkflowCapabilityProjection,
+  type SymphonyIntelligentFlowTrackerState,
+  type SymphonyIntelligentFlowModuleDefinition,
+  type SymphonyIntelligentFlowModuleRegistry,
+  type SymphonyCapabilityEvidenceId,
+  type SymphonyCapabilityId,
+  type SymphonyCapabilityModelProfileId,
+  type SymphonyCapabilityPresetPolicyId,
+  createSymphonyCapabilityPreset,
+  type SymphonyWorkflowCapabilityExecutionCommand,
+  type SymphonyWorkflowTicketExecutionContract,
+  type WorkflowCapabilityExecutionEngine,
+  type WorkflowCapabilityExecutionResult,
+  type WorkflowCapabilityProjection
+} from "@symphony/router";
+import {
+  buildSymphonyRuntimePolicy,
+  buildSymphonyTrackerIssue
+} from "@symphony/test-support";
+import type { SymphonyTrackerIssue } from "@symphony/tracker";
+import { createRouteWorkflowPort, type SymphonyRouteWorkflowPort } from "../core/runtime-route-workflows.js";
+import {
+  createRuntimeWorkflowSessionLoader,
+  type SymphonyRuntimeWorkflowSessionLoader
+} from "../core/runtime-workflow-session-loader.js";
+import {
+  createSymphonyCapabilityContractIntake
+} from "../core/symphony-capability-contract-intake.js";
+import {
+  createSymphonyCapabilityExecutionService,
+  type SymphonyCapabilityExecutionAdvanceResult
+} from "../core/symphony-capability-execution.js";
+import {
+  createSymphonyCapabilityPlanningService,
+  type SymphonyCapabilityPlanningResult
+} from "../core/symphony-capability-planning.js";
+import type {
+  SymphonyIntelligentFlowSelector
+} from "../core/symphony-intelligent-flow-selector.js";
+
+export type CapabilityScenarioOutcome =
+  | "completed"
+  | "changes_requested"
+  | "clarification_requested"
+  | "blocked"
+  | "failed";
+
+export type CapabilityScenarioOutcomeKey =
+  `${SymphonyCapabilityId}:${number}:${number}`;
+
+type CapabilityEngineFactory = () => WorkflowCapabilityExecutionEngine<
+  SymphonyWorkflowTicketExecutionContract,
+  SymphonyCapabilityId,
+  SymphonyCapabilityEvidenceId,
+  SymphonyCapabilityModelProfileId
+>;
+type CapabilityPresetFactory = typeof createSymphonyCapabilityPreset;
+
+type CapabilityContractFactory = (input: {
+  workflowId: string;
+  issue: SymphonyTrackerIssue;
+  repositoryKey: string;
+  recordedAt: string;
+}) => SymphonyWorkflowTicketExecutionContract;
+
+type HarnessRuntime = {
+  database: ReturnType<typeof initializeSymphonyDb>;
+  routeWorkflowStore: RouteWorkflowStore;
+  routeWorkflows: SymphonyRouteWorkflowPort;
+  sessionLoader: SymphonyRuntimeWorkflowSessionLoader;
+  planning: ReturnType<typeof createSymphonyCapabilityPlanningService>;
+  execution: ReturnType<typeof createSymphonyCapabilityExecutionService>;
+};
+
+export class CapabilityRouterProofHarness {
+  static async create(input: {
+    createEngine?: CapabilityEngineFactory;
+    presetId?: "intelligent-flow";
+    policyId?: SymphonyCapabilityPresetPolicyId;
+    intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+    intelligentFlowModuleRegistry?:
+      | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+      | null;
+    createIntelligentFlowCapabilityPreset?: CapabilityPresetFactory;
+    createContract?: CapabilityContractFactory;
+    issue?: SymphonyTrackerIssue;
+  } = {}): Promise<CapabilityRouterProofHarness> {
+    const root = await mkdtemp(path.join(tmpdir(), "capability-router-proof-"));
+    const harness = new CapabilityRouterProofHarness({
+      root,
+      createEngine: input.createEngine,
+      presetId: input.presetId,
+      policyId: input.policyId,
+      intelligentFlowSelector: input.intelligentFlowSelector,
+      intelligentFlowModuleRegistry: input.intelligentFlowModuleRegistry,
+      createIntelligentFlowCapabilityPreset:
+        input.createIntelligentFlowCapabilityPreset,
+      createContract: input.createContract,
+      issue: input.issue
+    });
+    await harness.openRuntime();
+    await harness.seedWorkflow();
+    return harness;
+  }
+
+  readonly #root: string;
+  readonly #issue: SymphonyTrackerIssue;
+  readonly #createEngine: CapabilityEngineFactory;
+  readonly #presetId: "intelligent-flow";
+  readonly #policyId: SymphonyCapabilityPresetPolicyId;
+  readonly #intelligentFlowSelector: SymphonyIntelligentFlowSelector | null;
+  readonly #intelligentFlowModuleRegistry:
+    | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+    | null;
+  readonly #createIntelligentFlowCapabilityPreset:
+    | CapabilityPresetFactory
+    | null;
+  readonly #createContract: CapabilityContractFactory | null;
+  #runtime: HarnessRuntime | null = null;
+  #workflowId: string | null = null;
+  #contract: RouteWorkflowExecutionContractRecord<
+    SymphonyCapabilityId,
+    SymphonyCapabilityEvidenceId,
+    SymphonyCapabilityModelProfileId
+  > | null = null;
+
+  private constructor(input: {
+    root: string;
+    createEngine?: CapabilityEngineFactory;
+    presetId?: "intelligent-flow";
+    policyId?: SymphonyCapabilityPresetPolicyId;
+    intelligentFlowSelector?: SymphonyIntelligentFlowSelector | null;
+    intelligentFlowModuleRegistry?:
+      | SymphonyIntelligentFlowModuleRegistry<SymphonyIntelligentFlowModuleDefinition>
+      | null;
+    createIntelligentFlowCapabilityPreset?: CapabilityPresetFactory | null;
+    createContract?: CapabilityContractFactory;
+    issue?: SymphonyTrackerIssue;
+  }) {
+    this.#root = input.root;
+    this.#issue = input.issue ?? buildProofIssue();
+    this.#createEngine =
+      input.createEngine ?? (() => createCapabilityScenarioExecutionEngine());
+    this.#presetId = input.presetId ?? "intelligent-flow";
+    this.#policyId = input.policyId ?? "default";
+    this.#intelligentFlowSelector = input.intelligentFlowSelector ?? null;
+    this.#intelligentFlowModuleRegistry =
+      input.intelligentFlowModuleRegistry ??
+      createSymphonyIntelligentFlowDefaultModuleRegistry();
+    this.#createIntelligentFlowCapabilityPreset =
+      input.createIntelligentFlowCapabilityPreset ?? null;
+    this.#createContract = input.createContract ?? null;
+  }
+
+  get issue(): SymphonyTrackerIssue {
+    return this.#issue;
+  }
+
+  get issueIdentifier(): string {
+    return this.#issue.identifier;
+  }
+
+  get workflowId(): string {
+    if (this.#workflowId === null) {
+      throw new TypeError("Capability proof harness workflowId is not initialized.");
+    }
+
+    return this.#workflowId;
+  }
+
+  get routeWorkflows(): SymphonyRouteWorkflowPort {
+    return this.runtime().routeWorkflows;
+  }
+
+  get routeWorkflowStore(): RouteWorkflowStore {
+    return this.runtime().routeWorkflowStore;
+  }
+
+  get contract() {
+    if (this.#contract === null) {
+      throw new TypeError("Capability proof harness contract is not initialized.");
+    }
+
+    return this.#contract;
+  }
+
+  async cleanup(): Promise<void> {
+    this.#runtime?.database.close();
+    this.#runtime = null;
+    await rm(this.#root, {
+      recursive: true,
+      force: true
+    });
+  }
+
+  async restart(): Promise<void> {
+    this.#runtime?.database.close();
+    this.#runtime = null;
+    await this.openRuntime();
+  }
+
+  async plan(input: {
+    recordedAt: string;
+    policyId?: "default" | "backend_strict";
+  }): Promise<SymphonyCapabilityPlanningResult> {
+    return await this.runtime().planning.planByWorkflowId({
+      workflowId: this.workflowId,
+      recordedAt: input.recordedAt,
+      policyId: input.policyId
+    });
+  }
+
+  async advance(input: {
+    recordedAt: string;
+    policyId?: "default" | "backend_strict";
+  }): Promise<SymphonyCapabilityExecutionAdvanceResult> {
+    return await this.runtime().execution.advanceByWorkflowId({
+      workflowId: this.workflowId,
+      recordedAt: input.recordedAt,
+      policyId: input.policyId
+    });
+  }
+
+  async answerPendingClarification(input: {
+    recordedAt: string;
+    answers?: Record<string, unknown>;
+  }) {
+    const projection = await this.projection();
+    const pendingClarification = projection.pendingClarification;
+    if (!pendingClarification) {
+      throw new TypeError("Capability proof harness has no pending clarification.");
+    }
+
+    const resumed = await this.runtime().sessionLoader.resumeByWorkflowId({
+      workflowId: this.workflowId
+    });
+    if (!resumed) {
+      throw new TypeError(
+        `Capability proof harness could not resume workflow ${this.workflowId} to answer clarification.`
+      );
+    }
+
+    const signal = createSymphonyWorkflowClarificationAnsweredSignal({
+      id: `signal_clarification_answered_${pendingClarification.requestId}`,
+      occurredAt: input.recordedAt,
+      source: "operator",
+      workflowId: this.workflowId,
+      requestId: pendingClarification.requestId,
+      answeredAt: input.recordedAt,
+      answers: input.answers ?? {
+        question_1: "Proceed with the strict backend behavior."
+      },
+      causationId: null,
+      correlationId: this.#issue.identifier
+    });
+    const result = await resumed.resumed.session.receiveAsync(signal);
+
+    return await this.routeWorkflows.recordRouteResult({
+      workflowId: this.workflowId,
+      policy: resumed.routing.policy,
+      result
+    });
+  }
+
+  async observeTrackerState(input: {
+    recordedAt: string;
+    state: SymphonyIntelligentFlowTrackerState;
+    runId?: string | null;
+    runMode?: "implementation" | null;
+  }) {
+    const resumed = await this.runtime().sessionLoader.resumeByWorkflowId({
+      workflowId: this.workflowId
+    });
+    if (!resumed) {
+      throw new TypeError(
+        `Capability proof harness could not resume workflow ${this.workflowId} to observe tracker state ${JSON.stringify(input.state)}.`
+      );
+    }
+
+    const signal = createSymphonyIntelligentFlowTrackerStateObservedSignal({
+      id: `signal_tracker_state_observed_${normalizeToken(input.state)}_${normalizeToken(input.recordedAt)}`,
+      occurredAt: input.recordedAt,
+      state: input.state,
+      runId: input.runId ?? null,
+      runMode: input.runMode ?? null,
+      causationId: null,
+      correlationId: this.#issue.identifier
+    });
+    const result = await resumed.resumed.session.receiveAsync(signal);
+
+    return await this.routeWorkflows.recordRouteResult({
+      workflowId: this.workflowId,
+      policy: resumed.routing.policy,
+      result
+    });
+  }
+
+  async history() {
+    return await this.routeWorkflowStore.listHistory(this.workflowId);
+  }
+
+  async projection(): Promise<
+    WorkflowCapabilityProjection<
+      SymphonyCapabilityId,
+      SymphonyCapabilityEvidenceId,
+      SymphonyCapabilityModelProfileId
+    >
+  > {
+    const history = await this.history();
+    return projectWorkflowCapabilityProjection<
+      SymphonyCapabilityId,
+      SymphonyCapabilityEvidenceId,
+      SymphonyCapabilityModelProfileId
+    >({
+      workflowId: this.workflowId,
+      history: history.map((entry) => entry.event)
+    });
+  }
+
+  async loadLifecycleAuthority() {
+    const hydration = await this.routeWorkflowStore.loadWorkflowHydrationState(
+      this.workflowId
+    );
+    if (!hydration?.snapshot) {
+      throw new TypeError(
+        `Capability proof harness could not load hydration snapshot for ${this.workflowId}.`
+      );
+    }
+    if (hydration.snapshot.projection.currentNode === null) {
+      throw new TypeError(
+        `Capability proof harness requires a current lifecycle node for ${this.workflowId}.`
+      );
+    }
+
+    return {
+      currentNode: hydration.snapshot.projection.currentNode,
+      pendingCommandIds: hydration.snapshot.projection.pendingCommands.map(
+        (command: { id: string }) => command.id
+      )
+    };
+  }
+
+  async listPlannerCommands() {
+    return await this.routeWorkflowStore.listCapabilityPlannerCommands(this.workflowId);
+  }
+
+  async listRecordedSignalTypes() {
+    const history = await this.history();
+    return history.reduce<string[]>((types, entry) => {
+      if (entry.event.kind !== "signal_recorded") {
+        return types;
+      }
+
+      types.push(entry.signalType ?? entry.event.signal.type);
+      return types;
+    }, []);
+  }
+
+  private runtime(): HarnessRuntime {
+    if (this.#runtime === null) {
+      throw new TypeError("Capability proof harness runtime is not initialized.");
+    }
+
+    return this.#runtime;
+  }
+
+  private async openRuntime() {
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const database = initializeSymphonyDb({
+      dbFile: path.join(this.#root, "symphony.db")
+    });
+    const routeWorkflowStore = createRouteWorkflowStore(database.db);
+    const routeWorkflows = createRouteWorkflowPort({
+      routeWorkflowStore
+    });
+    const sessionLoader = await createRuntimeWorkflowSessionLoader({
+      routeWorkflows,
+      trackerConfig: runtimePolicy.tracker
+    });
+    const planning = createSymphonyCapabilityPlanningService({
+      routeWorkflowStore,
+      intelligentFlowSelector: this.#intelligentFlowSelector,
+      intelligentFlowModuleRegistry: this.#intelligentFlowModuleRegistry,
+      createIntelligentFlowCapabilityPreset:
+        this.#createIntelligentFlowCapabilityPreset ?? undefined
+    });
+
+    this.#runtime = {
+      database,
+      routeWorkflowStore,
+      routeWorkflows,
+      sessionLoader,
+      planning,
+      execution: createSymphonyCapabilityExecutionService({
+        capabilityPlanning: planning,
+        routeWorkflowStore,
+        routeWorkflows,
+        sessionLoader,
+        engine: this.#createEngine()
+      })
+    };
+  }
+
+  private async seedWorkflow() {
+    const issueStore = createSymphonyIssueStore(this.runtime().database.db);
+    await issueStore.upsert({
+      issueIdentifier: this.#issue.identifier,
+      trackerIssueId: this.#issue.id,
+      repositoryKey: "openai/symphony",
+      latestRunStartedAt: null,
+      recordedAt: "2026-04-13T09:00:00.000Z"
+    });
+
+    const router = await createSymphonyIntelligentFlowRouterAsync();
+    const ensured = await this.routeWorkflows.ensureWorkflowForIssue({
+      trackerIssueId: this.#issue.id,
+      issueIdentifier: this.#issue.identifier,
+      repositoryKey: "openai/symphony",
+      routerPresetId: this.#presetId,
+      router,
+      createdAt: "2026-04-13T09:00:30.000Z"
+    });
+    this.#workflowId = ensured.workflow.workflowId;
+
+    const session = await router.startSessionAsync({
+      workflowId: this.workflowId,
+      policy: {}
+    });
+    const bootstrapResult = await session.receiveAsync(
+      createSymphonyIntelligentFlowTrackerStateObservedSignal({
+        id: "signal_todo_observed_capability_router_proof",
+        occurredAt: "2026-04-13T09:01:00.000Z",
+        state: "Todo",
+        runId: null,
+        runMode: null,
+        causationId: null,
+        correlationId: this.#issue.identifier
+      })
+    );
+    await this.routeWorkflows.recordRouteResult({
+      workflowId: this.workflowId,
+      policy: {},
+      result: bootstrapResult
+    });
+
+    if (this.#createContract) {
+      this.#contract = await this.routeWorkflows.saveExecutionContract({
+        workflowId: this.workflowId,
+        contract: this.#createContract({
+          workflowId: this.workflowId,
+          issue: this.#issue,
+          repositoryKey: "openai/symphony",
+          recordedAt: "2026-04-13T09:02:00.000Z"
+        }),
+        recordedAt: "2026-04-13T09:02:00.000Z"
+      });
+      return;
+    }
+
+    const intake = createSymphonyCapabilityContractIntake({
+      routeWorkflows: this.routeWorkflows
+    });
+    this.#contract = await intake.createAndPersistForWorkflow({
+      workflowId: this.workflowId,
+      issue: this.#issue,
+      repositoryKey: "openai/symphony",
+      recordedAt: "2026-04-13T09:02:00.000Z",
+      policyId: this.#policyId
+    });
+  }
+}
+
+export function createCapabilityScenarioExecutionEngine(input: {
+  outcomes?: Partial<Record<CapabilityScenarioOutcomeKey, CapabilityScenarioOutcome>>;
+} = {}): WorkflowCapabilityExecutionEngine<
+  SymphonyWorkflowTicketExecutionContract,
+  SymphonyCapabilityId,
+  SymphonyCapabilityEvidenceId,
+  SymphonyCapabilityModelProfileId
+> {
+  return {
+    async execute(command) {
+      const context = readExecutionContext(command);
+      const key =
+        `${command.payload.capabilityId}:${context.workEpoch}:${context.attempt}` as CapabilityScenarioOutcomeKey;
+      const outcome = input.outcomes?.[key] ?? "completed";
+
+      switch (outcome) {
+        case "completed":
+          return {
+            kind: "completed",
+            executionId: command.id,
+            capabilityId: command.payload.capabilityId,
+            modelProfileId: command.payload.modelProfileId,
+            workEpoch: context.workEpoch,
+            attempt: context.attempt,
+            summary: `Completed ${command.payload.capabilityId}.`,
+            evidenceProduced: [
+              {
+                evidenceId: mapEvidenceId(command.payload.capabilityId),
+                summary:
+                  command.payload.capabilityId === "implement.spec"
+                    ? "Produced the implementation change set."
+                    : "Produced verifier evidence.",
+                artifacts: []
+              }
+            ]
+          } satisfies WorkflowCapabilityExecutionResult<
+            SymphonyCapabilityId,
+            SymphonyCapabilityEvidenceId,
+            SymphonyCapabilityModelProfileId
+          >;
+        case "changes_requested":
+          return {
+            kind: "changes_requested",
+            executionId: command.id,
+            capabilityId: command.payload.capabilityId,
+            modelProfileId: command.payload.modelProfileId,
+            workEpoch: context.workEpoch,
+            attempt: context.attempt,
+            summary: `Requested follow-up changes for ${command.payload.capabilityId}.`,
+            findings: ["Address the verifier finding."]
+          };
+        case "clarification_requested":
+          return {
+            kind: "clarification_requested",
+            executionId: command.id,
+            capabilityId: command.payload.capabilityId,
+            clarification: {
+              requestId: `clarify_${command.id}`,
+              raisedByCapabilityId: command.payload.capabilityId,
+              workEpoch: context.workEpoch,
+              summary: `Need clarification before continuing ${command.payload.capabilityId}.`,
+              questions: [
+                {
+                  id: "question_1",
+                  prompt: "What behavior should this capability prove?",
+                  context: null
+                }
+              ]
+            }
+          };
+        case "blocked":
+          return {
+            kind: "blocked",
+            executionId: command.id,
+            capabilityId: command.payload.capabilityId,
+            modelProfileId: command.payload.modelProfileId,
+            workEpoch: context.workEpoch,
+            attempt: context.attempt,
+            summary: `Blocked while executing ${command.payload.capabilityId}.`,
+            reasonCode: "external_dependency"
+          };
+        case "failed":
+          return {
+            kind: "failed",
+            executionId: command.id,
+            capabilityId: command.payload.capabilityId,
+            modelProfileId: command.payload.modelProfileId,
+            workEpoch: context.workEpoch,
+            attempt: context.attempt,
+            summary: `Retryable failure while executing ${command.payload.capabilityId}.`,
+            retryable: true,
+            reasonCode: "transient_failure",
+            failureKind: "transient"
+          };
+      }
+    }
+  };
+}
+
+function readExecutionContext(command: SymphonyWorkflowCapabilityExecutionCommand) {
+  return {
+    workEpoch: readIntegerExecutionField({
+      executionInput: command.payload.executionInput,
+      field: "workEpoch",
+      commandId: command.id,
+      predicate: (value) => value >= 0,
+      requirement: "a non-negative integer"
+    }),
+    attempt: readIntegerExecutionField({
+      executionInput: command.payload.executionInput,
+      field: "attempt",
+      commandId: command.id,
+      predicate: (value) => value > 0,
+      requirement: "a positive integer"
+    })
+  };
+}
+
+function readIntegerExecutionField(input: {
+  executionInput: Record<string, unknown> | null;
+  field: "workEpoch" | "attempt";
+  commandId: string;
+  predicate(value: number): boolean;
+  requirement: string;
+}) {
+  const value = input.executionInput?.[input.field];
+  if (typeof value !== "number" || !Number.isInteger(value) || !input.predicate(value)) {
+    throw new TypeError(
+      `Test execution command ${input.commandId} requires executionInput.${input.field} to be ${input.requirement}.`
+    );
+  }
+
+  return value;
+}
+
+function mapEvidenceId(
+  capabilityId: SymphonyCapabilityId
+): SymphonyCapabilityEvidenceId {
+  switch (capabilityId) {
+    case "implement.spec":
+      return "change_set";
+    case "critic.code_review":
+      return "code_review_report";
+    case "critic.adversarial_tests":
+      return "adversarial_test_report";
+    case "critic.browser_test":
+      return "browser_test_report";
+  }
+}
+
+function buildProofIssue() {
+  return buildSymphonyTrackerIssue({
+    id: "issue-capability-router-proof-123",
+    identifier: "SYM-CAP-PROOF-123",
+    title: "Prove the capability router closed loop",
+    description: [
+      "## Objective",
+      "Prove the closed capability-router loop through planning, execution, replay, and restart.",
+      "",
+      "## Done Definition",
+      "The proof harness demonstrates the main route, changes-requested loops, clarification waits, restart, and stale evidence handling.",
+      "",
+      "## Merge Policy",
+      "manual"
+    ].join("\n")
+  });
+}
+
+function normalizeToken(value: string) {
+  return value.toLowerCase().replaceAll(/[^a-z0-9]+/g, "_");
+}

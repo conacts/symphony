@@ -14,15 +14,13 @@ import {
   createSymphonyWorkerSessionContract
 } from "@symphony/orchestrator";
 import {
-  formatSymphonyReworkHandoffSection,
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract,
   type SymphonyRunMode
 } from "@symphony/runtime-contract";
 import type { JsonObject, JsonValue } from "@symphony/contracts";
 import {
-  extractUsage,
-  isThreadEvent
+  extractUsage
 } from "@symphony/contracts";
 import type {
   SymphonyTracker,
@@ -30,17 +28,16 @@ import type {
 } from "@symphony/tracker";
 import type {
   AgentAnalyticsStore,
-  SymphonyIssueDeliveryReportStore,
   SymphonyRuntimeLogStore,
   SymphonyRuntimeRunStore
 } from "@symphony/db";
 import type { SymphonyLogger } from "@symphony/logger";
 import {
-  decodePiRuntimeEvent,
-  extractPiRuntimeUsage,
   HarnessSessionError,
+  piSdkRunnerFailureClasses,
+  type PiSdkRunnerFailureClass,
   resolveHarnessModelRuntimePolicy,
-  type HarnessToolExecutor,
+  type HarnessTurnResult,
   type HarnessSessionClient
 } from "@symphony/agent-harnesses";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
@@ -55,14 +52,12 @@ import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
 import {
+  parseSymphonyImplementationModuleResultMessage
+} from "./symphony-implementation-module-result.js";
+import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
-import {
-  deliveryTransitionState,
-  type RuntimeDeliveryReportResult,
-  type RuntimeMergeResult
-} from "@symphony/runtime-tools";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
 import type {
   SymphonyRuntimeWorkflowLifecycleView
@@ -79,6 +74,11 @@ type RunCallbacks = {
 type ActiveRun = {
   stopped: boolean;
   client: HarnessSessionClient | null;
+  completionOverride: Extract<
+    SymphonyAgentRuntimeCompletion,
+    { kind: "delivered" | "awaiting_input" | "blocked" }
+  > | null;
+  completionReported: boolean;
 };
 
 type WorkflowLifecycleReaders = {
@@ -90,19 +90,25 @@ type WorkflowLifecycleReaders = {
     issueIdentifier: string;
     recordedAt: string;
   }): Promise<boolean>;
+  isCapabilityManagedRun?(input: {
+    issueIdentifier: string;
+    runId?: string | null;
+    runMode: SymphonyRunMode;
+  }): Promise<boolean>;
 };
+
+const piSdkRunnerFailureClassSet = new Set<string>(piSdkRunnerFailureClasses);
 
 export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
-  apiPort?: number;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  isCapabilityManagedRun?: WorkflowLifecycleReaders["isCapabilityManagedRun"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -128,13 +134,12 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
   admittedRepositories?: AdmittedRuntimeRepository[];
   runtimeWorkingDirectory?: string;
-  apiPort?: number;
   githubRepository?: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  isCapabilityManagedRun?: WorkflowLifecycleReaders["isCapabilityManagedRun"];
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   hostCommandEnvSource: Record<string, string | undefined>;
@@ -158,7 +163,9 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
       });
       const activeRun: ActiveRun = {
         stopped: false,
-        client: null
+        client: null,
+        completionOverride: null,
+        completionReported: false
       };
       activeRuns.set(runInput.issue.id, activeRun);
       const launchTarget = resolveRuntimeLaunchTarget(
@@ -174,13 +181,14 @@ function createHarnessBackedSymphonyAgentRuntime(input: {
           selectedRepository?.promptContract.template ?? input.promptContract.template,
         harness: input.harness,
         promptContract: selectedRepository?.promptContract ?? input.promptContract,
-        apiPort: input.apiPort,
         githubRepository: repositoryKey,
         tracker: input.tracker,
         runStore: input.runStore,
-        deliveryReports: input.deliveryReports,
         loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
         observeActiveWorkflowIssueState: input.observeActiveWorkflowIssueState,
+        isCapabilityManagedRun:
+          input.isCapabilityManagedRun ??
+          (async () => false),
         agentAnalytics: input.agentAnalytics,
         runtimeLogs: input.runtimeLogs,
         runtimePolicy: runInput.runtimePolicy,
@@ -229,13 +237,14 @@ async function executeRun(input: {
   promptTemplate: string;
   harness: SymphonyRuntimeHarness;
   promptContract: SymphonyLoadedPromptContract;
-  apiPort?: number;
   githubRepository: string | null;
   tracker: SymphonyTracker;
   runStore: SymphonyRuntimeRunStore;
-  deliveryReports: SymphonyIssueDeliveryReportStore;
   loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
   observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
+  isCapabilityManagedRun: NonNullable<
+    WorkflowLifecycleReaders["isCapabilityManagedRun"]
+  >;
   agentAnalytics: AgentAnalyticsStore;
   runtimeLogs: SymphonyRuntimeLogStore;
   runtimePolicy: SymphonyAgentRuntimeConfig;
@@ -262,22 +271,17 @@ async function executeRun(input: {
   let maxTurnsReached = false;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
-  let deliveryReport: RuntimeDeliveryReportResult | null = null;
-  let mergeResult: RuntimeMergeResult | null = null;
   let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
   let workerSessionId: string | null = null;
-  const explicitCompletionRequirement = resolveExplicitCompletionRequirement(
-    input.runMode
-  );
-  const latestReworkHandoff =
-    input.runMode === "rework"
-      ? (
-          await input.loadWorkflowLifecycleView({
-            issueIdentifier: input.issue.identifier
-          })
-        )?.latestReworkHandoff ?? null
-      : null;
+  let latestCompletedAgentMessageText: string | null = null;
+  const capabilityManagedRun = await input.isCapabilityManagedRun({
+    issueIdentifier: input.issue.identifier,
+    runId: input.runId,
+    runMode: input.runMode
+  });
+  const explicitCompletionRequirement =
+    resolveExplicitCompletionRequirement(capabilityManagedRun);
   const repositoryKey = resolveRuntimeRepositoryKey({
     githubRepo: input.githubRepository
   });
@@ -316,10 +320,6 @@ async function executeRun(input: {
         CLICOLOR_FORCE: "0",
         ...input.workspace.envBundle.values,
         ...input.harnessLaunchEnv,
-        SYMPHONY_API_BASE_URL:
-          input.apiPort !== undefined
-            ? buildRuntimeApiBaseUrl(input.launchTarget, input.apiPort)
-            : "",
         SYMPHONY_REPOSITORY_KEY: repositoryKey,
         SYMPHONY_ISSUE_IDENTIFIER: input.issue.identifier,
         SYMPHONY_TRACKER_ISSUE_ID: input.issue.id,
@@ -433,7 +433,7 @@ async function executeRun(input: {
         },
         attempt: input.attempt,
         run_mode: input.runMode,
-        handoff_section: formatSymphonyReworkHandoffSection(latestReworkHandoff)
+        completion_contract: "module_result"
       };
 
       const prompt =
@@ -448,7 +448,8 @@ async function executeRun(input: {
           : buildSymphonyContinuationPrompt({
               turnNumber,
               maxTurns: input.runtimePolicy.agent.maxTurns,
-              runMode: input.runMode
+              runMode: input.runMode,
+              completionContract: "module_result"
             });
 
       const persistedTurnStartedAt = new Date().toISOString();
@@ -503,44 +504,57 @@ async function executeRun(input: {
         }
       }
 
+      await recordRuntimeLifecycleLog({
+        runtimeLogs: input.runtimeLogs,
+        level: "info",
+        eventType: "runtime_turn_started",
+        message: "Started an agent runtime turn.",
+        issueIdentifier: input.issue.identifier,
+        runId: input.runId,
+        payload: {
+          turnNumber,
+          maxTurns: input.runtimePolicy.agent.maxTurns,
+          runMode: input.runMode,
+          issueState: currentIssue.state,
+          capabilityManagedRun,
+          explicitCompletionRequirement
+        }
+      });
+
       const turnResult = await session.client.runTurn(session, {
         prompt,
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
-        sandboxPolicy: null,
-        toolExecutor: unsupportedRuntimeToolExecutor,
         turnTimeoutMs: input.runtimePolicy.pi.turnTimeoutMs,
         onMessage: async (update) => {
-          const { message, projectionLosses, rawPayload } = update;
-          const threadEvent = isThreadEvent(message) ? message : null;
-          const runtimePayload = rawPayload ?? message;
+          const { event: threadEvent, rawPayload } = update;
+          const runtimePayload = rawPayload ?? threadEvent;
           const runtimePayloadRecord = asRecord(runtimePayload);
           const sessionStartedEvent =
-            extractCanonicalSessionStartedEvent(message) ??
             extractCanonicalSessionStartedEvent(runtimePayloadRecord);
-          const eventName =
-            threadEvent?.type ??
-            getString(message, "type") ??
-            getString(message, "event") ??
-            getString(runtimePayloadRecord, "type") ??
-            getString(runtimePayloadRecord, "event") ??
-            "notification";
+          const eventName = threadEvent.type;
           const timestamp = new Date().toISOString();
           const turnUsage = extractRuntimeUsage(threadEvent, runtimePayloadRecord);
           const threadId =
-            getString(message, "thread_id") ??
+            (threadEvent.type === "thread.started" ? threadEvent.thread_id : null) ??
             getString(runtimePayloadRecord, "thread_id") ??
             session.threadId;
           const canonicalEvent =
-            (threadEvent as CanonicalRuntimeEventPayload | null) ?? sessionStartedEvent;
+            (threadEvent as CanonicalRuntimeEventPayload) ?? sessionStartedEvent;
+
+          if (
+            threadEvent.type === "item.completed" &&
+            threadEvent.item.type === "agent_message"
+          ) {
+            latestCompletedAgentMessageText = threadEvent.item.text;
+          }
 
           await input.callbacks.onUpdate(currentIssue.id, {
             event: eventName,
             payload: runtimePayload,
             timestamp,
-            threadId:
-              sessionStartedEvent?.thread_id ?? threadId,
+            threadId: sessionStartedEvent?.thread_id ?? threadId,
             agentRuntimeProcessId:
-              getString(message, "agent_app_server_pid") ?? session.processId
+              getString(runtimePayloadRecord, "agent_app_server_pid") ?? session.processId
           });
           await input.workerSessionContract.recordObservation({
             sessionId: session.threadId,
@@ -574,9 +588,7 @@ async function executeRun(input: {
                 agentTurnId:
                   canonicalEvent.type === "session.started"
                     ? canonicalEvent.turn_id
-                    : getString(message, "turn_id") ??
-                      getString(runtimePayloadRecord, "turn_id") ??
-                      null
+                    : getString(runtimePayloadRecord, "turn_id") ?? null
               });
               if (canonicalEvent.type === "session.started") {
                 await input.runStore.upsertRunContext(input.runId, {
@@ -598,7 +610,6 @@ async function executeRun(input: {
                 threadId,
                 recordedAt: timestamp,
                 payload: threadEvent,
-                projectionLosses,
                 rawPayload
               });
 
@@ -629,43 +640,144 @@ async function executeRun(input: {
               }
             }
           }
+
+          if (
+            explicitCompletionRequirement === "none" &&
+            threadEvent.type === "item.completed" &&
+            threadEvent.item.type === "agent_message" &&
+            input.activeRun.completionOverride === null
+          ) {
+            const terminalCompletion =
+              detectCapabilityManagedTerminalCompletion(threadEvent.item.text);
+            if (terminalCompletion) {
+              // Capability-managed runs should stop as soon as a valid terminal
+              // module result is visible, even if the runtime never emits a
+              // clean session shutdown afterward.
+              input.activeRun.completionOverride = terminalCompletion;
+              input.activeRun.stopped = true;
+              await input.runtimeLogs.record({
+                level: "info",
+                source: "agent_runtime",
+                eventType: "runtime_terminal_result_detected",
+                message:
+                  "Capability-managed terminal module result detected before the runtime session closed.",
+                issueIdentifier: input.issue.identifier,
+                runId: input.runId,
+                recordedAt: timestamp,
+                payload: {
+                  completionKind: terminalCompletion.kind,
+                  moduleId: terminalCompletion.moduleResult?.moduleId ?? null,
+                  outcome:
+                    terminalCompletion.moduleResult?.outcome ?? null,
+                  requestedState:
+                    terminalCompletion.moduleResult?.requestedState ?? null
+                }
+              });
+              input.activeRun.client?.close();
+            }
+          }
         }
       });
 
-      if (input.runId && persistedTurnId) {
-        const endedAt = new Date().toISOString();
-        await input.runStore.finalizeTurn(persistedTurnId, {
-          status: "completed",
-          endedAt,
-          threadId: turnResult.threadId,
-          agentTurnId: turnResult.turnId,
-          usage: turnResult.usage ?? null
+      if (input.activeRun.completionOverride) {
+        await finalizeTurnForDetectedCompletion({
+          runStore: input.runStore,
+          runId: input.runId,
+          persistedTurnId,
+          turnResult
         });
-        persistedTurnId = null;
+        await reportCompletionOverride({
+          activeRun: input.activeRun,
+          runtimeLogs: input.runtimeLogs,
+          workerSessionContract: input.workerSessionContract,
+          sessionId: workerSessionId,
+          issue: input.issue,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          callbacks: input.callbacks,
+          launchTarget: input.launchTarget,
+          runtimePolicy: input.runtimePolicy,
+          runStore: input.runStore
+        });
+        return;
       }
 
-      if (input.runId) {
-        if (explicitCompletionRequirement === "delivery_report") {
-          deliveryReport = await loadLatestDeliveryReportForRun(
-            input.deliveryReports,
-            input.runId
-          );
-        } else {
-          mergeResult =
-            (
-              await input.loadWorkflowLifecycleView({
-                issueIdentifier: currentIssue.identifier,
-                runId: input.runId
+      persistedTurnId = await finalizePersistedTurnFromResult({
+        runId: input.runId,
+        persistedTurnId,
+        runStore: input.runStore,
+        turnResult
+      });
+      await recordRuntimeLifecycleLog({
+        runtimeLogs: input.runtimeLogs,
+        level: turnResult.kind === "failed" ? "warn" : "info",
+        eventType: "runtime_terminal_result_returned",
+        message: "Agent runtime returned a terminal result.",
+        issueIdentifier: input.issue.identifier,
+        runId: input.runId,
+        payload: buildRuntimeTerminalResultLogPayload(turnResult)
+      });
+
+      if (turnResult.kind !== "completed") {
+        const failedTurnClassification =
+          turnResult.kind === "failed"
+            ? classifyHarnessTurnFailure({
+                turnResult,
+                providerId: sessionProviderId
               })
-            )?.latestMergeResult ?? null;
+            : null;
+
+        if (input.runId) {
+          const repoEnd = await captureRepoSnapshot(
+            input.launchTarget,
+            input.runtimePolicy.hooks.timeoutMs
+          );
+          await input.runStore.updateRun(input.runId, {
+            commitHashEnd: repoEnd.commitHash,
+            repoEnd: repoEnd.snapshot
+          });
         }
+
+        if (failedTurnClassification) {
+          await recordRuntimeLifecycleLog({
+            runtimeLogs: input.runtimeLogs,
+            level: failedTurnClassification.level,
+            eventType: failedTurnClassification.eventType,
+            message: failedTurnClassification.message,
+            issueIdentifier: input.issue.identifier,
+            runId: input.runId,
+            payload: {
+              terminalResultKind: turnResult.kind,
+              ...failedTurnClassification.payload
+            }
+          });
+        }
+
+        const completion =
+          failedTurnClassification?.completion ??
+          completionFromHarnessTurnResult(turnResult);
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion,
+          recordedAt: new Date().toISOString()
+        });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
+        });
+        await input.callbacks.onComplete(input.issue.id, completion);
+        return;
       }
 
-      if (deliveryReport) {
-        break;
-      }
-
-      if (mergeResult) {
+      if (explicitCompletionRequirement === "none") {
         break;
       }
 
@@ -688,6 +800,24 @@ async function executeRun(input: {
       currentIssue = refreshedIssue;
     }
 
+    if (input.activeRun.completionOverride) {
+      await reportCompletionOverride({
+        activeRun: input.activeRun,
+        runtimeLogs: input.runtimeLogs,
+        workerSessionContract: input.workerSessionContract,
+        sessionId: workerSessionId,
+        issue: input.issue,
+        runId: input.runId,
+        attempt: input.attempt,
+        runMode: input.runMode,
+        callbacks: input.callbacks,
+        launchTarget: input.launchTarget,
+        runtimePolicy: input.runtimePolicy,
+        runStore: input.runStore
+      });
+      return;
+    }
+
     if (!input.activeRun.stopped) {
       if (input.runId) {
         const repoEnd = await captureRepoSnapshot(
@@ -700,77 +830,10 @@ async function executeRun(input: {
         });
       }
 
-      if (deliveryReport) {
-        const authoritativeState = await loadRequiredWorkflowTrackerState({
-          issueIdentifier: currentIssue.identifier,
-          loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
-          failureContext: "after delivery_report"
+      if (explicitCompletionRequirement === "none") {
+        const completion = capabilityManagedRunCompletion({
+          latestCompletedAgentMessageText
         });
-        await recordWorkerSessionCompletion({
-          workerSessionContract: input.workerSessionContract,
-          sessionId: session.threadId,
-          issueId: input.issue.id,
-          runId: input.runId,
-          attempt: input.attempt,
-          runMode: input.runMode,
-          completion: deliveryCompletion(
-            deliveryReport,
-            authoritativeState,
-            input.runtimePolicy
-          ),
-          recordedAt: new Date().toISOString()
-        });
-        await input.callbacks.onComplete(
-          input.issue.id,
-          deliveryCompletion(deliveryReport, authoritativeState, input.runtimePolicy)
-        );
-      } else if (mergeResult) {
-        const authoritativeState = await loadRequiredWorkflowTrackerState({
-          issueIdentifier: currentIssue.identifier,
-          runId: input.runId,
-          loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
-          failureContext: "after merge_result"
-        });
-        await recordWorkerSessionCompletion({
-          workerSessionContract: input.workerSessionContract,
-          sessionId: session.threadId,
-          issueId: input.issue.id,
-          runId: input.runId,
-          attempt: input.attempt,
-          runMode: input.runMode,
-          completion: mergeResultCompletion(
-            mergeResult,
-            authoritativeState,
-            input.runtimePolicy
-          ),
-          recordedAt: new Date().toISOString()
-        });
-        await input.callbacks.onComplete(
-          input.issue.id,
-          mergeResultCompletion(mergeResult, authoritativeState, input.runtimePolicy)
-        );
-      } else if (maxTurnsReached) {
-        await recordWorkerSessionCompletion({
-          workerSessionContract: input.workerSessionContract,
-          sessionId: session.threadId,
-          issueId: input.issue.id,
-          runId: input.runId,
-          attempt: input.attempt,
-          runMode: input.runMode,
-          completion: {
-            kind: "max_turns_reached",
-            reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
-            maxTurns: input.runtimePolicy.agent.maxTurns
-          },
-          recordedAt: new Date().toISOString()
-        });
-        await input.callbacks.onComplete(input.issue.id, {
-          kind: "max_turns_reached",
-          reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
-          maxTurns: input.runtimePolicy.agent.maxTurns
-        });
-      } else {
-        const completion = missingExplicitCompletion(explicitCompletionRequirement);
         await recordWorkerSessionCompletion({
           workerSessionContract: input.workerSessionContract,
           sessionId: session.threadId,
@@ -781,6 +844,57 @@ async function executeRun(input: {
           completion,
           recordedAt: new Date().toISOString()
         });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
+        });
+        await input.callbacks.onComplete(
+          input.issue.id,
+          completion
+        );
+      } else if (maxTurnsReached) {
+        const completion = {
+          kind: "max_turns_reached" as const,
+          reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
+          maxTurns: input.runtimePolicy.agent.maxTurns
+        };
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion,
+          recordedAt: new Date().toISOString()
+        });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
+        });
+        await input.callbacks.onComplete(input.issue.id, completion);
+      } else {
+        const completion = missingExplicitCompletion();
+        await recordWorkerSessionCompletion({
+          workerSessionContract: input.workerSessionContract,
+          sessionId: session.threadId,
+          issueId: input.issue.id,
+          runId: input.runId,
+          attempt: input.attempt,
+          runMode: input.runMode,
+          completion,
+          recordedAt: new Date().toISOString()
+        });
+        await recordRuntimeRunOutcome({
+          runtimeLogs: input.runtimeLogs,
+          issueIdentifier: input.issue.identifier,
+          runId: input.runId,
+          completion
+        });
         await input.callbacks.onComplete(
           input.issue.id,
           completion
@@ -788,6 +902,29 @@ async function executeRun(input: {
       }
     }
   } catch (error) {
+    if (input.activeRun.completionOverride) {
+      await finalizeTurnForDetectedCompletion({
+        runStore: input.runStore,
+        runId: input.runId,
+        persistedTurnId
+      });
+      await reportCompletionOverride({
+        activeRun: input.activeRun,
+        runtimeLogs: input.runtimeLogs,
+        workerSessionContract: input.workerSessionContract,
+        sessionId: workerSessionId,
+        issue: input.issue,
+        runId: input.runId,
+        attempt: input.attempt,
+        runMode: input.runMode,
+        callbacks: input.callbacks,
+        launchTarget: input.launchTarget,
+        runtimePolicy: input.runtimePolicy,
+        runStore: input.runStore
+      });
+      return;
+    }
+
     if (input.activeRun.stopped) {
       await finalizeStoppedTurn(
         input.runStore,
@@ -799,6 +936,10 @@ async function executeRun(input: {
 
     const reason = error instanceof Error ? error.message : String(error);
     const harnessError = error instanceof HarnessSessionError ? error : null;
+    const runtimeFailure = classifyHarnessExecutionFailure({
+      error,
+      providerId: sessionProviderId
+    });
 
     if (input.runId && persistedTurnId) {
       const endedAt = new Date().toISOString();
@@ -824,14 +965,14 @@ async function executeRun(input: {
 
     const startupFailure = classifyStartupFailure(error);
     await input.runtimeLogs.record({
-      level: "error",
+      level: runtimeFailure?.level ?? "error",
       source: "agent_runtime",
       eventType: startupFailure
         ? "runtime_startup_failed"
-        : "runtime_execution_failed",
+        : (runtimeFailure?.eventType ?? "runtime_execution_failed"),
       message: startupFailure
         ? "Agent runtime startup failed."
-        : "Agent runtime execution failed.",
+        : (runtimeFailure?.message ?? "Agent runtime execution failed."),
       issueIdentifier: input.issue.identifier,
       runId: input.runId,
       payload: {
@@ -845,34 +986,21 @@ async function executeRun(input: {
         providerEnvKey: input.harnessProviderEnvKey,
         harness: input.harness.kind,
         launchTarget: describeLaunchTarget(input.launchTarget),
-        diagnostics: harnessError ? toJsonValue(harnessError.detail) : null
+        diagnostics: harnessError ? toJsonValue(harnessError.detail) : null,
+        ...(runtimeFailure?.payload ?? {})
       }
     });
 
-    await recordWorkerSessionCompletion({
-      workerSessionContract: input.workerSessionContract,
-      sessionId: workerSessionId,
-      issueId: input.issue.id,
-      runId: input.runId,
-      attempt: input.attempt,
-      runMode: input.runMode,
-      completion: {
-        kind: "failure",
-        reason
-      },
-      recordedAt: new Date().toISOString()
-    });
-
-    await input.callbacks.onComplete(input.issue.id, {
-      ...(startupFailure
-        ? {
-            kind: "startup_failure" as const,
-            reason,
-            failureStage: startupFailure.failureStage,
-            failureOrigin: startupFailure.failureOrigin,
-            launchTarget: input.launchTarget
-          }
-        : isRateLimitedError(error)
+    const completion = startupFailure
+      ? {
+          kind: "startup_failure" as const,
+          reason,
+          failureStage: startupFailure.failureStage,
+          failureOrigin: startupFailure.failureOrigin,
+          launchTarget: input.launchTarget
+        }
+      : (runtimeFailure?.completion ??
+        (isRateLimitedError(error)
           ? {
               kind: "rate_limited" as const,
               reason
@@ -882,11 +1010,29 @@ async function executeRun(input: {
                 kind: "provider_transient" as const,
                 reason
               }
-          : {
-              kind: "failure" as const,
-              reason
-            })
+            : {
+                kind: "failure" as const,
+                reason
+              }));
+
+    await recordWorkerSessionCompletion({
+      workerSessionContract: input.workerSessionContract,
+      sessionId: workerSessionId,
+      issueId: input.issue.id,
+      runId: input.runId,
+      attempt: input.attempt,
+      runMode: input.runMode,
+      completion,
+      recordedAt: new Date().toISOString()
     });
+
+    await recordRuntimeRunOutcome({
+      runtimeLogs: input.runtimeLogs,
+      issueIdentifier: input.issue.identifier,
+      runId: input.runId,
+      completion
+    });
+    await input.callbacks.onComplete(input.issue.id, completion);
   } finally {
     if (commandResourceMonitor && input.runId && persistedTurnId) {
       try {
@@ -961,6 +1107,163 @@ async function recordWorkerSessionCompletion(input: {
   });
 }
 
+async function recordRuntimeLifecycleLog(input: {
+  runtimeLogs: SymphonyRuntimeLogStore;
+  level: "info" | "warn" | "error";
+  eventType: string;
+  message: string;
+  issueIdentifier: string;
+  runId: string | null;
+  payload: JsonObject;
+}): Promise<void> {
+  await input.runtimeLogs.record({
+    level: input.level,
+    source: "agent_runtime",
+    eventType: input.eventType,
+    message: input.message,
+    issueIdentifier: input.issueIdentifier,
+    runId: input.runId,
+    payload: input.payload
+  });
+}
+
+function buildRuntimeTerminalResultLogPayload(
+  turnResult: HarnessTurnResult
+): JsonObject {
+  return {
+    terminalResultKind: turnResult.kind,
+    threadId: turnResult.threadId,
+    turnId: turnResult.turnId,
+    usage: toJsonValue(turnResult.usage),
+    reason:
+      turnResult.kind === "completed"
+        ? null
+        : turnResult.reason,
+    prompt:
+      turnResult.kind === "awaiting_input"
+        ? turnResult.prompt
+        : null,
+    failureClass:
+      turnResult.kind === "failed"
+        ? turnResult.failureClass
+        : null
+  };
+}
+
+async function recordRuntimeRunOutcome(input: {
+  runtimeLogs: SymphonyRuntimeLogStore;
+  issueIdentifier: string;
+  runId: string | null;
+  completion: SymphonyAgentRuntimeCompletion;
+}): Promise<void> {
+  const completed = input.completion.kind === "delivered";
+  await recordRuntimeLifecycleLog({
+    runtimeLogs: input.runtimeLogs,
+    level:
+      completed ? "info" : "warn",
+    eventType: completed ? "runtime_run_completed" : "runtime_run_paused",
+    message: completed
+      ? "Agent runtime run completed."
+      : "Agent runtime run paused.",
+    issueIdentifier: input.issueIdentifier,
+    runId: input.runId,
+    payload: buildRuntimeRunOutcomePayload(input.completion)
+  });
+}
+
+function buildRuntimeRunOutcomePayload(
+  completion: SymphonyAgentRuntimeCompletion
+): JsonObject {
+  const moduleResult =
+    "moduleResult" in completion ? completion.moduleResult : null;
+  return {
+    outcome: completion.kind === "delivered" ? "completed" : "paused",
+    completionKind: completion.kind,
+    reason: runtimeOutcomeReasonForCompletion(completion),
+    prompt:
+      completion.kind === "awaiting_input"
+        ? completion.prompt
+        : null,
+    moduleId: moduleResult?.moduleId ?? null,
+    moduleOutcome: moduleResult?.outcome ?? null,
+    requestedState: moduleResult?.requestedState ?? null,
+    maxTurns:
+      completion.kind === "max_turns_reached"
+        ? completion.maxTurns
+        : null
+  };
+}
+
+function runtimeOutcomeReasonForCompletion(
+  completion: SymphonyAgentRuntimeCompletion
+): string | null {
+  switch (completion.kind) {
+    case "awaiting_input":
+    case "blocked":
+    case "failure":
+    case "startup_failure":
+    case "rate_limited":
+    case "provider_transient":
+    case "stalled":
+    case "terminal_result_failure":
+    case "max_turns_reached":
+      return completion.reason;
+    default:
+      return null;
+  }
+}
+
+async function finalizePersistedTurnFromResult(input: {
+  runId: string | null;
+  persistedTurnId: string | null;
+  runStore: SymphonyRuntimeRunStore;
+  turnResult: HarnessTurnResult;
+}): Promise<string | null> {
+  if (!input.runId || !input.persistedTurnId) {
+    return input.persistedTurnId;
+  }
+
+  const endedAt = new Date().toISOString();
+  await input.runStore.finalizeTurn(input.persistedTurnId, {
+    status:
+      input.turnResult.kind === "failed"
+        ? "failed"
+        : "completed",
+    endedAt,
+    threadId: input.turnResult.threadId,
+    agentTurnId: input.turnResult.turnId,
+    usage: input.turnResult.usage,
+    ...(input.turnResult.kind === "completed"
+      ? {}
+      : {
+          metadata: {
+            reason: input.turnResult.reason,
+            terminalResultKind: input.turnResult.kind,
+            ...(input.turnResult.kind === "awaiting_input"
+              ? {
+                  prompt: input.turnResult.prompt
+                }
+              : {}),
+            ...(input.turnResult.kind === "failed"
+              ? {
+                  failureClass: input.turnResult.failureClass
+                }
+              : {})
+          }
+        })
+  });
+
+  return null;
+}
+
+type RuntimeFailureClassification = {
+  completion: SymphonyAgentRuntimeCompletion;
+  level: "info" | "warn" | "error";
+  eventType: string;
+  message: string;
+  payload: JsonObject;
+};
+
 function completionStatusForRuntimeCompletion(
   completion: SymphonyAgentRuntimeCompletion
 ): "completed" | "failed" | "cancelled" {
@@ -969,6 +1272,8 @@ function completionStatusForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
+    case "stalled":
+    case "terminal_result_failure":
       return "failed";
     default:
       return "completed";
@@ -983,27 +1288,357 @@ function completionReasonForRuntimeCompletion(
     case "startup_failure":
     case "rate_limited":
     case "provider_transient":
+    case "stalled":
+    case "terminal_result_failure":
       return completion.reason;
     default:
       return null;
   }
 }
 
+function classifyHarnessTurnFailure(input: {
+  turnResult: Extract<HarnessTurnResult, { kind: "failed" }>;
+  providerId: string | null;
+}): RuntimeFailureClassification {
+  return classifyPiFailure({
+    failureClass:
+      typeof input.turnResult.failureClass === "string" &&
+      piSdkRunnerFailureClassSet.has(input.turnResult.failureClass)
+        ? (input.turnResult.failureClass as PiSdkRunnerFailureClass)
+        : null,
+    reason: input.turnResult.reason,
+    detail: input.turnResult.detail,
+    providerId: input.providerId
+  });
+}
+
+function classifyHarnessExecutionFailure(input: {
+  error: unknown;
+  providerId: string | null;
+}): RuntimeFailureClassification | null {
+  const harnessError = input.error instanceof HarnessSessionError ? input.error : null;
+  if (!harnessError) {
+    return null;
+  }
+
+  if (harnessError.code === "pi_sdk_runner_transport_timeout") {
+    return classifyPiFailure({
+      failureClass: "transport_timeout",
+      reason: harnessError.message,
+      detail: harnessError.detail,
+      providerId: input.providerId
+    });
+  }
+
+  if (harnessError.code !== "pi_sdk_runner_failed") {
+    return null;
+  }
+
+  const detailRecord = asRecord(harnessError.detail);
+  const eventRecord = asRecord(detailRecord?.event);
+  const failureClass = getFailureClass(eventRecord, "failureClass");
+  return classifyPiFailure({
+    failureClass,
+    reason: harnessError.message,
+    detail: harnessError.detail,
+    providerId: input.providerId
+  });
+}
+
+function classifyPiFailure(input: {
+  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
+  reason: string;
+  detail: unknown;
+  providerId: string | null;
+}): RuntimeFailureClassification {
+  const payload = buildRuntimeFailurePayload({
+    failureClass: input.failureClass,
+    reason: input.reason,
+    detail: input.detail
+  });
+  const failureError = new HarnessSessionError(
+    "pi_sdk_runner_failed",
+    input.reason,
+    input.detail
+  );
+
+  switch (input.failureClass) {
+    case "model_idle_timeout":
+      return {
+        completion: {
+          kind: "stalled",
+          reason: input.reason
+        },
+        level: "warn",
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "model_idle_timeout"
+        }
+      };
+    case "run_timeout":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "run_timeout"
+        }
+      };
+    case "tool_timeout":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "tool_timeout"
+        }
+      };
+    case "transport_timeout":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_timeout_classified",
+        message: "Agent runtime timeout classified.",
+        payload: {
+          ...payload,
+          timeoutClass: "transport_timeout"
+        }
+      };
+    case "provider_error":
+      if (isRateLimitedError(failureError)) {
+        return {
+          completion: {
+            kind: "rate_limited",
+            reason: input.reason
+          },
+          level: "warn",
+          eventType: "runtime_rate_limited",
+          message: "Agent runtime hit a provider rate limit.",
+          payload
+        };
+      }
+      if (isTransientProviderError(failureError, input.providerId)) {
+        return {
+          completion: {
+            kind: "provider_transient",
+            reason: input.reason
+          },
+          level: "warn",
+          eventType: "runtime_provider_transient",
+          message: "Agent runtime hit a transient provider failure.",
+          payload
+        };
+      }
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_provider_error",
+        message: "Agent runtime failed because the provider returned an error.",
+        payload
+      };
+    case "terminal_result_missing":
+      return {
+        completion: {
+          kind: "terminal_result_failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_terminal_result_missing",
+        message: "Agent runtime ended without a terminal result.",
+        payload
+      };
+    case "terminal_result_invalid":
+      return {
+        completion: {
+          kind: "terminal_result_failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_terminal_result_invalid",
+        message: "Agent runtime produced an invalid terminal result.",
+        payload
+      };
+    case "bridge_protocol_failure":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_bridge_protocol_failure",
+        message: "Agent runtime bridge protocol failed.",
+        payload
+      };
+    case "runtime_crash":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_runner_crash",
+        message: "Agent runtime process crashed during execution.",
+        payload
+      };
+    case "runner_startup_failure":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_runner_startup_failure",
+        message: "Agent runtime process failed during startup.",
+        payload
+      };
+    case "operator_input_required":
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "warn",
+        eventType: "runtime_operator_input_required",
+        message: "Agent runtime required operator input that Symphony does not support automatically.",
+        payload
+      };
+    default:
+      return {
+        completion: {
+          kind: "failure",
+          reason: input.reason
+        },
+        level: "error",
+        eventType: "runtime_execution_failed",
+        message: "Agent runtime execution failed.",
+        payload
+      };
+  }
+}
+
+function buildRuntimeFailurePayload(input: {
+  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
+  reason: string;
+  detail: unknown;
+}): JsonObject {
+  const detailRecord = asRecord(input.detail);
+  const resultRecord = asRecord(detailRecord?.result) ?? detailRecord;
+  const timeoutTriggerRecord = asRecord(detailRecord?.timeoutTriggerEvent);
+  const eventRecord = asRecord(detailRecord?.event);
+  const diagnosticsValue =
+    detailRecord && "diagnostics" in detailRecord
+      ? toJsonValue(detailRecord.diagnostics)
+      : null;
+
+  return {
+    failureClass: input.failureClass,
+    reason: input.reason,
+    thresholdMs:
+      getNumber(timeoutTriggerRecord, "thresholdMs") ??
+      getNumber(detailRecord, "transportTimeoutMs"),
+    lastActivityAt:
+      getString(timeoutTriggerRecord, "lastActivityAt") ??
+      getString(resultRecord, "lastActivityAt"),
+    lastActivityType:
+      getString(timeoutTriggerRecord, "lastActivityType") ??
+      getString(resultRecord, "lastActivityType"),
+    stopReason: getString(resultRecord, "stopReason"),
+    providerStopReason: getString(resultRecord, "providerStopReason"),
+    runnerEventType: getString(eventRecord, "eventType"),
+    diagnostics: diagnosticsValue,
+    detail: toJsonValue(input.detail)
+  };
+}
+
+function getFailureClass(
+  value: Record<string, unknown> | null | undefined,
+  key: string
+): PiSdkRunnerFailureClass | null {
+  const nested = value?.[key];
+  return typeof nested === "string" && piSdkRunnerFailureClassSet.has(nested)
+    ? (nested as PiSdkRunnerFailureClass)
+    : null;
+}
+
+function completionFromHarnessTurnResult(
+  turnResult: Exclude<HarnessTurnResult, { kind: "completed" }>
+): SymphonyAgentRuntimeCompletion {
+  switch (turnResult.kind) {
+    case "awaiting_input": {
+      const moduleResult = extractHarnessModuleResult(turnResult.detail, "awaiting_input");
+      return moduleResult
+        ? {
+            kind: "awaiting_input",
+            reason: turnResult.reason,
+            prompt: turnResult.prompt,
+            moduleResult
+          }
+        : {
+            kind: "failure",
+            reason:
+              "Runtime requested user input without emitting a valid awaiting_input module result."
+          };
+    }
+    case "blocked": {
+      const moduleResult = extractHarnessModuleResult(turnResult.detail, "blocked");
+      return {
+        kind: "blocked",
+        reason: turnResult.reason,
+        moduleResult
+      };
+    }
+    case "failed":
+      return {
+        kind: "failure",
+        reason: turnResult.reason
+      };
+  }
+}
+
+function extractHarnessModuleResult(
+  detail: unknown,
+  expectedOutcome: "awaiting_input" | "blocked"
+) {
+  const detailRecord = asRecord(detail);
+  const finalAssistantMessage = getString(detailRecord, "finalAssistantMessage");
+  if (!finalAssistantMessage) {
+    return null;
+  }
+
+  const parsed = parseSymphonyImplementationModuleResultMessage({
+    messageText: finalAssistantMessage
+  });
+  if (
+    parsed.kind !== "parsed" ||
+    parsed.result.outcome !== expectedOutcome
+  ) {
+    return null;
+  }
+
+  return parsed.result;
+}
+
 function asJsonObject(value: unknown): JsonObject | null {
   const record = asRecord(value);
   return record ? (record as JsonObject) : null;
-}
-
-function buildRuntimeApiBaseUrl(
-  launchTarget: SymphonyRuntimeLaunchTarget,
-  apiPort: number
-): string {
-  switch (launchTarget.kind) {
-    case "container":
-      return `http://host.docker.internal:${apiPort}/api/v1/internal/runtime-tools`;
-    default:
-      return `http://127.0.0.1:${apiPort}/api/v1/internal/runtime-tools`;
-  }
 }
 
 function resolvePromptRepoName(
@@ -1056,188 +1691,145 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
   };
 }
 
-function deliveryCompletion(
-  deliveryReport: RuntimeDeliveryReportResult,
-  currentState: string,
-  runtimePolicy: SymphonyAgentRuntimeConfig
-): SymphonyAgentRuntimeCompletion {
-  switch (deliveryReport.status) {
-    case "completed":
-      if (!matchesIssueState(currentState, deliveryTransitionState)) {
-        return {
-          kind: "failure",
-          reason: buildUnexpectedDeliveryStateReason(
-            deliveryReport.status,
-            deliveryTransitionState,
-            currentState
-          )
-        };
-      }
-
-      return {
-        kind: "delivered"
-      };
-    case "blocked":
-      if (
-        !matchesIssueState(
-          currentState,
-          runtimePolicy.tracker.blockedTransitionToState
-        )
-      ) {
-        return {
-          kind: "failure",
-          reason: buildUnexpectedDeliveryStateReason(
-            deliveryReport.status,
-            runtimePolicy.tracker.blockedTransitionToState,
-            currentState
-          )
-        };
-      }
-
-      return {
-        kind: "blocked",
-        reason:
-          deliveryReport.blockingReason ??
-          `Delivery reported as blocked: ${deliveryReport.summary}`
-      };
-    case "partial":
-    default:
-      return {
-        kind: "failure",
-        reason: `Delivery reported as partial: ${deliveryReport.summary}`
-      };
-  }
-}
-
-function matchesIssueState(actualState: string, expectedState: string | null): boolean {
-  const normalizedActual = actualState.trim().toLowerCase();
-  const normalizedExpected = expectedState?.trim().toLowerCase();
-
-  return normalizedExpected !== undefined && normalizedExpected !== null
-    ? normalizedActual === normalizedExpected
-    : false;
-}
-
-function buildUnexpectedDeliveryStateReason(
-  deliveryStatus: RuntimeDeliveryReportResult["status"],
-  expectedState: string | null,
-  actualState: string
-): string {
-  const expected = expectedState?.trim() || "the expected terminal state";
-
-  return deliveryStatus === "completed"
-    ? `Delivery was recorded as completed, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
-    : `Delivery was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
-}
-
-function buildUnexpectedMergeResultStateReason(
-  mergeStatus: RuntimeMergeResult["status"],
-  expectedState: string | null,
-  actualState: string
-): string {
-  const expected = expectedState?.trim() || "the expected terminal state";
-
-  return mergeStatus === "merged"
-    ? `Merge was recorded as merged, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`
-    : `Merge was recorded as blocked, but the issue did not reach \`${expected}\`. Current state: \`${actualState}\`.`;
-}
-
 type ExplicitCompletionRequirement =
-  | "delivery_report"
-  | "merge_result";
+  | "none"
+  | "terminal_result";
 
 function resolveExplicitCompletionRequirement(
-  runMode: SymphonyRunMode
+  capabilityManagedRun: boolean
 ): ExplicitCompletionRequirement {
-  return runMode === "approved_merge" ? "merge_result" : "delivery_report";
+  return capabilityManagedRun ? "none" : "terminal_result";
 }
 
-async function loadLatestDeliveryReportForRun(
-  deliveryReports: SymphonyIssueDeliveryReportStore,
-  runId: string
-): Promise<RuntimeDeliveryReportResult | null> {
-  const persistedReport = await deliveryReports.fetchLatestForRun(runId);
-  if (!persistedReport) {
-    return null;
-  }
-
+function missingTerminalResultCompletion(): SymphonyAgentRuntimeCompletion {
   return {
-    reportId: persistedReport.reportId,
-    status: persistedReport.status,
-    summary: persistedReport.summary,
-    prUrl: persistedReport.prUrl,
-    blockingReason: persistedReport.blockingReason
+    kind: "failure",
+    reason:
+      "Run ended without recording an explicit terminal result. Non-capability-managed runs must report completion before the run can complete."
   };
 }
 
-function mergeResultCompletion(
-  mergeResult: RuntimeMergeResult,
-  currentState: string,
-  runtimePolicy: SymphonyAgentRuntimeConfig
-): SymphonyAgentRuntimeCompletion {
-  if (mergeResult.status === "merged") {
-    if (!matchesIssueState(currentState, "Done")) {
+function implicitCapabilityRunCompletion(): SymphonyAgentRuntimeCompletion {
+  return {
+    kind: "terminal_result_failure",
+    reason:
+      "Capability-managed run ended without a structured terminal module result."
+  };
+}
+
+function capabilityManagedRunCompletion(input: {
+  latestCompletedAgentMessageText: string | null;
+}): SymphonyAgentRuntimeCompletion {
+  const parsed = parseSymphonyImplementationModuleResultMessage({
+    messageText: input.latestCompletedAgentMessageText
+  });
+
+  switch (parsed.kind) {
+    case "parsed":
+      switch (parsed.result.outcome) {
+        case "completed":
+          return {
+            kind: "delivered",
+            moduleResult: parsed.result
+          };
+        case "awaiting_input":
+          return {
+            kind: "awaiting_input",
+            reason: parsed.result.summary,
+            prompt:
+              parsed.result.nextInputPrompt ??
+              "Capability-managed run requires explicit user input.",
+            moduleResult: parsed.result
+          };
+        case "blocked":
+          return {
+            kind: "blocked",
+            reason: parsed.result.blockers.join("; "),
+            moduleResult: parsed.result
+          };
+      }
+      break;
+    case "terminal_result_failure":
       return {
-        kind: "failure",
-        reason: buildUnexpectedMergeResultStateReason(
-          mergeResult.status,
-          "Done",
-          currentState
-        )
+        kind: "terminal_result_failure",
+        reason: parsed.reason
       };
-    }
-
-    return {
-      kind: "merged"
-    };
   }
 
-  if (
-    !matchesIssueState(
-      currentState,
-      runtimePolicy.tracker.blockedTransitionToState
-    )
-  ) {
-    return {
-      kind: "failure",
-      reason: buildUnexpectedMergeResultStateReason(
-        mergeResult.status,
-        runtimePolicy.tracker.blockedTransitionToState,
-        currentState
-      )
-    };
+  return implicitCapabilityRunCompletion();
+}
+
+function missingExplicitCompletion(): SymphonyAgentRuntimeCompletion {
+  return missingTerminalResultCompletion();
+}
+
+function detectCapabilityManagedTerminalCompletion(
+  messageText: string
+): Extract<
+  SymphonyAgentRuntimeCompletion,
+  { kind: "delivered" | "awaiting_input" | "blocked" }
+> | null {
+  const completion = capabilityManagedRunCompletion({
+    latestCompletedAgentMessageText: messageText
+  });
+
+  return completion.kind === "delivered" ||
+    completion.kind === "awaiting_input" ||
+    completion.kind === "blocked"
+    ? completion
+    : null;
+}
+
+async function reportCompletionOverride(input: {
+  activeRun: ActiveRun;
+  runtimeLogs: SymphonyRuntimeLogStore;
+  workerSessionContract: SymphonyWorkerSessionContract;
+  sessionId: string | null;
+  issue: SymphonyTrackerIssue;
+  runId: string | null;
+  attempt: number;
+  runMode: SymphonyRunMode;
+  callbacks: RunCallbacks;
+  launchTarget: SymphonyRuntimeLaunchTarget;
+  runtimePolicy: SymphonyAgentRuntimeConfig;
+  runStore: SymphonyRuntimeRunStore;
+}): Promise<void> {
+  if (!input.activeRun.completionOverride || input.activeRun.completionReported) {
+    return;
   }
 
-  return {
-    kind: "merge_blocked",
-    reason:
-      mergeResult.blockingReason ??
-      `Merge reported as blocked: ${mergeResult.summary}`
-  };
-}
+  if (input.runId) {
+    const repoEnd = await captureRepoSnapshot(
+      input.launchTarget,
+      input.runtimePolicy.hooks.timeoutMs
+    );
+    await input.runStore.updateRun(input.runId, {
+      commitHashEnd: repoEnd.commitHash,
+      repoEnd: repoEnd.snapshot
+    });
+  }
 
-function missingDeliveryReportCompletion(): SymphonyAgentRuntimeCompletion {
-  return {
-    kind: "failure",
-    reason:
-      "Run ended without recording delivery explicitly through `pnpm exec symphony tool finish ...`. Delivery success must be reported before the run can complete."
-  };
-}
-
-function missingMergeResultCompletion(): SymphonyAgentRuntimeCompletion {
-  return {
-    kind: "failure",
-    reason:
-      "Approved merge run ended without recording the merge result explicitly through `pnpm exec symphony tool merge-result ...`. Merge success or a blocked merge outcome must be reported before the run can complete."
-  };
-}
-
-function missingExplicitCompletion(
-  requirement: ExplicitCompletionRequirement
-): SymphonyAgentRuntimeCompletion {
-  return requirement === "merge_result"
-    ? missingMergeResultCompletion()
-    : missingDeliveryReportCompletion();
+  await recordWorkerSessionCompletion({
+    workerSessionContract: input.workerSessionContract,
+    sessionId: input.sessionId,
+    issueId: input.issue.id,
+    runId: input.runId,
+    attempt: input.attempt,
+    runMode: input.runMode,
+    completion: input.activeRun.completionOverride,
+    recordedAt: new Date().toISOString()
+  });
+  await recordRuntimeRunOutcome({
+    runtimeLogs: input.runtimeLogs,
+    issueIdentifier: input.issue.identifier,
+    runId: input.runId,
+    completion: input.activeRun.completionOverride
+  });
+  await input.callbacks.onComplete(
+    input.issue.id,
+    input.activeRun.completionOverride
+  );
+  input.activeRun.completionReported = true;
 }
 
 async function observeActiveIssueStateThroughWorkflow(input: {
@@ -1312,6 +1904,9 @@ function classifyStartupFailure(error: unknown): {
         "invalid_turn_payload",
         "invalid_issue_label_override",
         "pi_launch_unsupported",
+        "pi_sdk_runner_launch_unsupported",
+        "pi_sdk_runner_initialize_failed",
+        "pi_sdk_runner_initialize_timeout",
         "pi_session_start_failed",
         "pi_turn_start_failed"
       ].includes(harnessError.code)
@@ -1324,9 +1919,7 @@ function classifyStartupFailure(error: unknown): {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  if (
-    message.includes("Pi RPC")
-  ) {
+  if (message.includes("Pi SDK runner")) {
     return {
       failureStage: "runtime_session_start",
       failureOrigin: "pi_startup"
@@ -1438,23 +2031,6 @@ function extractRuntimeUsage(
   const eventUsage = threadEvent ? extractUsage(threadEvent) : null;
   if (eventUsage) {
     return eventUsage;
-  }
-
-  const decodedPiEvent =
-    decodePiRuntimeEvent(payload) ??
-    decodePiRuntimeEvent(asRecord(asRecord(payload?.params)?.msg));
-  const piUsage =
-    decodedPiEvent &&
-    (decodedPiEvent.type === "message_end" || decodedPiEvent.type === "turn_end")
-      ? extractPiRuntimeUsage(decodedPiEvent)
-      : null;
-
-  if (piUsage) {
-    return {
-      input_tokens: piUsage.input,
-      cached_input_tokens: piUsage.cacheRead,
-      output_tokens: piUsage.output
-    };
   }
 
   const directUsage =
@@ -1592,19 +2168,24 @@ async function finalizeStoppedTurn(
   });
 }
 
-const unsupportedRuntimeToolExecutor: HarnessToolExecutor = async () => {
-  return {
-    success: false,
-    output: JSON.stringify(
-      {
-        error: {
-          message:
-            "Symphony runtime-injected tools are disabled. Use the workspace CLI instead."
-        }
-      },
-      null,
-      2
-    ),
-    contentItems: []
-  };
-};
+async function finalizeTurnForDetectedCompletion(input: {
+  runStore: SymphonyRuntimeRunStore;
+  runId: string | null;
+  persistedTurnId: string | null;
+  turnResult?: HarnessTurnResult;
+}): Promise<void> {
+  if (!input.runId || !input.persistedTurnId) {
+    return;
+  }
+
+  await input.runStore.finalizeTurn(input.persistedTurnId, {
+    status: "completed",
+    endedAt: new Date().toISOString(),
+    threadId: input.turnResult?.threadId,
+    agentTurnId: input.turnResult?.turnId,
+    usage: input.turnResult?.usage,
+    metadata: {
+      stopReason: "terminal_result_detected"
+    }
+  });
+}

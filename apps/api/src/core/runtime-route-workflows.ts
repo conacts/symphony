@@ -1,5 +1,6 @@
 import type {
   RouteDecisionRecord,
+  RouteWorkflowExecutionContractRecord,
   RouteWorkflowBindingScope,
   RouteHistoryEventRecord,
   RouteProjectionSnapshotRecord,
@@ -10,14 +11,18 @@ import type {
 import { SymphonyRouteWorkflowExistsError } from "@symphony/db";
 import type {
   WorkflowPayload,
+  WorkflowCapabilityId,
+  WorkflowEvidenceId,
   WorkflowHistory,
   WorkflowJournalEvent,
+  WorkflowModelProfileId,
   WorkflowNodeId,
   WorkflowProjection,
   WorkflowRouteResult,
   WorkflowRouter,
   WorkflowSignal,
-  WorkflowSession
+  WorkflowSession,
+  WorkflowTicketExecutionContract
 } from "@symphony/router";
 
 export type EnsuredRouteWorkflow = {
@@ -87,6 +92,7 @@ export type SymphonyRouteWorkflowPort = {
     routerPresetId: string;
     router: WorkflowRouter<Node, Data, Policy>;
     createdAt: string;
+    replaceIncompatibleLiveWorkflow?: boolean;
   }): Promise<EnsuredRouteWorkflow>;
   loadHydrationStateByWorkflowId<
     Node extends WorkflowNodeId = WorkflowNodeId,
@@ -176,6 +182,24 @@ export type SymphonyRouteWorkflowPort = {
     router: WorkflowRouter<Node, Data, Policy>;
     policy: Policy;
   }): Promise<ResumedRouteWorkflowSession<Node, Data, Policy> | null>;
+  loadExecutionContractByWorkflowId<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(
+    workflowId: string
+  ): Promise<
+    RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+  >;
+  saveExecutionContract<
+    CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+    EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+    ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+  >(input: {
+    workflowId: string;
+    contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+    recordedAt: string;
+  }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>>;
   recordRouteResult<
     Node extends WorkflowNodeId = WorkflowNodeId,
     Data = unknown,
@@ -201,6 +225,13 @@ export type SymphonyRouteWorkflowPort = {
 export function createRouteWorkflowPort(input: {
   routeWorkflowStore: RouteWorkflowStore;
 }): SymphonyRouteWorkflowPort {
+  const routeWorkflowStore = input.routeWorkflowStore as RouteWorkflowStore & {
+    archiveWorkflow(input: {
+      workflowId: string;
+      archivedAt: string;
+    }): Promise<boolean>;
+  };
+
   return {
     async ensureWorkflowForIssue<
       Node extends WorkflowNodeId = WorkflowNodeId,
@@ -214,6 +245,7 @@ export function createRouteWorkflowPort(input: {
       routerPresetId: string;
       router: WorkflowRouter<Node, Data, Policy>;
       createdAt: string;
+      replaceIncompatibleLiveWorkflow?: boolean;
     }): Promise<EnsuredRouteWorkflow> {
       const routerPresetId = normalizeRequiredText(
         ensureInput.routerPresetId,
@@ -222,71 +254,94 @@ export function createRouteWorkflowPort(input: {
       const bindingScope = normalizeRouteWorkflowBindingScope(
         ensureInput.bindingScope
       );
-      const existing = await input.routeWorkflowStore.getWorkflowForTrackerIssueId(
-        ensureInput.trackerIssueId
-      );
-      if (existing) {
-        assertWorkflowRouterCompatibility({
-          workflow: existing,
-          issueIdentifier: ensureInput.issueIdentifier,
-          repositoryKey: ensureInput.repositoryKey,
-          bindingScope,
-          routerPresetId,
-          router: ensureInput.router
-        });
-        return {
-          workflow: existing,
-          created: false
-        };
-      }
+      const replaceIncompatibleLiveWorkflow =
+        ensureInput.replaceIncompatibleLiveWorkflow === true;
 
-      try {
-        const workflowId = await input.routeWorkflowStore.createWorkflow({
-          trackerIssueId: ensureInput.trackerIssueId,
-          repositoryKey: ensureInput.repositoryKey,
-          issueIdentifier: ensureInput.issueIdentifier,
-          bindingScope,
-          routerPresetId,
-          routerName: ensureInput.router.definition().name,
-          routerVersion: ensureInput.router.definition().version,
-          createdAt: ensureInput.createdAt
-        });
-        const workflow = await input.routeWorkflowStore.getWorkflow(workflowId);
-        if (!workflow) {
-          throw new TypeError(
-            `Route workflow ${workflowId} was created for issue ${ensureInput.issueIdentifier} but could not be loaded.`
-          );
-        }
-
-        return {
-          workflow,
-          created: true
-        };
-      } catch (error) {
-        if (!(error instanceof SymphonyRouteWorkflowExistsError)) {
-          throw error;
-        }
-
-        const workflow = await input.routeWorkflowStore.getWorkflowForTrackerIssueId(
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const existing = await routeWorkflowStore.getWorkflowForTrackerIssueId(
           ensureInput.trackerIssueId
         );
-        if (!workflow) {
-          throw error;
+        if (existing) {
+          assertWorkflowIssueBindingCompatibility({
+            workflow: existing,
+            issueIdentifier: ensureInput.issueIdentifier,
+            repositoryKey: ensureInput.repositoryKey,
+            bindingScope
+          });
+
+          const routerCompatibilityError = readWorkflowRouterCompatibilityError({
+            workflow: existing,
+            routerPresetId,
+            router: ensureInput.router
+          });
+          if (routerCompatibilityError === null) {
+            return {
+              workflow: existing,
+              created: false
+            };
+          }
+
+          if (!replaceIncompatibleLiveWorkflow) {
+            throw new TypeError(routerCompatibilityError);
+          }
+
+          await routeWorkflowStore.archiveWorkflow({
+            workflowId: existing.workflowId,
+            archivedAt: ensureInput.createdAt
+          });
+          continue;
         }
 
-        assertWorkflowRouterCompatibility({
-          workflow,
-          issueIdentifier: ensureInput.issueIdentifier,
-          repositoryKey: ensureInput.repositoryKey,
-          bindingScope,
-          routerPresetId,
-          router: ensureInput.router
-        });
-        return {
-          workflow,
-          created: false
-        };
+        try {
+          const workflowId = await routeWorkflowStore.createWorkflow({
+            trackerIssueId: ensureInput.trackerIssueId,
+            repositoryKey: ensureInput.repositoryKey,
+            issueIdentifier: ensureInput.issueIdentifier,
+            bindingScope,
+            routerPresetId,
+            routerName: ensureInput.router.definition().name,
+            routerVersion: ensureInput.router.definition().version,
+            createdAt: ensureInput.createdAt
+          });
+          const workflow = await routeWorkflowStore.getWorkflow(workflowId);
+          if (!workflow) {
+            throw new TypeError(
+              `Route workflow ${workflowId} was created for issue ${ensureInput.issueIdentifier} but could not be loaded.`
+            );
+          }
+
+          return {
+            workflow,
+            created: true
+          };
+        } catch (error) {
+          if (!(error instanceof SymphonyRouteWorkflowExistsError)) {
+            throw error;
+          }
+        }
       }
+
+      const workflow = await routeWorkflowStore.getWorkflowForTrackerIssueId(
+        ensureInput.trackerIssueId
+      );
+      if (!workflow) {
+        throw new TypeError(
+          `Route workflow could not be ensured for ${ensureInput.issueIdentifier} after retrying live-workflow replacement.`
+        );
+      }
+
+      assertWorkflowRouterCompatibility({
+        workflow,
+        issueIdentifier: ensureInput.issueIdentifier,
+        repositoryKey: ensureInput.repositoryKey,
+        bindingScope,
+        routerPresetId,
+        router: ensureInput.router
+      });
+      return {
+        workflow,
+        created: false
+      };
     },
     async loadHydrationStateByWorkflowId<
       Node extends WorkflowNodeId = WorkflowNodeId,
@@ -531,6 +586,36 @@ export function createRouteWorkflowPort(input: {
         policy: resumeInput.policy
       });
     },
+    async loadExecutionContractByWorkflowId<
+      CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+      EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+      ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+    >(
+      workflowId: string
+    ): Promise<
+      RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId> | null
+    > {
+      return await input.routeWorkflowStore.getExecutionContract<
+        CapabilityId,
+        EvidenceId,
+        ProfileId
+      >(workflowId);
+    },
+    async saveExecutionContract<
+      CapabilityId extends WorkflowCapabilityId = WorkflowCapabilityId,
+      EvidenceId extends WorkflowEvidenceId = WorkflowEvidenceId,
+      ProfileId extends WorkflowModelProfileId = WorkflowModelProfileId,
+    >(saveInput: {
+      workflowId: string;
+      contract: WorkflowTicketExecutionContract<CapabilityId, EvidenceId, ProfileId>;
+      recordedAt: string;
+    }): Promise<RouteWorkflowExecutionContractRecord<CapabilityId, EvidenceId, ProfileId>> {
+      return await input.routeWorkflowStore.saveExecutionContract({
+        workflowId: saveInput.workflowId,
+        contract: saveInput.contract,
+        recordedAt: saveInput.recordedAt
+      });
+    },
     async recordRouteResult<
       Node extends WorkflowNodeId = WorkflowNodeId,
       Data = unknown,
@@ -712,6 +797,20 @@ function assertWorkflowRouterCompatibility<
   routerPresetId: string;
   router: WorkflowRouter<Node, Data, Policy>;
 }) {
+  assertWorkflowIssueBindingCompatibility(input);
+
+  const routerCompatibilityError = readWorkflowRouterCompatibilityError(input);
+  if (routerCompatibilityError !== null) {
+    throw new TypeError(routerCompatibilityError);
+  }
+}
+
+function assertWorkflowIssueBindingCompatibility(input: {
+  workflow: RouteWorkflowRecord;
+  issueIdentifier: string;
+  repositoryKey: string;
+  bindingScope: RouteWorkflowBindingScope | null;
+}) {
   if (input.workflow.issueIdentifier !== input.issueIdentifier) {
     throw new TypeError(
       `Route workflow ${input.workflow.workflowId} is bound to issue identifier ${input.workflow.issueIdentifier}, but ${input.issueIdentifier} was requested.`
@@ -728,14 +827,51 @@ function assertWorkflowRouterCompatibility<
       `Route workflow ${input.workflow.workflowId} is bound to repository ${input.workflow.repositoryKey}, but ${input.repositoryKey} was requested.`
     );
   }
+}
 
+function readWorkflowRouterCompatibilityError<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(input: {
+  workflow: Pick<
+    RouteWorkflowRecord,
+    "workflowId" | "routerPresetId" | "routerName" | "routerVersion"
+  >;
+  routerPresetId: string;
+  router: WorkflowRouter<Node, Data, Policy>;
+}): string | null {
   if (input.workflow.routerPresetId !== input.routerPresetId) {
-    throw new TypeError(
+    return (
       `Route workflow ${input.workflow.workflowId} is bound to router preset ${input.workflow.routerPresetId}, but ${input.routerPresetId} was requested.`
     );
   }
 
-  assertStoredWorkflowRouterDefinition(input);
+  return readStoredWorkflowRouterDefinitionError(input);
+}
+function readStoredWorkflowRouterDefinitionError<
+  Node extends WorkflowNodeId,
+  Data,
+  Policy,
+>(input: {
+  workflow: Pick<RouteWorkflowRecord, "workflowId" | "routerName" | "routerVersion">;
+  router: WorkflowRouter<Node, Data, Policy>;
+}): string | null {
+  const definition = input.router.definition();
+
+  if (input.workflow.routerName !== definition.name) {
+    return (
+      `Route workflow ${input.workflow.workflowId} is bound to router ${input.workflow.routerName}, but ${definition.name} was requested.`
+    );
+  }
+
+  if (input.workflow.routerVersion !== definition.version) {
+    return (
+      `Route workflow ${input.workflow.workflowId} is bound to router version ${input.workflow.routerVersion}, but ${definition.version} was requested.`
+    );
+  }
+
+  return null;
 }
 
 function assertStoredWorkflowRouterDefinition<
@@ -746,18 +882,9 @@ function assertStoredWorkflowRouterDefinition<
   workflow: Pick<RouteWorkflowRecord, "workflowId" | "routerName" | "routerVersion">;
   router: WorkflowRouter<Node, Data, Policy>;
 }) {
-  const definition = input.router.definition();
-
-  if (input.workflow.routerName !== definition.name) {
-    throw new TypeError(
-      `Route workflow ${input.workflow.workflowId} is bound to router ${input.workflow.routerName}, but ${definition.name} was requested.`
-    );
-  }
-
-  if (input.workflow.routerVersion !== definition.version) {
-    throw new TypeError(
-      `Route workflow ${input.workflow.workflowId} is bound to router version ${input.workflow.routerVersion}, but ${definition.version} was requested.`
-    );
+  const error = readStoredWorkflowRouterDefinitionError(input);
+  if (error !== null) {
+    throw new TypeError(error);
   }
 }
 

@@ -124,11 +124,90 @@ describe("runtime serializers", () => {
       buildSymphonyRuntimePolicy().github.repo,
       issue.identifier,
       issue,
-      "Approved",
+      "Bootstrapping",
       buildSymphonyRuntimePolicy().pi
     );
 
-    expect(serialized?.tracked.state).toBe("Approved");
+    expect(serialized?.tracked.state).toBe("Bootstrapping");
+  });
+
+  it("includes capability operator state when provided", () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+
+    const serialized = serializeRuntimeIssue(
+      buildSymphonyOrchestratorSnapshot({
+        running: [],
+        retrying: []
+      }),
+      buildSymphonyRuntimePolicy().github.repo,
+      issue.identifier,
+      issue,
+      "In Progress",
+      buildSymphonyRuntimePolicy().pi,
+      {
+        capability: {
+          workflowId: "workflow-157",
+          contractId: "contract-157",
+          policyId: "default",
+          planKind: "awaiting_input",
+          summary: "Need clarification before continuing implement.spec.",
+          decidedAt: "2026-04-13T18:00:00.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: null,
+          workEpoch: 1,
+          completion: null,
+          pendingClarification: {
+            kind: "capability",
+            requestId: "clarify_157",
+            raisedByCapabilityId: "implement.spec",
+            workEpoch: 1,
+            summary: "Need clarification before continuing implement.spec.",
+            nextAction:
+              "Answer the clarification questions to resume the current execution.",
+            answerPath: "/api/v1/COL-157/clarification-answer",
+            questions: [
+              {
+                id: "question_1",
+                prompt: "What behavior should this capability prove?",
+                context: null
+              }
+            ]
+          }
+        },
+        pendingClarification: {
+          kind: "capability",
+          requestId: "clarify_157",
+          raisedByCapabilityId: "implement.spec",
+          workEpoch: 1,
+          summary: "Need clarification before continuing implement.spec.",
+          nextAction:
+            "Answer the clarification questions to resume the current execution.",
+          answerPath: "/api/v1/COL-157/clarification-answer",
+          questions: [
+            {
+              id: "question_1",
+              prompt: "What behavior should this capability prove?",
+              context: null
+            }
+          ]
+        }
+      }
+    );
+
+    expect(serialized?.operator.capability).toEqual(
+      expect.objectContaining({
+        planKind: "awaiting_input",
+        capabilityId: "implement.spec"
+      })
+    );
+    expect(serialized?.operator.pendingClarification).toEqual(
+      expect.objectContaining({
+        kind: "capability",
+        requestId: "clarify_157"
+      })
+    );
   });
 
   it("fails fast when a workflow-backed runtime issue is missing workflow-authoritative tracker state", () => {
@@ -206,10 +285,10 @@ describe("runtime serializers", () => {
     const serialized = serializeRuntimeState(
       snapshot,
       [],
-      new Map([[issue.identifier, "Approved"]])
+      new Map([[issue.identifier, "Bootstrapping"]])
     );
 
-    expect(serialized.running[0]?.state).toBe("Approved");
+    expect(serialized.running[0]?.state).toBe("Bootstrapping");
   });
 
   it("fails fast when a running runtime entry is missing workflow-authoritative tracker state", () => {

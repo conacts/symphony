@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { buildSymphonyRunModeSection, symphonyHarnessPromptAppendix } from "./prompt-sections.js";
+import type { SymphonyPromptCompletionContract } from "./module-result.js";
+import {
+  buildSymphonyHarnessPromptAppendix,
+  buildSymphonyRunModeSection
+} from "./prompt-sections.js";
 import type { SymphonyRunMode } from "./prompt-run-mode.js";
 
 export { symphonyHarnessPromptAppendix } from "./prompt-sections.js";
@@ -40,6 +44,7 @@ export type SymphonyPromptContractPayload = {
   workspace: SymphonyPromptContractWorkspace;
   attempt?: number;
   run_mode: SymphonyRunMode;
+  completion_contract?: SymphonyPromptCompletionContract;
   run_mode_section?: string | null;
   handoff_section?: string | null;
 };
@@ -227,7 +232,10 @@ export function renderSymphonyPromptContract(input: {
     segments
   );
 
-  return appendSymphonyHarnessPromptAppendix(withFallbackHandoffSection);
+  return appendSymphonyHarnessPromptAppendix(
+    withFallbackHandoffSection,
+    input.payload.completion_contract ?? "module_result"
+  );
 }
 
 export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContractPayload {
@@ -255,6 +263,7 @@ export function buildMockSymphonyPromptContractPayload(): SymphonyPromptContract
     },
     attempt: 1,
     run_mode: "implementation",
+    completion_contract: "module_result",
     run_mode_section: null,
     handoff_section: null
   };
@@ -275,12 +284,19 @@ function buildPromptContractScope(
   };
 }
 
-function appendSymphonyHarnessPromptAppendix(rendered: string): string {
-  if (rendered.includes(symphonyHarnessPromptAppendix)) {
+function appendSymphonyHarnessPromptAppendix(
+  rendered: string,
+  completionContract: SymphonyPromptCompletionContract
+): string {
+  const appendix = buildSymphonyHarnessPromptAppendix({
+    completionContract
+  });
+
+  if (rendered.includes(appendix)) {
     return rendered;
   }
 
-  return `${rendered.trimEnd()}\n\n${symphonyHarnessPromptAppendix}\n`;
+  return `${rendered.trimEnd()}\n\n${appendix}\n`;
 }
 
 function appendFallbackHandoffSection(
@@ -317,7 +333,10 @@ function appendFallbackHandoffSection(
 function buildPromptRunModeSection(
   payload: SymphonyPromptContractPayload
 ): string {
-  return buildSymphonyRunModeSection(payload.run_mode);
+  return buildSymphonyRunModeSection(
+    payload.run_mode,
+    payload.completion_contract ?? "module_result"
+  );
 }
 
 function buildPromptHandoffSection(

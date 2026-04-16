@@ -9,7 +9,7 @@ import { z } from "zod";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
 import type { SymphonyRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
 
-const persistedRunModeSchema = z.enum(["implementation", "rework", "approved_merge"]);
+const persistedRunModeSchema = z.enum(["implementation"]);
 
 export async function reconcilePersistedActiveRunsOnShutdown(input: {
   database: ReturnType<typeof initializeSymphonyDb>;

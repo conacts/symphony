@@ -6,16 +6,13 @@ import {
   type SymphonyDockerWorkspacePreflightResult
 } from "@symphony/workspace";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
-import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import {
   createSqliteAgentAnalyticsReadStore,
   createSqliteAgentAnalyticsStore,
   createRouteWorkflowStore,
   createSqliteRuntimeForensicsReadStore,
-  createSymphonyIssueDeliveryReportStore,
   createSymphonyIssueStore,
   createSqliteSymphonyRuntimeRunStore,
-  createSymphonyGitHubIngressJournal,
   initializeSymphonyDb
 } from "@symphony/db";
 import type {
@@ -35,7 +32,6 @@ import {
   type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
-import { createSymphonyGitHubReviewIngressService } from "./github-review-ingress.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
@@ -49,10 +45,6 @@ import {
   createRuntimeHealthPort,
   createRuntimeLogsPort
 } from "./runtime-observability-ports.js";
-import {
-  createGitHubIssueComment,
-  fetchGitHubPullRequestMetadata
-} from "./runtime-github-client.js";
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
@@ -64,16 +56,29 @@ import { createRuntimeWorkflowSessionLoader } from "./runtime-workflow-session-l
 import { loadRuntimeServiceBootstrap } from "./runtime-service-bootstrap.js";
 import type { SymphonyTrackerStateDispatchRequest } from "./runtime-tracker-state-observation-routing.js";
 import {
-  compareRuntimeWorkflowByIssueIdentifier,
-  compareRuntimeWorkflowByWorkflowId
-} from "./runtime-workflow-comparison.js";
+  createRuntimeWorkflowObservabilityService
+} from "./runtime-workflow-observability.js";
 import {
   createRuntimeTrackerStateIngressPort
 } from "./runtime-tracker-state-ingress-port.js";
 import {
+  createSymphonyCapabilityPlanningService
+} from "./symphony-capability-planning.js";
+import {
+  createSymphonyIntelligentFlowSelectorFromEnvironment
+} from "./symphony-intelligent-flow-selector.js";
+import {
+  createSymphonyCapabilityOperatorService
+} from "./symphony-capability-operator.js";
+import {
+  createSymphonyCapabilityContractIntake
+} from "./symphony-capability-contract-intake.js";
+import {
+  createSymphonyCapabilityDispatchAuthorityService
+} from "./symphony-capability-dispatch-authority.js";
+import {
   createWorkflowDispatchTracker
 } from "./runtime-workflow-dispatch-tracker.js";
-import { createRuntimeToolsPort } from "./runtime-tools-port.js";
 import { loadRunningWorkflowTrackerStates } from "./runtime-workflow-tracker-state.js";
 import {
   reconcilePersistedActiveRunsOnShutdown,
@@ -88,7 +93,6 @@ import {
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
-
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
   environmentSource: Record<string, string | undefined>,
@@ -186,11 +190,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   });
   const runStore = createSqliteSymphonyRuntimeRunStore({
     db: database.db
-  });
-  const deliveryReports = createSymphonyIssueDeliveryReportStore({
-    db: database.db,
-    timelineStore: issueTimelineStore,
-    repositoryKey
   });
   const agentAnalyticsStore = createSqliteAgentAnalyticsStore({
     db: database.db
@@ -329,6 +328,48 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     bindingScope: bootstrapBinding.bindingScope,
     now: undefined
   });
+  const intelligentFlowSelector =
+    createSymphonyIntelligentFlowSelectorFromEnvironment({
+      configSource: environmentSource,
+      secretSource: hostCommandEnvSource,
+      fallbackModel: runtimePolicy.agentRuntime.defaultModel
+    });
+  const capabilityPlanning = createSymphonyCapabilityPlanningService({
+    routeWorkflowStore,
+    intelligentFlowSelector
+  });
+  const capabilityOperator = createSymphonyCapabilityOperatorService({
+    routeWorkflowStore,
+    routeWorkflows,
+    sessionLoader: workflowSessionLoader,
+    capabilityPlanning
+  });
+  const capabilityContractIntake = createSymphonyCapabilityContractIntake({
+    routeWorkflows
+  });
+  const capabilityDispatchAuthority =
+    createSymphonyCapabilityDispatchAuthorityService({
+      sessionLoader: workflowSessionLoader,
+      routeWorkflows,
+      tracker,
+      contractIntake: capabilityContractIntake,
+      capabilityPlanning
+    });
+  const isCapabilityManagedRun = async (input: {
+    issueIdentifier: string;
+  }) => {
+    const hydration = await workflowSessionLoader.loadHydrationByIssueIdentifier({
+      issueIdentifier: input.issueIdentifier
+    });
+    if (!hydration) {
+      return false;
+    }
+
+    const contract = await routeWorkflowStore.getExecutionContract(
+      hydration.hydrationState.workflow.workflowId
+    );
+    return contract !== null;
+  };
   const routeLifecycle = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
@@ -339,6 +380,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     ensureIssueIdentity: seedTrackedIssueIdentity,
     presetSelection: bootstrapBinding.presetSelection,
     sessionLoader: workflowSessionLoader,
+    routeWorkflowStore,
+    capabilityPlanning,
+    capabilityDispatchAuthority,
     now: undefined
   });
   const runtimeTracker = createWorkflowDispatchTracker({
@@ -354,10 +398,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       },
       {
         dockerHostFileMounts: dockerAuth.mounts,
-        dockerContainerEnv: {
-          ...dockerGitHubCliAuth.launchEnv,
-          ...dockerLinearLaunchEnv
-        },
+        dockerContainerEnv: buildDockerWorkspaceContainerEnv({
+          dockerGitHubCliAuth,
+          dockerLinearLaunchEnv,
+          dockerPiAuth
+        }),
         runtimeManifest: repository.runtimeManifest
       }
     )
@@ -473,10 +518,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     createSymphonyAgentRuntime({
       promptContract,
       admittedRepositories,
-      apiPort: env.port,
       tracker,
       runStore,
-      deliveryReports,
       loadWorkflowLifecycleView: ({ issueIdentifier, runId = null }) =>
         routeLifecycle.loadWorkflowLifecycleView({
           issueIdentifier,
@@ -486,6 +529,10 @@ export async function loadDefaultSymphonyRuntimeAppServices(
         routeLifecycle.observeActiveIssueStateByIdentifier({
           issueIdentifier,
           recordedAt
+        }),
+      isCapabilityManagedRun: ({ issueIdentifier }) =>
+        isCapabilityManagedRun({
+          issueIdentifier
         }),
       agentAnalytics: agentAnalyticsStore,
       runtimeLogs: runtimeLogStore,
@@ -601,135 +648,11 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       };
     }
   } satisfies SymphonyRuntimeAppServices["trackerStateIngress"];
-  const runtimeTools = createRuntimeToolsPort({
-    tracker,
-    deliveryReports,
-    routeLifecycle,
-    blockedTargetState: runtimePolicy.tracker.blockedTransitionToState,
-    pauseTargetState: runtimePolicy.tracker.pauseTransitionToState,
-    canceledTargetState: "Canceled",
-    onDispatchRequested: dispatchObservedIssue
-  });
-  const workflowComparison = {
-    async compareByWorkflowId(input: {
-      workflowId: string;
-      presetIds?: ReadonlyArray<string>;
-    }) {
-      return await compareRuntimeWorkflowByWorkflowId({
-        workflowId: input.workflowId,
-        routeWorkflows,
-        trackerConfig: runtimePolicy.tracker,
-        presetIds: input.presetIds
-      });
-    },
-    async compareByIssueIdentifier(input: {
-      issueIdentifier: string;
-      presetIds?: ReadonlyArray<string>;
-    }) {
-      return await compareRuntimeWorkflowByIssueIdentifier({
-        issueIdentifier: input.issueIdentifier,
-        routeWorkflows,
-        trackerConfig: runtimePolicy.tracker,
-        bindingScope: bootstrapBinding.bindingScope,
-        presetIds: input.presetIds
-      });
-    }
-  } satisfies SymphonyRuntimeAppServices["workflowComparison"];
-
-  const githubReviewIngress = createSymphonyGitHubReviewIngressService({
-    githubPolicy: runtimePolicy.github,
-    admittedRepositories: admittedRepositories.map((entry) => entry.repositoryKey),
-    resolveWebhookSecret: createRepositoryWebhookSecretResolver(
-      environmentSource,
-      runtimePolicy.github.webhookSecret
-    ),
-    reviewProcessor: new SymphonyGithubReviewProcessor({
-      policyConfig: {
-        tracker: runtimePolicy.tracker,
-        github: runtimePolicy.github
-      },
-      tracker,
-      pullRequestResolver: {
-        async fetchPullRequest(pullRequestUrl) {
-          return fetchGitHubPullRequestMetadata(
-            pullRequestUrl,
-            runtimePolicy.github.apiToken,
-            logger
-          );
-        },
-        async createIssueComment(repository, issueNumber, body) {
-          await createGitHubIssueComment({
-            repository,
-            issueNumber,
-            body,
-            apiToken: runtimePolicy.github.apiToken,
-            logger
-          });
-        }
-      }
-    }),
-    eventJournal: createSymphonyGitHubIngressJournal(database.db),
-    logger: logger.child({
-      component: "github_review_ingress"
-    }),
-    async onProcessed(result) {
-      logger.info("Publishing realtime invalidation after GitHub review ingress", {
-        result
-      });
-      const issueIdentifier =
-        "issueIdentifier" in result ? result.issueIdentifier : null;
-      const requeuedHandoff =
-        result.status === "requeued" &&
-        "handoff" in result &&
-        result.handoff &&
-        typeof result.handoff === "object"
-          ? result.handoff
-          : null;
-      const seededTrackedIssue =
-        issueIdentifier
-          ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
-          : null;
-
-      if (seededTrackedIssue) {
-        await seedTrackedIssueIdentity(seededTrackedIssue);
-      }
-
-      if (result.status !== "ignored" && issueIdentifier) {
-        if (result.status === "requeued") {
-          const routed = await routeLifecycle.routeReviewReworkRequest({
-            issueIdentifier,
-            recordedAt: requeuedHandoff?.recordedAt ?? new Date().toISOString(),
-            handoff: result.handoff,
-            onDispatchRequested: dispatchObservedIssue
-          });
-          if (!routed) {
-            throw new TypeError(
-              `GitHub review ingress requeued ${issueIdentifier} but no workflow-backed review rework route could be applied.`
-            );
-          }
-        }
-      }
-
-      const trackedIssue =
-        issueIdentifier
-          ? await tracker.fetchIssueByIdentifier(runtimePolicy.tracker, issueIdentifier)
-          : null;
-
-      await runtimeLogStore.record({
-        level: "info",
-        source: "github_review_ingress",
-        eventType: "github_review_ingress_processed",
-        message: "Processed GitHub review ingress event.",
-        issueIdentifier: trackedIssue?.identifier ?? null,
-        payload: result
-      });
-      realtime.publishSnapshotUpdated();
-      realtime.publishProblemRunsUpdated();
-
-      if (result.status !== "ignored" && issueIdentifier) {
-        realtime.publishIssueUpdated(issueIdentifier);
-      }
-    }
+  const workflowObservability = createRuntimeWorkflowObservabilityService({
+    routeWorkflowStore,
+    workflowRead,
+    capabilityOperator,
+    bindingScope: bootstrapBinding.bindingScope
   });
 
   pollScheduler = new SymphonyRuntimePollScheduler({
@@ -780,10 +703,9 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     health,
     trackerStateIngress,
     workflowRead,
-    runtimeTools,
-    workflowComparison,
+    capabilityOperator,
+    workflowObservability,
     routeWorkflows,
-    githubReviewIngress,
     realtime,
     async shutdown() {
       if (shutdownPromise) {
@@ -907,41 +829,22 @@ export function buildWorkspaceBackendPayload(input: {
   };
 }
 
-function createRepositoryWebhookSecretResolver(
-  environmentSource: Record<string, string | undefined>,
-  fallbackSecret: string | null
-): (repository: string) => string | null {
-  const configuredSecrets =
-    typeof environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRETS === "string"
-      ? parseRepositorySecretMap(environmentSource.SYMPHONY_GITHUB_WEBHOOK_SECRETS)
-      : new Map<string, string>();
+export function buildDockerWorkspaceContainerEnv(input: {
+  dockerGitHubCliAuth: DockerGitHubCliAuthContract;
+  dockerLinearLaunchEnv: Record<string, string>;
+  dockerPiAuth: DockerPiAuthContract;
+}): Record<string, string> {
+  const {
+    dockerGitHubCliAuth,
+    dockerLinearLaunchEnv,
+    dockerPiAuth
+  } = input;
 
-  return (repository) => configuredSecrets.get(repository) ?? fallbackSecret;
-}
-
-function parseRepositorySecretMap(value: string): Map<string, string> {
-  const secrets = new Map<string, string>();
-
-  for (const entry of value.split(",")) {
-    const normalized = entry.trim();
-    if (normalized.length === 0) {
-      continue;
-    }
-
-    const separatorIndex = normalized.indexOf("=");
-    if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) {
-      continue;
-    }
-
-    const repositoryKey = normalized.slice(0, separatorIndex).trim();
-    const secret = normalized.slice(separatorIndex + 1).trim();
-
-    if (repositoryKey.length > 0 && secret.length > 0) {
-      secrets.set(repositoryKey, secret);
-    }
-  }
-
-  return secrets;
+  return {
+    ...dockerGitHubCliAuth.launchEnv,
+    ...dockerPiAuth.launchEnv,
+    ...dockerLinearLaunchEnv
+  };
 }
 
 async function preflightDockerWorkspaceBackendSelection(input: {
