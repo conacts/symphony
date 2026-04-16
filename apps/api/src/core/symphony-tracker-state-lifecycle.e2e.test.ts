@@ -261,7 +261,7 @@ describe("tracker state lifecycle golden paths", () => {
     });
   });
 
-  it("requeues weak intake tickets from awaiting_input after the ticket is strengthened and starts implementation", async () => {
+  it("requeues weak intake tickets through intake.review, persists the same workflow, and starts implementation after the ticket is strengthened", async () => {
     harness = await createRouteLifecycleGoldenPathHarness({
       state: "Todo",
       title: "Render workflow progress in the issue detail view",
@@ -272,6 +272,11 @@ describe("tracker state lifecycle golden paths", () => {
 
     const initial = await claimTodoWork(harness, "2026-04-15T09:35:00.000Z");
     const workflowId = await loadRequiredWorkflowId(harness);
+    const operatorPending = await harness.capabilityOperator.inspectByIssueIdentifier({
+      issueIdentifier: harness.issue.identifier,
+      recordedAt: "2026-04-15T09:35:01.000Z"
+    });
+    const initialComments = listTrackerCommentBodies(harness);
 
     expect(initial.dispatchRequests).toEqual([]);
     expect(initial.observation).toEqual({
@@ -295,6 +300,50 @@ describe("tracker state lifecycle golden paths", () => {
     expect(
       await harness.routeWorkflowStore.getExecutionContract(workflowId)
     ).toBeNull();
+    expect(operatorPending).toEqual({
+      capability: null,
+      pendingClarification: expect.objectContaining({
+        kind: "contract_intake",
+        requestId: expect.any(String),
+        raisedByCapabilityId: null,
+        workEpoch: null,
+        summary:
+          "Symphony needs the completion criteria for this ticket before execution can begin.",
+        nextAction: expect.stringContaining(
+          'Then move the issue back to Todo to requeue.'
+        ),
+        answerPath: null,
+        questions: [
+          expect.objectContaining({
+            id: "done_definition",
+            prompt: "What concrete outcome should count as done for this ticket?",
+            context: "Render workflow progress in the issue detail view"
+          })
+        ]
+      })
+    });
+    expect(initialComments).toEqual([
+      expect.stringContaining("Symphony intake.review paused before execution.")
+    ]);
+    expect(initialComments[0]).toContain(
+      "State: `Paused`"
+    );
+    expect(initialComments[0]).toContain(
+      "What changed: Symphony paused during intake.review because the ticket needs more detail before it can derive a valid execution contract."
+    );
+    expect(initialComments[0]).toContain("Why:");
+    expect(initialComments[0]).toContain(
+      "The ticket does not include an explicit objective section. Symphony derived the objective from the issue title."
+    );
+    expect(initialComments[0]).toContain(
+      "The ticket does not describe what concrete outcome should count as done."
+    );
+    expect(initialComments[0]).toContain(
+      'Next step: Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?"'
+    );
+    expect(initialComments[0]).toContain(
+      "The issue is currently in `Paused`. After completing the next step, move it to `Todo` to requeue."
+    );
     expect(
       await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
         SymphonyIntelligentFlowNode,
@@ -331,9 +380,14 @@ describe("tracker state lifecycle golden paths", () => {
     await harness.tracker.updateIssueState(harness.issue.id, "Todo");
 
     const reopened = await claimTodoWork(harness, "2026-04-15T09:35:20.000Z");
+    const reopenedWorkflowId = await loadRequiredWorkflowId(harness);
     const contract = await harness.routeWorkflowStore.getExecutionContract(workflowId);
     const commands =
       await harness.routeWorkflowStore.listCapabilityPlannerCommands(workflowId);
+    const operatorReady = await harness.capabilityOperator.inspectByIssueIdentifier({
+      issueIdentifier: harness.issue.identifier,
+      recordedAt: "2026-04-15T09:35:21.000Z"
+    });
 
     expect(reopened.dispatchRequests).toEqual([
       {
@@ -349,6 +403,7 @@ describe("tracker state lifecycle golden paths", () => {
       observed: true,
       disposition: "observed"
     });
+    expect(reopenedWorkflowId).toBe(workflowId);
     expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
     expect(contract).toEqual(
       expect.objectContaining({
@@ -364,6 +419,16 @@ describe("tracker state lifecycle golden paths", () => {
     expect(commands.map((command) => command.command.payload.capabilityId)).toEqual([
       "implement.spec"
     ]);
+    expect(operatorReady).toEqual({
+      capability: expect.objectContaining({
+        workflowId,
+        planKind: "execute",
+        capabilityId: "implement.spec",
+        pendingClarification: null
+      }),
+      pendingClarification: null
+    });
+    expect(listTrackerCommentBodies(harness)).toEqual(initialComments);
 
     await expectRouteWorkflowAuthorityProof<
       SymphonyIntelligentFlowNode,
@@ -387,6 +452,13 @@ describe("tracker state lifecycle golden paths", () => {
 
     expect(activated.state).toBe("In Progress");
     expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Progress");
+    expect(listTrackerStateUpdates(harness)).toEqual([
+      "Bootstrapping",
+      "Paused",
+      "Todo",
+      "Bootstrapping",
+      "In Progress"
+    ]);
     expect(
       await harness.service.loadWorkflowLifecycleView({
         issueIdentifier: harness.issue.identifier,
@@ -591,4 +663,24 @@ function buildStrongTicketDescription(): string {
     "- The issue detail view shows the latest router step.",
     "- The issue detail view shows the most recent execution narrative."
   ].join("\n");
+}
+
+function listTrackerCommentBodies(
+  harness: RouteLifecycleGoldenPathHarness
+): string[] {
+  return harness.tracker
+    .listOperations()
+    .flatMap((operation) =>
+      operation.kind === "comment" ? [operation.body] : []
+    );
+}
+
+function listTrackerStateUpdates(
+  harness: RouteLifecycleGoldenPathHarness
+): string[] {
+  return harness.tracker
+    .listOperations()
+    .flatMap((operation) =>
+      operation.kind === "update_state" ? [operation.stateName] : []
+    );
 }

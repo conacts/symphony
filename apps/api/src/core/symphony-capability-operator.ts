@@ -65,27 +65,27 @@ export function createSymphonyCapabilityOperatorService(input: {
         return null;
       }
 
-      const history = await input.routeWorkflowStore.listHistory(workflowId);
-      const projection = projectWorkflowCapabilityProjection({
-        workflowId,
-        history: history.map((event) => event.event)
-      });
-      const preExecutionClarification =
-        serializePreExecutionPendingClarification(projection.pendingClarification);
-      if (preExecutionClarification !== null) {
-        return {
-          capability: null,
-          pendingClarification: preExecutionClarification
-        };
-      }
-
       const contract =
         await input.routeWorkflowStore.getExecutionContract<
           SymphonyCapabilityId,
           SymphonyCapabilityEvidenceId,
           SymphonyCapabilityModelProfileId
         >(workflowId);
-      if (!contract) {
+      if (contract === null) {
+        const history = await input.routeWorkflowStore.listHistory(workflowId);
+        const projection = projectWorkflowCapabilityProjection({
+          workflowId,
+          history: history.map((event) => event.event)
+        });
+        const preExecutionClarification =
+          serializePreExecutionPendingClarification(projection.pendingClarification);
+        if (preExecutionClarification !== null) {
+          return {
+            capability: null,
+            pendingClarification: preExecutionClarification
+          };
+        }
+
         return null;
       }
 

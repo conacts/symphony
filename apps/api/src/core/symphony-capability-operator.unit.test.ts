@@ -4,7 +4,7 @@ import { createSymphonyCapabilityOperatorService } from "./symphony-capability-o
 describe("Symphony capability operator service", () => {
   it("inspects planner state for intelligent-flow implementation shells", async () => {
     const routeWorkflowStore = {
-      listHistory: vi.fn().mockResolvedValue([]),
+      listHistory: vi.fn(),
       getExecutionContract: vi.fn().mockResolvedValue({
         issueIdentifier: "SYM-18"
       })
@@ -63,9 +63,7 @@ describe("Symphony capability operator service", () => {
       }),
       pendingClarification: null
     });
-    expect(routeWorkflowStore.listHistory).toHaveBeenCalledWith(
-      "workflow-implementation"
-    );
+    expect(routeWorkflowStore.listHistory).not.toHaveBeenCalled();
     expect(routeWorkflowStore.getExecutionContract).toHaveBeenCalledWith(
       "workflow-implementation"
     );
@@ -147,7 +145,7 @@ describe("Symphony capability operator service", () => {
           }
         }
       ]),
-      getExecutionContract: vi.fn()
+      getExecutionContract: vi.fn().mockResolvedValue(null)
     };
     const capabilityPlanning = {
       planByWorkflowId: vi.fn()
@@ -198,7 +196,82 @@ describe("Symphony capability operator service", () => {
         answerPath: null
       }
     });
-    expect(routeWorkflowStore.getExecutionContract).not.toHaveBeenCalled();
+    expect(routeWorkflowStore.getExecutionContract).toHaveBeenCalledWith(
+      "workflow-pre-execution"
+    );
     expect(capabilityPlanning.planByWorkflowId).not.toHaveBeenCalled();
+  });
+
+  it("prefers planner state over stale pre-execution clarification once intake has persisted a contract", async () => {
+    const routeWorkflowStore = {
+      listHistory: vi.fn(),
+      getExecutionContract: vi.fn().mockResolvedValue({
+        issueIdentifier: "SYM-19"
+      })
+    };
+    const capabilityPlanning = {
+      planByWorkflowId: vi.fn().mockResolvedValue({
+        contract: {
+          workflowId: "workflow-requeued",
+          contractId: "contract-requeued"
+        },
+        decision: {
+          recordedAt: "2026-04-15T12:05:01.000Z"
+        },
+        plan: {
+          kind: "execute",
+          decision: {
+            capabilityId: "implement.spec",
+            modelProfileId: "default",
+            workEpoch: 1
+          }
+        }
+      })
+    };
+    const operator = createSymphonyCapabilityOperatorService({
+      routeWorkflowStore: routeWorkflowStore as never,
+      routeWorkflows: {} as never,
+      sessionLoader: {
+        loadHydrationByIssueIdentifier: vi.fn().mockResolvedValue({
+          hydrationState: {
+            workflow: {
+              workflowId: "workflow-requeued"
+            },
+            snapshot: {
+              projection: {
+                currentNode: "claimed"
+              }
+            }
+          }
+        })
+      } as never,
+      capabilityPlanning: capabilityPlanning as never
+    });
+
+    const inspection = await operator.inspectByIssueIdentifier({
+      issueIdentifier: "SYM-19",
+      recordedAt: "2026-04-15T12:05:02.000Z"
+    });
+
+    expect(inspection).toEqual({
+      capability: expect.objectContaining({
+        workflowId: "workflow-requeued",
+        contractId: "contract-requeued",
+        planKind: "execute",
+        capabilityId: "implement.spec",
+        workEpoch: 1,
+        pendingClarification: null
+      }),
+      pendingClarification: null
+    });
+    expect(routeWorkflowStore.listHistory).not.toHaveBeenCalled();
+    expect(routeWorkflowStore.getExecutionContract).toHaveBeenCalledWith(
+      "workflow-requeued"
+    );
+    expect(capabilityPlanning.planByWorkflowId).toHaveBeenCalledWith({
+      workflowId: "workflow-requeued",
+      recordedAt: "2026-04-15T12:05:02.000Z",
+      policyId: "default"
+    });
   });
 });
