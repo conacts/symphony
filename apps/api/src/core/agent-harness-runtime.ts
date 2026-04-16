@@ -2,26 +2,16 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type {
-  SymphonyWorkerSessionContract,
   AgentRuntime,
-  SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeConfig,
-  SymphonyAgentRuntimeUpdate,
-  SymphonyStartupFailureOrigin,
-  SymphonyStartupFailureStage
-} from "@symphony/orchestrator";
-import {
-  createSymphonyWorkerSessionContract
+  SymphonyWorkerSessionContract
 } from "@symphony/orchestrator";
 import {
   renderSymphonyPromptContract,
   type SymphonyLoadedPromptContract,
   type SymphonyRunMode
 } from "@symphony/runtime-contract";
-import type { JsonObject, JsonValue } from "@symphony/contracts";
-import {
-  extractUsage
-} from "@symphony/contracts";
+import type { JsonObject } from "@symphony/contracts";
 import type {
   SymphonyTracker,
   SymphonyTrackerIssue
@@ -34,16 +24,12 @@ import type {
 import type { SymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError,
-  piSdkRunnerFailureClasses,
-  type PiSdkRunnerFailureClass,
   resolveHarnessModelRuntimePolicy,
-  type HarnessTurnResult,
-  type HarnessSessionClient
+  type HarnessCompletionCandidate
 } from "@symphony/agent-harnesses";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
 import type { AdmittedRuntimeRepository } from "./runtime-admitted-repositories.js";
-import { captureRepoSnapshot } from "./agent-repo-snapshot.js";
 import {
   resolveRuntimeLaunchTarget,
   type SymphonyRuntimeLaunchTarget
@@ -52,52 +38,55 @@ import {
   buildSymphonyContinuationPrompt
 } from "./symphony-prompt.js";
 import {
-  parseSymphonyImplementationModuleResultMessage
-} from "./symphony-implementation-module-result.js";
-import {
   createPiRuntimeHarness,
   type SymphonyRuntimeHarness
 } from "./runtime-harness.js";
 import { CommandResourceMonitor } from "./command-resource-monitor.js";
-import type {
-  SymphonyRuntimeWorkflowLifecycleView
-} from "./runtime-workflow-lifecycle-view.js";
-
-type RunCallbacks = {
-  onUpdate(issueId: string, update: SymphonyAgentRuntimeUpdate): void | Promise<void>;
-  onComplete(
-    issueId: string,
-    completion: SymphonyAgentRuntimeCompletion
-  ): void | Promise<void>;
-};
-
-type ActiveRun = {
-  stopped: boolean;
-  client: HarnessSessionClient | null;
-  completionOverride: Extract<
-    SymphonyAgentRuntimeCompletion,
-    { kind: "delivered" | "awaiting_input" | "blocked" }
-  > | null;
-  completionReported: boolean;
-};
-
-type WorkflowLifecycleReaders = {
-  loadWorkflowLifecycleView(input: {
-    issueIdentifier: string;
-    runId?: string | null;
-  }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
-  observeActiveWorkflowIssueState(input: {
-    issueIdentifier: string;
-    recordedAt: string;
-  }): Promise<boolean>;
-  isCapabilityManagedRun?(input: {
-    issueIdentifier: string;
-    runId?: string | null;
-    runMode: SymphonyRunMode;
-  }): Promise<boolean>;
-};
-
-const piSdkRunnerFailureClassSet = new Set<string>(piSdkRunnerFailureClasses);
+import {
+  recordRunRepoEndSnapshot,
+  recordRunRepoStartSnapshot
+} from "./runtime-supervision/runtime-repo-snapshot-policy.js";
+import {
+  recordRuntimeLifecycleLog,
+  buildRuntimeTerminalResultLogPayload
+} from "./runtime-supervision/runtime-lifecycle-recorder.js";
+import {
+  capabilityManagedRunCompletion,
+  classifyHarnessExecutionFailure,
+  classifyHarnessTurnFailure,
+  classifyStartupFailure,
+  completionFromHarnessTurnResult,
+  isRateLimitedError,
+  isTransientProviderError,
+  missingExplicitCompletion,
+  resolveExplicitCompletionRequirement
+} from "./runtime-supervision/runtime-outcome-classifier.js";
+import {
+  type ActiveRun,
+  type RunCallbacks,
+  type WorkflowLifecycleReaders
+} from "./runtime-supervision/runtime-supervision-types.js";
+import {
+  toJsonValue
+} from "./runtime-supervision/runtime-supervision-values.js";
+import {
+  finalizePersistedTurnFromResult,
+  finalizeStoppedTurn,
+  finalizeTurnForDetectedCompletion
+} from "./runtime-supervision/runtime-turn-persistence.js";
+import {
+  createDefaultWorkerSessionContract,
+} from "./runtime-supervision/runtime-worker-session.js";
+import {
+  isActiveIssueState,
+  observeActiveIssueStateThroughWorkflow
+} from "./runtime-supervision/runtime-workflow-state.js";
+import { createRuntimeTurnProjection } from "./runtime-supervision/runtime-session-projection.js";
+import {
+  publishRuntimeCompletion,
+  reportCompletionOverride
+} from "./runtime-supervision/runtime-completion-reporter.js";
+import type { RuntimeTurnProjection } from "./runtime-supervision/runtime-session-projection.js";
 
 export function createSymphonyAgentRuntime(input: {
   promptContract: SymphonyLoadedPromptContract;
@@ -271,10 +260,10 @@ async function executeRun(input: {
   let maxTurnsReached = false;
   let sessionProviderId: string | null = null;
   let sessionProviderName: string | null = null;
-  let commandResourceMonitor: CommandResourceMonitor | null = null;
   let recordedCanonicalSessionStart = false;
   let workerSessionId: string | null = null;
-  let latestCompletedAgentMessageText: string | null = null;
+  let latestCompletionCandidate: HarnessCompletionCandidate | null = null;
+  let activeTurnProjection: RuntimeTurnProjection | null = null;
   const capabilityManagedRun = await input.isCapabilityManagedRun({
     issueIdentifier: input.issue.identifier,
     runId: input.runId,
@@ -301,13 +290,11 @@ async function executeRun(input: {
     });
 
     if (input.runId) {
-      const repoStart = await captureRepoSnapshot(
-        input.launchTarget,
-        input.runtimePolicy.hooks.timeoutMs
-      );
-      await input.runStore.updateRun(input.runId, {
-        commitHashStart: repoStart.commitHash,
-        repoStart: repoStart.snapshot
+      await recordRunRepoStartSnapshot({
+        runStore: input.runStore,
+        runId: input.runId,
+        launchTarget: input.launchTarget,
+        timeoutMs: input.runtimePolicy.hooks.timeoutMs
       });
     }
 
@@ -343,7 +330,7 @@ async function executeRun(input: {
     workerSessionId = session.threadId;
     sessionProviderId = session.providerId;
     sessionProviderName = session.providerName;
-    commandResourceMonitor = new CommandResourceMonitor(session.processId);
+    const commandResourceMonitor = new CommandResourceMonitor(session.processId);
     const runtimeContextBase = {
       harnessKind: input.harness.kind,
       processId: session.processId,
@@ -401,11 +388,11 @@ async function executeRun(input: {
       turnNumber += 1
     ) {
       if (input.activeRun.stopped) {
-        await finalizeStoppedTurn(
-          input.runStore,
-          input.runId,
+        await finalizeStoppedTurn({
+          runStore: input.runStore,
+          runId: input.runId,
           persistedTurnId
-        );
+        });
         return;
       }
 
@@ -463,46 +450,29 @@ async function executeRun(input: {
             startedAt: persistedTurnStartedAt
           })
         : null;
-      let persistedEventSequence = 0;
-      const nextPersistedEventMetadata = () => ({
-        eventId: randomUUID(),
-        eventSequence: (persistedEventSequence += 1)
-      });
-
-      if (
-        input.runId &&
-        persistedTurnId &&
-        !recordedCanonicalSessionStart &&
-        shouldSynthesizeSessionStartedEvent(input.runtimePolicy)
-      ) {
-        const sessionStartedEvent = buildSyntheticSessionStartedEvent({
-          threadId: session.threadId,
-          persistedTurnId,
-          processId: session.processId,
-          model: session.model,
-          reasoningEffort: session.reasoningEffort
-        });
-
-        if (sessionStartedEvent) {
-          await input.runStore.recordEvent(input.runId, persistedTurnId, {
-            ...nextPersistedEventMetadata(),
-            eventType: sessionStartedEvent.type,
-            recordedAt: new Date().toISOString(),
-            payload: sessionStartedEvent,
-            summary: summarizeCanonicalRuntimeEvent(sessionStartedEvent),
-            threadId: sessionStartedEvent.thread_id ?? session.threadId
-          });
-          await input.runStore.upsertRunContext(input.runId, {
-            ...runtimeContextBase,
-            threadId: sessionStartedEvent.thread_id ?? session.threadId,
-            processId: sessionStartedEvent.agent_app_server_pid ?? session.processId,
-            model: sessionStartedEvent.model ?? session.model,
-            reasoningEffort:
-              sessionStartedEvent.reasoning_effort ?? session.reasoningEffort
-          });
-          recordedCanonicalSessionStart = true;
+      activeTurnProjection = createRuntimeTurnProjection({
+        issue: currentIssue,
+        runId: input.runId,
+        attempt: input.attempt,
+        runMode: input.runMode,
+        persistedTurnId,
+        session,
+        runtimePolicy: input.runtimePolicy,
+        runtimeContextBase,
+        runStore: input.runStore,
+        agentAnalytics: input.agentAnalytics,
+        workerSessionContract: input.workerSessionContract,
+        callbacks: input.callbacks,
+        commandResourceMonitor,
+        logger: input.logger,
+        initialState: {
+          recordedCanonicalSessionStart,
+          latestCompletionCandidate
         }
-      }
+      });
+      await activeTurnProjection.recordSyntheticSessionStartedIfNeeded();
+      recordedCanonicalSessionStart =
+        activeTurnProjection.state.recordedCanonicalSessionStart;
 
       await recordRuntimeLifecycleLog({
         runtimeLogs: input.runtimeLogs,
@@ -526,129 +496,25 @@ async function executeRun(input: {
         title: `${currentIssue.identifier}: ${currentIssue.title}`,
         turnTimeoutMs: input.runtimePolicy.pi.turnTimeoutMs,
         onMessage: async (update) => {
-          const { event: threadEvent, rawPayload } = update;
-          const runtimePayload = rawPayload ?? threadEvent;
-          const runtimePayloadRecord = asRecord(runtimePayload);
-          const sessionStartedEvent =
-            extractCanonicalSessionStartedEvent(runtimePayloadRecord);
-          const eventName = threadEvent.type;
-          const timestamp = new Date().toISOString();
-          const turnUsage = extractRuntimeUsage(threadEvent, runtimePayloadRecord);
-          const threadId =
-            (threadEvent.type === "thread.started" ? threadEvent.thread_id : null) ??
-            getString(runtimePayloadRecord, "thread_id") ??
-            session.threadId;
-          const canonicalEvent =
-            (threadEvent as CanonicalRuntimeEventPayload) ?? sessionStartedEvent;
-
-          if (
-            threadEvent.type === "item.completed" &&
-            threadEvent.item.type === "agent_message"
-          ) {
-            latestCompletedAgentMessageText = threadEvent.item.text;
+          const turnProjection = activeTurnProjection;
+          if (!turnProjection) {
+            throw new TypeError(
+              "Runtime turn projection was not initialized before processing a harness update."
+            );
           }
 
-          await input.callbacks.onUpdate(currentIssue.id, {
-            event: eventName,
-            payload: runtimePayload,
-            timestamp,
-            threadId: sessionStartedEvent?.thread_id ?? threadId,
-            agentRuntimeProcessId:
-              getString(runtimePayloadRecord, "agent_app_server_pid") ?? session.processId
-          });
-          await input.workerSessionContract.recordObservation({
-            sessionId: session.threadId,
-            issueId: input.issue.id,
-            runId: input.runId,
-            attempt: input.attempt,
-            runMode: input.runMode,
-            recordedAt: timestamp,
-            eventType: eventName,
-            payload: asJsonObject(runtimePayload)
-          });
-
-          if (input.runId && persistedTurnId) {
-            if (turnUsage) {
-              await input.runStore.updateTurn(persistedTurnId, {
-                usage: turnUsage
-              });
-            }
-
-            if (canonicalEvent) {
-              await input.runStore.recordEvent(input.runId, persistedTurnId, {
-                ...nextPersistedEventMetadata(),
-                eventType: canonicalEvent.type,
-                recordedAt: timestamp,
-                payload: canonicalEvent,
-                summary: summarizeCanonicalRuntimeEvent(canonicalEvent),
-                threadId:
-                  (canonicalEvent.type === "session.started"
-                    ? canonicalEvent.thread_id
-                    : threadId) ?? session.threadId,
-                agentTurnId:
-                  canonicalEvent.type === "session.started"
-                    ? canonicalEvent.turn_id
-                    : getString(runtimePayloadRecord, "turn_id") ?? null
-              });
-              if (canonicalEvent.type === "session.started") {
-                await input.runStore.upsertRunContext(input.runId, {
-                  ...runtimeContextBase,
-                  threadId: canonicalEvent.thread_id ?? session.threadId,
-                  processId: canonicalEvent.agent_app_server_pid ?? session.processId,
-                  model: canonicalEvent.model ?? session.model,
-                  reasoningEffort:
-                    canonicalEvent.reasoning_effort ?? session.reasoningEffort
-                });
-                recordedCanonicalSessionStart = true;
-              }
-            }
-
-            if (threadEvent) {
-              await input.agentAnalytics.recordEvent({
-                runId: input.runId,
-                turnId: persistedTurnId,
-                threadId,
-                recordedAt: timestamp,
-                payload: threadEvent,
-                rawPayload
-              });
-
-              if (commandResourceMonitor) {
-                try {
-                  const completedProfiles = await commandResourceMonitor.observe(
-                    threadEvent,
-                    timestamp
-                  );
-                  for (const profile of completedProfiles) {
-                    await input.agentAnalytics.recordCommandResourceProfile({
-                      runId: input.runId,
-                      turnId: persistedTurnId,
-                      itemId: profile.itemId,
-                      resourceProfile: profile.profile
-                    });
-                  }
-                } catch (monitorError) {
-                  input.logger.warn("Failed to record command resource metrics", {
-                    runId: input.runId,
-                    turnId: persistedTurnId,
-                    error:
-                      monitorError instanceof Error
-                        ? monitorError.message
-                        : String(monitorError)
-                  });
-                }
-              }
-            }
-          }
+          const projectionResult = await turnProjection.handleUpdate(update);
+          latestCompletionCandidate =
+            turnProjection.state.latestCompletionCandidate;
+          recordedCanonicalSessionStart =
+            turnProjection.state.recordedCanonicalSessionStart;
 
           if (
             explicitCompletionRequirement === "none" &&
-            threadEvent.type === "item.completed" &&
-            threadEvent.item.type === "agent_message" &&
+            projectionResult.detectedCompletion &&
             input.activeRun.completionOverride === null
           ) {
-            const terminalCompletion =
-              detectCapabilityManagedTerminalCompletion(threadEvent.item.text);
+            const terminalCompletion = projectionResult.detectedCompletion;
             if (terminalCompletion) {
               // Capability-managed runs should stop as soon as a valid terminal
               // module result is visible, even if the runtime never emits a
@@ -663,7 +529,7 @@ async function executeRun(input: {
                   "Capability-managed terminal module result detected before the runtime session closed.",
                 issueIdentifier: input.issue.identifier,
                 runId: input.runId,
-                recordedAt: timestamp,
+                recordedAt: projectionResult.recordedAt,
                 payload: {
                   completionKind: terminalCompletion.kind,
                   moduleId: terminalCompletion.moduleResult?.moduleId ?? null,
@@ -691,7 +557,8 @@ async function executeRun(input: {
           runtimeLogs: input.runtimeLogs,
           workerSessionContract: input.workerSessionContract,
           sessionId: workerSessionId,
-          issue: input.issue,
+          issueId: input.issue.id,
+          issueIdentifier: input.issue.identifier,
           runId: input.runId,
           attempt: input.attempt,
           runMode: input.runMode,
@@ -729,13 +596,11 @@ async function executeRun(input: {
             : null;
 
         if (input.runId) {
-          const repoEnd = await captureRepoSnapshot(
-            input.launchTarget,
-            input.runtimePolicy.hooks.timeoutMs
-          );
-          await input.runStore.updateRun(input.runId, {
-            commitHashEnd: repoEnd.commitHash,
-            repoEnd: repoEnd.snapshot
+          await recordRunRepoEndSnapshot({
+            runStore: input.runStore,
+            runId: input.runId,
+            launchTarget: input.launchTarget,
+            timeoutMs: input.runtimePolicy.hooks.timeoutMs
           });
         }
 
@@ -757,23 +622,18 @@ async function executeRun(input: {
         const completion =
           failedTurnClassification?.completion ??
           completionFromHarnessTurnResult(turnResult);
-        await recordWorkerSessionCompletion({
+        await publishRuntimeCompletion({
           workerSessionContract: input.workerSessionContract,
+          runtimeLogs: input.runtimeLogs,
           sessionId: session.threadId,
           issueId: input.issue.id,
+          issueIdentifier: input.issue.identifier,
           runId: input.runId,
           attempt: input.attempt,
           runMode: input.runMode,
           completion,
-          recordedAt: new Date().toISOString()
+          callbacks: input.callbacks
         });
-        await recordRuntimeRunOutcome({
-          runtimeLogs: input.runtimeLogs,
-          issueIdentifier: input.issue.identifier,
-          runId: input.runId,
-          completion
-        });
-        await input.callbacks.onComplete(input.issue.id, completion);
         return;
       }
 
@@ -806,7 +666,8 @@ async function executeRun(input: {
         runtimeLogs: input.runtimeLogs,
         workerSessionContract: input.workerSessionContract,
         sessionId: workerSessionId,
-        issue: input.issue,
+        issueId: input.issue.id,
+        issueIdentifier: input.issue.identifier,
         runId: input.runId,
         attempt: input.attempt,
         runMode: input.runMode,
@@ -820,85 +681,62 @@ async function executeRun(input: {
 
     if (!input.activeRun.stopped) {
       if (input.runId) {
-        const repoEnd = await captureRepoSnapshot(
-          input.launchTarget,
-          input.runtimePolicy.hooks.timeoutMs
-        );
-        await input.runStore.updateRun(input.runId, {
-          commitHashEnd: repoEnd.commitHash,
-          repoEnd: repoEnd.snapshot
+        await recordRunRepoEndSnapshot({
+          runStore: input.runStore,
+          runId: input.runId,
+          launchTarget: input.launchTarget,
+          timeoutMs: input.runtimePolicy.hooks.timeoutMs
         });
       }
 
       if (explicitCompletionRequirement === "none") {
         const completion = capabilityManagedRunCompletion({
-          latestCompletedAgentMessageText
+          completionCandidate: latestCompletionCandidate
         });
-        await recordWorkerSessionCompletion({
+        await publishRuntimeCompletion({
           workerSessionContract: input.workerSessionContract,
+          runtimeLogs: input.runtimeLogs,
           sessionId: session.threadId,
           issueId: input.issue.id,
+          issueIdentifier: input.issue.identifier,
           runId: input.runId,
           attempt: input.attempt,
           runMode: input.runMode,
           completion,
-          recordedAt: new Date().toISOString()
+          callbacks: input.callbacks
         });
-        await recordRuntimeRunOutcome({
-          runtimeLogs: input.runtimeLogs,
-          issueIdentifier: input.issue.identifier,
-          runId: input.runId,
-          completion
-        });
-        await input.callbacks.onComplete(
-          input.issue.id,
-          completion
-        );
       } else if (maxTurnsReached) {
         const completion = {
           kind: "max_turns_reached" as const,
           reason: `Reached the configured ${input.runtimePolicy.agent.maxTurns}-turn limit while the issue remained active.`,
           maxTurns: input.runtimePolicy.agent.maxTurns
         };
-        await recordWorkerSessionCompletion({
+        await publishRuntimeCompletion({
           workerSessionContract: input.workerSessionContract,
+          runtimeLogs: input.runtimeLogs,
           sessionId: session.threadId,
           issueId: input.issue.id,
+          issueIdentifier: input.issue.identifier,
           runId: input.runId,
           attempt: input.attempt,
           runMode: input.runMode,
           completion,
-          recordedAt: new Date().toISOString()
+          callbacks: input.callbacks
         });
-        await recordRuntimeRunOutcome({
-          runtimeLogs: input.runtimeLogs,
-          issueIdentifier: input.issue.identifier,
-          runId: input.runId,
-          completion
-        });
-        await input.callbacks.onComplete(input.issue.id, completion);
       } else {
         const completion = missingExplicitCompletion();
-        await recordWorkerSessionCompletion({
+        await publishRuntimeCompletion({
           workerSessionContract: input.workerSessionContract,
+          runtimeLogs: input.runtimeLogs,
           sessionId: session.threadId,
           issueId: input.issue.id,
+          issueIdentifier: input.issue.identifier,
           runId: input.runId,
           attempt: input.attempt,
           runMode: input.runMode,
           completion,
-          recordedAt: new Date().toISOString()
+          callbacks: input.callbacks
         });
-        await recordRuntimeRunOutcome({
-          runtimeLogs: input.runtimeLogs,
-          issueIdentifier: input.issue.identifier,
-          runId: input.runId,
-          completion
-        });
-        await input.callbacks.onComplete(
-          input.issue.id,
-          completion
-        );
       }
     }
   } catch (error) {
@@ -913,7 +751,8 @@ async function executeRun(input: {
         runtimeLogs: input.runtimeLogs,
         workerSessionContract: input.workerSessionContract,
         sessionId: workerSessionId,
-        issue: input.issue,
+        issueId: input.issue.id,
+        issueIdentifier: input.issue.identifier,
         runId: input.runId,
         attempt: input.attempt,
         runMode: input.runMode,
@@ -926,11 +765,11 @@ async function executeRun(input: {
     }
 
     if (input.activeRun.stopped) {
-      await finalizeStoppedTurn(
-        input.runStore,
-        input.runId,
+      await finalizeStoppedTurn({
+        runStore: input.runStore,
+        runId: input.runId,
         persistedTurnId
-      );
+      });
       return;
     }
 
@@ -953,13 +792,11 @@ async function executeRun(input: {
     }
 
     if (input.runId) {
-      const repoEnd = await captureRepoSnapshot(
-        input.launchTarget,
-        input.runtimePolicy.hooks.timeoutMs
-      );
-      await input.runStore.updateRun(input.runId, {
-        commitHashEnd: repoEnd.commitHash,
-        repoEnd: repoEnd.snapshot
+      await recordRunRepoEndSnapshot({
+        runStore: input.runStore,
+        runId: input.runId,
+        launchTarget: input.launchTarget,
+        timeoutMs: input.runtimePolicy.hooks.timeoutMs
       });
     }
 
@@ -1015,630 +852,24 @@ async function executeRun(input: {
                 reason
               }));
 
-    await recordWorkerSessionCompletion({
+    await publishRuntimeCompletion({
       workerSessionContract: input.workerSessionContract,
+      runtimeLogs: input.runtimeLogs,
       sessionId: workerSessionId,
       issueId: input.issue.id,
+      issueIdentifier: input.issue.identifier,
       runId: input.runId,
       attempt: input.attempt,
       runMode: input.runMode,
       completion,
-      recordedAt: new Date().toISOString()
+      callbacks: input.callbacks
     });
-
-    await recordRuntimeRunOutcome({
-      runtimeLogs: input.runtimeLogs,
-      issueIdentifier: input.issue.identifier,
-      runId: input.runId,
-      completion
-    });
-    await input.callbacks.onComplete(input.issue.id, completion);
   } finally {
-    if (commandResourceMonitor && input.runId && persistedTurnId) {
-      try {
-        const flushedProfiles = await commandResourceMonitor.flush();
-        for (const profile of flushedProfiles) {
-          await input.agentAnalytics.recordCommandResourceProfile({
-            runId: input.runId,
-            turnId: persistedTurnId,
-            itemId: profile.itemId,
-            resourceProfile: profile.profile
-          });
-        }
-      } catch (monitorError) {
-        input.logger.warn("Failed to flush command resource metrics", {
-          runId: input.runId,
-          turnId: persistedTurnId,
-          error:
-            monitorError instanceof Error
-              ? monitorError.message
-              : String(monitorError)
-        });
-      }
+    if (activeTurnProjection) {
+      await activeTurnProjection.flushCommandProfiles();
     }
     input.activeRun.client?.close();
   }
-}
-
-function createDefaultWorkerSessionContract(): SymphonyWorkerSessionContract {
-  return createSymphonyWorkerSessionContract({
-    startSession: async (input) => ({
-      ...input,
-      kind: "session_started"
-    }),
-    recordObservation: async (input) => ({
-      ...input,
-      kind: "session_observation_recorded"
-    }),
-    stopSession: async (input) => ({
-      ...input,
-      kind: "session_stopped"
-    }),
-    completeSession: async (input) => ({
-      ...input,
-      kind: "session_completed"
-    })
-  });
-}
-
-async function recordWorkerSessionCompletion(input: {
-  workerSessionContract: SymphonyWorkerSessionContract;
-  sessionId: string | null;
-  issueId: string;
-  runId: string | null;
-  attempt: number;
-  runMode: SymphonyRunMode;
-  completion: SymphonyAgentRuntimeCompletion;
-  recordedAt: string;
-}): Promise<void> {
-  if (!input.sessionId) {
-    return;
-  }
-
-  await input.workerSessionContract.completeSession({
-    sessionId: input.sessionId,
-    issueId: input.issueId,
-    runId: input.runId,
-    attempt: input.attempt,
-    runMode: input.runMode,
-    recordedAt: input.recordedAt,
-    status: completionStatusForRuntimeCompletion(input.completion),
-    reason: completionReasonForRuntimeCompletion(input.completion)
-  });
-}
-
-async function recordRuntimeLifecycleLog(input: {
-  runtimeLogs: SymphonyRuntimeLogStore;
-  level: "info" | "warn" | "error";
-  eventType: string;
-  message: string;
-  issueIdentifier: string;
-  runId: string | null;
-  payload: JsonObject;
-}): Promise<void> {
-  await input.runtimeLogs.record({
-    level: input.level,
-    source: "agent_runtime",
-    eventType: input.eventType,
-    message: input.message,
-    issueIdentifier: input.issueIdentifier,
-    runId: input.runId,
-    payload: input.payload
-  });
-}
-
-function buildRuntimeTerminalResultLogPayload(
-  turnResult: HarnessTurnResult
-): JsonObject {
-  return {
-    terminalResultKind: turnResult.kind,
-    threadId: turnResult.threadId,
-    turnId: turnResult.turnId,
-    usage: toJsonValue(turnResult.usage),
-    reason:
-      turnResult.kind === "completed"
-        ? null
-        : turnResult.reason,
-    prompt:
-      turnResult.kind === "awaiting_input"
-        ? turnResult.prompt
-        : null,
-    failureClass:
-      turnResult.kind === "failed"
-        ? turnResult.failureClass
-        : null
-  };
-}
-
-async function recordRuntimeRunOutcome(input: {
-  runtimeLogs: SymphonyRuntimeLogStore;
-  issueIdentifier: string;
-  runId: string | null;
-  completion: SymphonyAgentRuntimeCompletion;
-}): Promise<void> {
-  const completed = input.completion.kind === "delivered";
-  await recordRuntimeLifecycleLog({
-    runtimeLogs: input.runtimeLogs,
-    level:
-      completed ? "info" : "warn",
-    eventType: completed ? "runtime_run_completed" : "runtime_run_paused",
-    message: completed
-      ? "Agent runtime run completed."
-      : "Agent runtime run paused.",
-    issueIdentifier: input.issueIdentifier,
-    runId: input.runId,
-    payload: buildRuntimeRunOutcomePayload(input.completion)
-  });
-}
-
-function buildRuntimeRunOutcomePayload(
-  completion: SymphonyAgentRuntimeCompletion
-): JsonObject {
-  const moduleResult =
-    "moduleResult" in completion ? completion.moduleResult : null;
-  return {
-    outcome: completion.kind === "delivered" ? "completed" : "paused",
-    completionKind: completion.kind,
-    reason: runtimeOutcomeReasonForCompletion(completion),
-    prompt:
-      completion.kind === "awaiting_input"
-        ? completion.prompt
-        : null,
-    moduleId: moduleResult?.moduleId ?? null,
-    moduleOutcome: moduleResult?.outcome ?? null,
-    requestedState: moduleResult?.requestedState ?? null,
-    maxTurns:
-      completion.kind === "max_turns_reached"
-        ? completion.maxTurns
-        : null
-  };
-}
-
-function runtimeOutcomeReasonForCompletion(
-  completion: SymphonyAgentRuntimeCompletion
-): string | null {
-  switch (completion.kind) {
-    case "awaiting_input":
-    case "blocked":
-    case "failure":
-    case "startup_failure":
-    case "rate_limited":
-    case "provider_transient":
-    case "stalled":
-    case "terminal_result_failure":
-    case "max_turns_reached":
-      return completion.reason;
-    default:
-      return null;
-  }
-}
-
-async function finalizePersistedTurnFromResult(input: {
-  runId: string | null;
-  persistedTurnId: string | null;
-  runStore: SymphonyRuntimeRunStore;
-  turnResult: HarnessTurnResult;
-}): Promise<string | null> {
-  if (!input.runId || !input.persistedTurnId) {
-    return input.persistedTurnId;
-  }
-
-  const endedAt = new Date().toISOString();
-  await input.runStore.finalizeTurn(input.persistedTurnId, {
-    status:
-      input.turnResult.kind === "failed"
-        ? "failed"
-        : "completed",
-    endedAt,
-    threadId: input.turnResult.threadId,
-    agentTurnId: input.turnResult.turnId,
-    usage: input.turnResult.usage,
-    ...(input.turnResult.kind === "completed"
-      ? {}
-      : {
-          metadata: {
-            reason: input.turnResult.reason,
-            terminalResultKind: input.turnResult.kind,
-            ...(input.turnResult.kind === "awaiting_input"
-              ? {
-                  prompt: input.turnResult.prompt
-                }
-              : {}),
-            ...(input.turnResult.kind === "failed"
-              ? {
-                  failureClass: input.turnResult.failureClass
-                }
-              : {})
-          }
-        })
-  });
-
-  return null;
-}
-
-type RuntimeFailureClassification = {
-  completion: SymphonyAgentRuntimeCompletion;
-  level: "info" | "warn" | "error";
-  eventType: string;
-  message: string;
-  payload: JsonObject;
-};
-
-function completionStatusForRuntimeCompletion(
-  completion: SymphonyAgentRuntimeCompletion
-): "completed" | "failed" | "cancelled" {
-  switch (completion.kind) {
-    case "failure":
-    case "startup_failure":
-    case "rate_limited":
-    case "provider_transient":
-    case "stalled":
-    case "terminal_result_failure":
-      return "failed";
-    default:
-      return "completed";
-  }
-}
-
-function completionReasonForRuntimeCompletion(
-  completion: SymphonyAgentRuntimeCompletion
-): string | null {
-  switch (completion.kind) {
-    case "failure":
-    case "startup_failure":
-    case "rate_limited":
-    case "provider_transient":
-    case "stalled":
-    case "terminal_result_failure":
-      return completion.reason;
-    default:
-      return null;
-  }
-}
-
-function classifyHarnessTurnFailure(input: {
-  turnResult: Extract<HarnessTurnResult, { kind: "failed" }>;
-  providerId: string | null;
-}): RuntimeFailureClassification {
-  return classifyPiFailure({
-    failureClass:
-      typeof input.turnResult.failureClass === "string" &&
-      piSdkRunnerFailureClassSet.has(input.turnResult.failureClass)
-        ? (input.turnResult.failureClass as PiSdkRunnerFailureClass)
-        : null,
-    reason: input.turnResult.reason,
-    detail: input.turnResult.detail,
-    providerId: input.providerId
-  });
-}
-
-function classifyHarnessExecutionFailure(input: {
-  error: unknown;
-  providerId: string | null;
-}): RuntimeFailureClassification | null {
-  const harnessError = input.error instanceof HarnessSessionError ? input.error : null;
-  if (!harnessError) {
-    return null;
-  }
-
-  if (harnessError.code === "pi_sdk_runner_transport_timeout") {
-    return classifyPiFailure({
-      failureClass: "transport_timeout",
-      reason: harnessError.message,
-      detail: harnessError.detail,
-      providerId: input.providerId
-    });
-  }
-
-  if (harnessError.code !== "pi_sdk_runner_failed") {
-    return null;
-  }
-
-  const detailRecord = asRecord(harnessError.detail);
-  const eventRecord = asRecord(detailRecord?.event);
-  const failureClass = getFailureClass(eventRecord, "failureClass");
-  return classifyPiFailure({
-    failureClass,
-    reason: harnessError.message,
-    detail: harnessError.detail,
-    providerId: input.providerId
-  });
-}
-
-function classifyPiFailure(input: {
-  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
-  reason: string;
-  detail: unknown;
-  providerId: string | null;
-}): RuntimeFailureClassification {
-  const payload = buildRuntimeFailurePayload({
-    failureClass: input.failureClass,
-    reason: input.reason,
-    detail: input.detail
-  });
-  const failureError = new HarnessSessionError(
-    "pi_sdk_runner_failed",
-    input.reason,
-    input.detail
-  );
-
-  switch (input.failureClass) {
-    case "model_idle_timeout":
-      return {
-        completion: {
-          kind: "stalled",
-          reason: input.reason
-        },
-        level: "warn",
-        eventType: "runtime_timeout_classified",
-        message: "Agent runtime timeout classified.",
-        payload: {
-          ...payload,
-          timeoutClass: "model_idle_timeout"
-        }
-      };
-    case "run_timeout":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_timeout_classified",
-        message: "Agent runtime timeout classified.",
-        payload: {
-          ...payload,
-          timeoutClass: "run_timeout"
-        }
-      };
-    case "tool_timeout":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_timeout_classified",
-        message: "Agent runtime timeout classified.",
-        payload: {
-          ...payload,
-          timeoutClass: "tool_timeout"
-        }
-      };
-    case "transport_timeout":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_timeout_classified",
-        message: "Agent runtime timeout classified.",
-        payload: {
-          ...payload,
-          timeoutClass: "transport_timeout"
-        }
-      };
-    case "provider_error":
-      if (isRateLimitedError(failureError)) {
-        return {
-          completion: {
-            kind: "rate_limited",
-            reason: input.reason
-          },
-          level: "warn",
-          eventType: "runtime_rate_limited",
-          message: "Agent runtime hit a provider rate limit.",
-          payload
-        };
-      }
-      if (isTransientProviderError(failureError, input.providerId)) {
-        return {
-          completion: {
-            kind: "provider_transient",
-            reason: input.reason
-          },
-          level: "warn",
-          eventType: "runtime_provider_transient",
-          message: "Agent runtime hit a transient provider failure.",
-          payload
-        };
-      }
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_provider_error",
-        message: "Agent runtime failed because the provider returned an error.",
-        payload
-      };
-    case "terminal_result_missing":
-      return {
-        completion: {
-          kind: "terminal_result_failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_terminal_result_missing",
-        message: "Agent runtime ended without a terminal result.",
-        payload
-      };
-    case "terminal_result_invalid":
-      return {
-        completion: {
-          kind: "terminal_result_failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_terminal_result_invalid",
-        message: "Agent runtime produced an invalid terminal result.",
-        payload
-      };
-    case "bridge_protocol_failure":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_bridge_protocol_failure",
-        message: "Agent runtime bridge protocol failed.",
-        payload
-      };
-    case "runtime_crash":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_runner_crash",
-        message: "Agent runtime process crashed during execution.",
-        payload
-      };
-    case "runner_startup_failure":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_runner_startup_failure",
-        message: "Agent runtime process failed during startup.",
-        payload
-      };
-    case "operator_input_required":
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "warn",
-        eventType: "runtime_operator_input_required",
-        message: "Agent runtime required operator input that Symphony does not support automatically.",
-        payload
-      };
-    default:
-      return {
-        completion: {
-          kind: "failure",
-          reason: input.reason
-        },
-        level: "error",
-        eventType: "runtime_execution_failed",
-        message: "Agent runtime execution failed.",
-        payload
-      };
-  }
-}
-
-function buildRuntimeFailurePayload(input: {
-  failureClass: PiSdkRunnerFailureClass | "transport_timeout" | null;
-  reason: string;
-  detail: unknown;
-}): JsonObject {
-  const detailRecord = asRecord(input.detail);
-  const resultRecord = asRecord(detailRecord?.result) ?? detailRecord;
-  const timeoutTriggerRecord = asRecord(detailRecord?.timeoutTriggerEvent);
-  const eventRecord = asRecord(detailRecord?.event);
-  const diagnosticsValue =
-    detailRecord && "diagnostics" in detailRecord
-      ? toJsonValue(detailRecord.diagnostics)
-      : null;
-
-  return {
-    failureClass: input.failureClass,
-    reason: input.reason,
-    thresholdMs:
-      getNumber(timeoutTriggerRecord, "thresholdMs") ??
-      getNumber(detailRecord, "transportTimeoutMs"),
-    lastActivityAt:
-      getString(timeoutTriggerRecord, "lastActivityAt") ??
-      getString(resultRecord, "lastActivityAt"),
-    lastActivityType:
-      getString(timeoutTriggerRecord, "lastActivityType") ??
-      getString(resultRecord, "lastActivityType"),
-    stopReason: getString(resultRecord, "stopReason"),
-    providerStopReason: getString(resultRecord, "providerStopReason"),
-    runnerEventType: getString(eventRecord, "eventType"),
-    diagnostics: diagnosticsValue,
-    detail: toJsonValue(input.detail)
-  };
-}
-
-function getFailureClass(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): PiSdkRunnerFailureClass | null {
-  const nested = value?.[key];
-  return typeof nested === "string" && piSdkRunnerFailureClassSet.has(nested)
-    ? (nested as PiSdkRunnerFailureClass)
-    : null;
-}
-
-function completionFromHarnessTurnResult(
-  turnResult: Exclude<HarnessTurnResult, { kind: "completed" }>
-): SymphonyAgentRuntimeCompletion {
-  switch (turnResult.kind) {
-    case "awaiting_input": {
-      const moduleResult = extractHarnessModuleResult(turnResult.detail, "awaiting_input");
-      return moduleResult
-        ? {
-            kind: "awaiting_input",
-            reason: turnResult.reason,
-            prompt: turnResult.prompt,
-            moduleResult
-          }
-        : {
-            kind: "failure",
-            reason:
-              "Runtime requested user input without emitting a valid awaiting_input module result."
-          };
-    }
-    case "blocked": {
-      const moduleResult = extractHarnessModuleResult(turnResult.detail, "blocked");
-      return {
-        kind: "blocked",
-        reason: turnResult.reason,
-        moduleResult
-      };
-    }
-    case "failed":
-      return {
-        kind: "failure",
-        reason: turnResult.reason
-      };
-  }
-}
-
-function extractHarnessModuleResult(
-  detail: unknown,
-  expectedOutcome: "awaiting_input" | "blocked"
-) {
-  const detailRecord = asRecord(detail);
-  const finalAssistantMessage = getString(detailRecord, "finalAssistantMessage");
-  if (!finalAssistantMessage) {
-    return null;
-  }
-
-  const parsed = parseSymphonyImplementationModuleResultMessage({
-    messageText: finalAssistantMessage
-  });
-  if (
-    parsed.kind !== "parsed" ||
-    parsed.result.outcome !== expectedOutcome
-  ) {
-    return null;
-  }
-
-  return parsed.result;
-}
-
-function asJsonObject(value: unknown): JsonObject | null {
-  const record = asRecord(value);
-  return record ? (record as JsonObject) : null;
 }
 
 function resolvePromptRepoName(
@@ -1690,502 +921,4 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
     user: target.user
   };
 }
-
-type ExplicitCompletionRequirement =
-  | "none"
-  | "terminal_result";
-
-function resolveExplicitCompletionRequirement(
-  capabilityManagedRun: boolean
-): ExplicitCompletionRequirement {
-  return capabilityManagedRun ? "none" : "terminal_result";
-}
-
-function missingTerminalResultCompletion(): SymphonyAgentRuntimeCompletion {
-  return {
-    kind: "failure",
-    reason:
-      "Run ended without recording an explicit terminal result. Non-capability-managed runs must report completion before the run can complete."
-  };
-}
-
-function implicitCapabilityRunCompletion(): SymphonyAgentRuntimeCompletion {
-  return {
-    kind: "terminal_result_failure",
-    reason:
-      "Capability-managed run ended without a structured terminal module result."
-  };
-}
-
-function capabilityManagedRunCompletion(input: {
-  latestCompletedAgentMessageText: string | null;
-}): SymphonyAgentRuntimeCompletion {
-  const parsed = parseSymphonyImplementationModuleResultMessage({
-    messageText: input.latestCompletedAgentMessageText
-  });
-
-  switch (parsed.kind) {
-    case "parsed":
-      switch (parsed.result.outcome) {
-        case "completed":
-          return {
-            kind: "delivered",
-            moduleResult: parsed.result
-          };
-        case "awaiting_input":
-          return {
-            kind: "awaiting_input",
-            reason: parsed.result.summary,
-            prompt:
-              parsed.result.nextInputPrompt ??
-              "Capability-managed run requires explicit user input.",
-            moduleResult: parsed.result
-          };
-        case "blocked":
-          return {
-            kind: "blocked",
-            reason: parsed.result.blockers.join("; "),
-            moduleResult: parsed.result
-          };
-      }
-      break;
-    case "terminal_result_failure":
-      return {
-        kind: "terminal_result_failure",
-        reason: parsed.reason
-      };
-  }
-
-  return implicitCapabilityRunCompletion();
-}
-
-function missingExplicitCompletion(): SymphonyAgentRuntimeCompletion {
-  return missingTerminalResultCompletion();
-}
-
-function detectCapabilityManagedTerminalCompletion(
-  messageText: string
-): Extract<
-  SymphonyAgentRuntimeCompletion,
-  { kind: "delivered" | "awaiting_input" | "blocked" }
-> | null {
-  const completion = capabilityManagedRunCompletion({
-    latestCompletedAgentMessageText: messageText
-  });
-
-  return completion.kind === "delivered" ||
-    completion.kind === "awaiting_input" ||
-    completion.kind === "blocked"
-    ? completion
-    : null;
-}
-
-async function reportCompletionOverride(input: {
-  activeRun: ActiveRun;
-  runtimeLogs: SymphonyRuntimeLogStore;
-  workerSessionContract: SymphonyWorkerSessionContract;
-  sessionId: string | null;
-  issue: SymphonyTrackerIssue;
-  runId: string | null;
-  attempt: number;
-  runMode: SymphonyRunMode;
-  callbacks: RunCallbacks;
-  launchTarget: SymphonyRuntimeLaunchTarget;
-  runtimePolicy: SymphonyAgentRuntimeConfig;
-  runStore: SymphonyRuntimeRunStore;
-}): Promise<void> {
-  if (!input.activeRun.completionOverride || input.activeRun.completionReported) {
-    return;
-  }
-
-  if (input.runId) {
-    const repoEnd = await captureRepoSnapshot(
-      input.launchTarget,
-      input.runtimePolicy.hooks.timeoutMs
-    );
-    await input.runStore.updateRun(input.runId, {
-      commitHashEnd: repoEnd.commitHash,
-      repoEnd: repoEnd.snapshot
-    });
-  }
-
-  await recordWorkerSessionCompletion({
-    workerSessionContract: input.workerSessionContract,
-    sessionId: input.sessionId,
-    issueId: input.issue.id,
-    runId: input.runId,
-    attempt: input.attempt,
-    runMode: input.runMode,
-    completion: input.activeRun.completionOverride,
-    recordedAt: new Date().toISOString()
-  });
-  await recordRuntimeRunOutcome({
-    runtimeLogs: input.runtimeLogs,
-    issueIdentifier: input.issue.identifier,
-    runId: input.runId,
-    completion: input.activeRun.completionOverride
-  });
-  await input.callbacks.onComplete(
-    input.issue.id,
-    input.activeRun.completionOverride
-  );
-  input.activeRun.completionReported = true;
-}
-
-async function observeActiveIssueStateThroughWorkflow(input: {
-  issue: SymphonyTrackerIssue;
-  recordedAt: string;
-  observeActiveWorkflowIssueState: WorkflowLifecycleReaders["observeActiveWorkflowIssueState"];
-  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
-}): Promise<SymphonyTrackerIssue> {
-  const observed = await input.observeActiveWorkflowIssueState({
-    issueIdentifier: input.issue.identifier,
-    recordedAt: input.recordedAt
-  });
-  if (!observed) {
-    throw new TypeError(
-      `Workflow-backed active issue observation could not be recorded for ${input.issue.identifier}.`
-    );
-  }
-
-  return {
-    ...input.issue,
-    state: await loadRequiredWorkflowTrackerState({
-      issueIdentifier: input.issue.identifier,
-      loadWorkflowLifecycleView: input.loadWorkflowLifecycleView,
-      failureContext: `while observing active issue ${input.issue.identifier}`
-    })
-  };
-}
-
-async function loadRequiredWorkflowTrackerState(input: {
-  issueIdentifier: string;
-  runId?: string | null;
-  loadWorkflowLifecycleView: WorkflowLifecycleReaders["loadWorkflowLifecycleView"];
-  failureContext: string;
-}): Promise<string> {
-  const workflowLifecycle = await input.loadWorkflowLifecycleView({
-    issueIdentifier: input.issueIdentifier,
-    runId: input.runId ?? null
-  });
-  const workflowState = workflowLifecycle?.trackerState ?? null;
-  if (workflowState === null) {
-    throw new TypeError(
-      `Workflow history is missing the current tracker state for ${input.issueIdentifier} ${input.failureContext}.`
-    );
-  }
-
-  return workflowState;
-}
-
-function isActiveIssueState(
-  runtimePolicy: SymphonyAgentRuntimeConfig,
-  state: string
-): boolean {
-  const normalizedState = state.trim().toLowerCase();
-
-  return runtimePolicy.tracker.dispatchableStates.some(
-    (activeState) => activeState.trim().toLowerCase() === normalizedState
-  );
-}
-
-function classifyStartupFailure(error: unknown): {
-  failureStage: SymphonyStartupFailureStage;
-  failureOrigin: SymphonyStartupFailureOrigin;
-} | null {
-  const harnessError = error instanceof HarnessSessionError ? error : null;
-  if (harnessError) {
-    if (
-      [
-        "initialize_failed",
-        "thread_start_failed",
-        "invalid_workspace_cwd",
-        "invalid_thread_payload",
-        "invalid_turn_payload",
-        "invalid_issue_label_override",
-        "pi_launch_unsupported",
-        "pi_sdk_runner_launch_unsupported",
-        "pi_sdk_runner_initialize_failed",
-        "pi_sdk_runner_initialize_timeout",
-        "pi_session_start_failed",
-        "pi_turn_start_failed"
-      ].includes(harnessError.code)
-    ) {
-      return {
-        failureStage: "runtime_session_start",
-        failureOrigin: "pi_startup"
-      };
-    }
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("Pi SDK runner")) {
-    return {
-      failureStage: "runtime_session_start",
-      failureOrigin: "pi_startup"
-    };
-  }
-
-  return null;
-}
-
-function isRateLimitedError(error: unknown): boolean {
-  const harnessError = error instanceof HarnessSessionError ? error : null;
-  const messages = [
-    error instanceof Error ? error.message : String(error)
-  ];
-
-  if (harnessError?.detail) {
-    messages.push(JSON.stringify(harnessError.detail));
-  }
-
-  return messages.some((message) => {
-    const normalized = message.toLowerCase();
-
-    return (
-      normalized.includes("rate limit") ||
-      normalized.includes("rate_limit") ||
-      normalized.includes("ratelimit") ||
-      normalized.includes("too many requests") ||
-      normalized.includes("rate_limit_exceeded")
-    );
-  });
-}
-
-export function isTransientProviderError(
-  error: unknown,
-  providerId: string | null
-): boolean {
-  if (!providerId) {
-    return false;
-  }
-
-  const harnessError = error instanceof HarnessSessionError ? error : null;
-  const messages = [
-    error instanceof Error ? error.message : String(error)
-  ];
-
-  if (harnessError?.detail) {
-    messages.push(JSON.stringify(harnessError.detail));
-  }
-
-  return messages.some((message) => {
-    const normalized = message.toLowerCase();
-
-    return (
-      normalized.includes("502 bad gateway") ||
-      normalized.includes("503 service unavailable") ||
-      normalized.includes("504 gateway timeout") ||
-      normalized.includes("error code: 502") ||
-      normalized.includes("error code: 503") ||
-      normalized.includes("error code: 504") ||
-      normalized.includes("unexpected status 502") ||
-      normalized.includes("unexpected status 503") ||
-      normalized.includes("unexpected status 504") ||
-      normalized.includes("socket hang up") ||
-      normalized.includes("connection reset") ||
-      normalized.includes("econnreset") ||
-      normalized.includes("etimedout") ||
-      normalized.includes("eai_again") ||
-      normalized.includes("temporary failure in name resolution") ||
-      normalized.includes("upstream connect error") ||
-      normalized.includes("upstream request timeout")
-    );
-  });
-}
-
-function getString(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): string | null {
-  const nested = value?.[key];
-  return typeof nested === "string" && nested.trim() !== "" ? nested : null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function toJsonValue(value: unknown): JsonValue | null {
-  if (value === undefined) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(JSON.stringify(value)) as JsonValue;
-  } catch {
-    return null;
-  }
-}
-
-function extractRuntimeUsage(
-  threadEvent: Parameters<typeof extractUsage>[0] | null,
-  payload: Record<string, unknown> | null
-): {
-  input_tokens: number;
-  cached_input_tokens: number;
-  output_tokens: number;
-} | null {
-  const eventUsage = threadEvent ? extractUsage(threadEvent) : null;
-  if (eventUsage) {
-    return eventUsage;
-  }
-
-  const directUsage =
-    asRecord(payload?.usage) ??
-    asRecord(asRecord(payload?.message)?.usage) ??
-    asRecord(asRecord(asRecord(payload?.params)?.msg)?.usage);
-
-  if (!directUsage) {
-    return null;
-  }
-
-  const inputTokens = getNumber(directUsage, "input_tokens") ?? getNumber(directUsage, "input");
-  const cachedInputTokens =
-    getNumber(directUsage, "cached_input_tokens") ?? getNumber(directUsage, "cacheRead");
-  const outputTokens =
-    getNumber(directUsage, "output_tokens") ?? getNumber(directUsage, "output");
-
-  return inputTokens !== null || cachedInputTokens !== null || outputTokens !== null
-    ? {
-        input_tokens: inputTokens ?? 0,
-        cached_input_tokens: cachedInputTokens ?? 0,
-        output_tokens: outputTokens ?? 0
-      }
-    : null;
-}
-
-function getNumber(
-  value: Record<string, unknown> | null | undefined,
-  key: string
-): number | null {
-  const nested = value?.[key];
-  return typeof nested === "number" && Number.isFinite(nested) ? nested : null;
-}
-
-type CanonicalRuntimeEventPayload =
-  Parameters<SymphonyRuntimeRunStore["recordEvent"]>[2]["payload"];
-type CanonicalRuntimeSessionStartedEvent = Extract<
-  CanonicalRuntimeEventPayload,
-  { type: "session.started" }
->;
-
-function shouldSynthesizeSessionStartedEvent(
-  runtimePolicy: SymphonyAgentRuntimeConfig
-): boolean {
-  return !/(?:^|\s)app-server(?=\s|$)/u.test(runtimePolicy.agentRuntime.command.trim());
-}
-
-function buildSyntheticSessionStartedEvent(input: {
-  threadId: string | null;
-  persistedTurnId: string;
-  processId: string | null;
-  model: string | null;
-  reasoningEffort: string | null;
-}): CanonicalRuntimeSessionStartedEvent | null {
-  if (!input.threadId) {
-    return null;
-  }
-
-  return {
-    type: "session.started",
-    session_id: input.threadId,
-    thread_id: input.threadId,
-    turn_id: input.persistedTurnId,
-    agent_app_server_pid: input.processId,
-    model: input.model,
-    reasoning_effort: input.reasoningEffort
-  };
-}
-
-function extractCanonicalSessionStartedEvent(
-  value: Record<string, unknown> | null | undefined
-): CanonicalRuntimeSessionStartedEvent | null {
-  if (getString(value, "type") !== "session.started") {
-    return null;
-  }
-
-  const rawSessionId = getString(value, "session_id");
-  const turnId = getString(value, "turn_id");
-
-  if (!rawSessionId || !turnId) {
-    return null;
-  }
-
-  return {
-    type: "session.started",
-    session_id: rawSessionId,
-    thread_id: getString(value, "thread_id"),
-    turn_id: turnId,
-    agent_app_server_pid: getString(value, "agent_app_server_pid"),
-    model: getString(value, "model"),
-    reasoning_effort: getString(value, "reasoning_effort")
-  };
-}
-
-function summarizeCanonicalRuntimeEvent(event: CanonicalRuntimeEventPayload): string | null {
-  switch (event.type) {
-    case "session.started":
-      return "Runtime session started.";
-    case "thread.started":
-      return "Thread started.";
-    case "turn.started":
-      return "Turn started.";
-    case "turn.completed":
-      return "Turn completed.";
-    case "turn.failed":
-      return "Turn failed.";
-    case "error":
-      return event.message;
-    case "item.started":
-      return `${event.item.type} started.`;
-    case "item.updated":
-      return `${event.item.type} updated.`;
-    case "item.completed":
-      return `${event.item.type} completed.`;
-    default:
-      return null;
-  }
-}
-
-async function finalizeStoppedTurn(
-  runStore: SymphonyRuntimeRunStore,
-  runId: string | null,
-  persistedTurnId: string | null
-): Promise<void> {
-  if (!runId || !persistedTurnId) {
-    return;
-  }
-
-  await runStore.finalizeTurn(persistedTurnId, {
-    status: "stopped",
-    endedAt: new Date().toISOString(),
-    metadata: {
-      stopReason: "runtime_stopped"
-    }
-  });
-}
-
-async function finalizeTurnForDetectedCompletion(input: {
-  runStore: SymphonyRuntimeRunStore;
-  runId: string | null;
-  persistedTurnId: string | null;
-  turnResult?: HarnessTurnResult;
-}): Promise<void> {
-  if (!input.runId || !input.persistedTurnId) {
-    return;
-  }
-
-  await input.runStore.finalizeTurn(input.persistedTurnId, {
-    status: "completed",
-    endedAt: new Date().toISOString(),
-    threadId: input.turnResult?.threadId,
-    agentTurnId: input.turnResult?.turnId,
-    usage: input.turnResult?.usage,
-    metadata: {
-      stopReason: "terminal_result_detected"
-    }
-  });
-}
+export { isTransientProviderError };

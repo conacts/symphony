@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  parseSymphonyImplementationModuleResultMessage
-} from "./symphony-implementation-module-result.js";
+import { parseSymphonyImplementationModuleResultMessage } from "./module-result-parser.js";
 
-describe("symphony implementation module result parser", () => {
+describe("module result parser", () => {
   it("parses a completed terminal result from an exact fenced json block", () => {
     const result = parseSymphonyImplementationModuleResultMessage({
       messageText: [

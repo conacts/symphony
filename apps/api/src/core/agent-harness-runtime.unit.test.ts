@@ -14,6 +14,7 @@ import {
   buildHarnessCommandCompletedUpdate,
   buildHarnessCompletedTurnResult,
   buildHarnessFailedTurnResult,
+  buildImplementationModuleResult,
   buildImplementationModuleResultMessage,
   createTranscriptDrivenFakeHarnessBuilder,
   createTranscriptDrivenFakeHarnessStartSession
@@ -181,14 +182,21 @@ describe("agent harness runtime", () => {
             reason: "Pi SDK runner idled for 30000ms without visible activity.",
             failureClass: "model_idle_timeout",
             detail: {
+              kind: "terminal_result",
               result: {
-                failureClass: "model_idle_timeout",
+                finalAssistantMessage: null,
+                moduleResult: null,
+                stopReason: null,
+                providerStopReason: null,
                 lastActivityAt: "2026-04-14T18:00:35.000Z",
                 lastActivityType: "assistant_text_delta"
               },
-              timeoutTriggerEvent: {
-                eventType: "idle_timeout_triggered",
+              timeoutTrigger: {
+                failureClass: "model_idle_timeout",
                 thresholdMs: 30_000,
+                callId: null,
+                toolName: null,
+                commandText: null,
                 lastActivityAt: "2026-04-14T18:00:35.000Z",
                 lastActivityType: "assistant_text_delta"
               }
@@ -433,7 +441,17 @@ describe("agent harness runtime", () => {
           reason: "Need the production API host before continuing.",
           prompt: "Provide the production API host.",
           detail: {
-            finalAssistantMessage
+            finalAssistantMessage,
+            moduleResult: buildImplementationModuleResult({
+              outcome: "awaiting_input",
+              summary: "Need the production API host before continuing.",
+              requestedState: "awaiting_input",
+              nextInputPrompt: "Provide the production API host."
+            }),
+            stopReason: null,
+            providerStopReason: null,
+            lastActivityAt: null,
+            lastActivityType: null
           }
         })
       )
@@ -546,14 +564,21 @@ describe("agent harness runtime", () => {
           reason: "Pi SDK runner idled for 30000ms without visible activity.",
           failureClass: "model_idle_timeout",
           detail: {
+            kind: "terminal_result",
             result: {
-              failureClass: "model_idle_timeout",
+              finalAssistantMessage: null,
+              moduleResult: null,
+              stopReason: null,
+              providerStopReason: null,
               lastActivityAt: "2026-04-14T18:00:35.000Z",
               lastActivityType: "assistant_text_delta"
             },
-            timeoutTriggerEvent: {
-              eventType: "idle_timeout_triggered",
+            timeoutTrigger: {
+              failureClass: "model_idle_timeout",
               thresholdMs: 30_000,
+              callId: null,
+              toolName: null,
+              commandText: null,
               lastActivityAt: "2026-04-14T18:00:35.000Z",
               lastActivityType: "assistant_text_delta"
             }
@@ -626,14 +651,21 @@ describe("agent harness runtime", () => {
       eventType: "runtime_timeout_classified",
       reason: "Pi SDK runner exceeded the 30000ms turn timeout.",
       detail: {
+        kind: "terminal_result" as const,
         result: {
-          failureClass: "run_timeout",
+          finalAssistantMessage: null,
+          moduleResult: null,
+          stopReason: null,
+          providerStopReason: null,
           lastActivityAt: "2026-04-14T18:00:35.000Z",
           lastActivityType: "assistant_reasoning_delta"
         },
-        timeoutTriggerEvent: {
-          eventType: "run_timeout_triggered",
+        timeoutTrigger: {
+          failureClass: "run_timeout" as const,
           thresholdMs: 30_000,
+          callId: null,
+          toolName: null,
+          commandText: null,
           lastActivityAt: "2026-04-14T18:00:35.000Z",
           lastActivityType: "assistant_reasoning_delta"
         }
@@ -644,9 +676,24 @@ describe("agent harness runtime", () => {
       eventType: "runtime_timeout_classified",
       reason: "Command execution exceeded the configured timeout.",
       detail: {
-        failureClass: "tool_timeout",
-        lastActivityAt: "2026-04-14T18:00:40.000Z",
-        lastActivityType: "command_failed"
+        kind: "terminal_result" as const,
+        result: {
+          finalAssistantMessage: null,
+          moduleResult: null,
+          stopReason: null,
+          providerStopReason: null,
+          lastActivityAt: "2026-04-14T18:00:40.000Z",
+          lastActivityType: "command_failed"
+        },
+        timeoutTrigger: {
+          failureClass: "tool_timeout" as const,
+          thresholdMs: 30_000,
+          callId: "call-1",
+          toolName: "shell",
+          commandText: "pnpm test",
+          lastActivityAt: "2026-04-14T18:00:40.000Z",
+          lastActivityType: "command_failed"
+        }
       }
     }
   ])(
@@ -775,6 +822,7 @@ describe("agent harness runtime", () => {
           "pi_sdk_runner_transport_timeout",
           "Timed out waiting for Pi SDK bridge output after 5000ms.",
           {
+            kind: "transport_timeout",
             transportTimeoutMs: 5_000,
             diagnostics: {
               recentStdoutLines: ["waiting for bridge output"],

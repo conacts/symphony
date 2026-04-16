@@ -1,10 +1,5 @@
 import { createAgentRuntime } from "@symphony/orchestrator";
 import { createSymphonyRuntime } from "@symphony/runtime";
-import {
-  defaultSymphonyDockerWorkspacePreflightTimeoutMs,
-  preflightSymphonyDockerWorkspaceImage,
-  type SymphonyDockerWorkspacePreflightResult
-} from "@symphony/workspace";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
 import {
   createSqliteAgentAnalyticsReadStore,
@@ -15,28 +10,18 @@ import {
   createSqliteSymphonyRuntimeRunStore,
   initializeSymphonyDb
 } from "@symphony/db";
-import type {
-  SymphonyNormalizedRuntimeManifest
-} from "@symphony/runtime-contract";
 import { createSymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError
 } from "@symphony/agent-harnesses";
-import type { SymphonyTrackerIssue } from "@symphony/tracker";
-import {
-  type SymphonyResolvedRuntimePolicy
-} from "@symphony/runtime-policy";
 import {
   resolveDockerWorkspaceAuthContracts,
-  type DockerGitHubCliAuthContract,
-  type DockerPiAuthContract
 } from "./runtime-auth-contract.js";
 import type { SymphonyRuntimeAppEnv } from "./env.js";
 import { createSymphonyAgentRuntime } from "./agent-harness-runtime.js";
 import { createDbBackedOrchestratorObserver } from "./runtime-db-observer.js";
 import { createSymphonyRealtimeHub } from "../realtime/symphony-realtime-hub.js";
 import { SymphonyRuntimePollScheduler } from "./poll-scheduler.js";
-import { createRuntimeWorkspaceBackend } from "./runtime-workspace-backend.js";
 import type { SymphonyRuntimeAppServices } from "./runtime-app-types.js";
 import { createRuntimeOrchestratorPort } from "./runtime-orchestrator-port.js";
 import { createRuntimeMachineLoadMonitor } from "./runtime-machine-load.js";
@@ -48,7 +33,6 @@ import {
 import { normalizeRuntimeJsonValue } from "./runtime-json-value.js";
 import { createAgentAnalyticsReadPort } from "./agent-analytics-read-port.js";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
-import { createRepositoryScopedWorkspaceBackend } from "./runtime-workspace-backend-selector.js";
 import { createRepositoryScopedLinearTracker } from "./runtime-linear-tracker-registry.js";
 import { createRouteWorkflowPort } from "./runtime-route-workflows.js";
 import { createRuntimeRouteLifecycleService } from "./runtime-route-lifecycle-service.js";
@@ -84,7 +68,6 @@ import {
   reconcilePersistedActiveRunsOnShutdown,
   waitForPollSchedulerDrain
 } from "./runtime-shutdown-reconciliation.js";
-import { resolveIssueRepositorySelection } from "./runtime-repository-routing.js";
 import { buildRuntimeConfigSnapshot } from "./runtime-config-snapshot.js";
 import {
   createRepositoryAwareIssueTimelineStore,
@@ -93,6 +76,12 @@ import {
 import type {
   SymphonyRuntimeBootstrapRepositorySource
 } from "./runtime-bootstrap-contract.js";
+import { createTrackedIssueRepositoryAccessors } from "./runtime-service-issue-identity.js";
+import { applyRuntimeManifestPiPolicy } from "./runtime-service-pi-policy.js";
+import {
+  preflightDockerWorkspaceBackendSelection,
+  resolveRuntimeWorkspaceBackendSelection
+} from "./runtime-service-workspace-selection.js";
 export async function loadDefaultSymphonyRuntimeAppServices(
   env: SymphonyRuntimeAppEnv,
   environmentSource: Record<string, string | undefined>,
@@ -283,45 +272,13 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   const routeWorkflows = createRouteWorkflowPort({
     routeWorkflowStore
   });
-  const resolveTrackedIssueRepositorySelection = (issue: SymphonyTrackerIssue) =>
-    resolveIssueRepositorySelection(
+  const { resolveTrackedIssueRepositoryKey, seedTrackedIssueIdentity } =
+    createTrackedIssueRepositoryAccessors({
       admittedRepositories,
-      issue,
-      repositoryBindingCatalog
-    );
-  const resolveTrackedIssueRepositoryKey = (issue: SymphonyTrackerIssue) =>
-    resolveTrackedIssueRepositorySelection(issue).repository.repositoryKey;
-  const seedTrackedIssueIdentity = async (issue: SymphonyTrackerIssue) => {
-    const resolvedRepository = resolveTrackedIssueRepositorySelection(issue);
-    const repositoryWorkspaceBindingId =
-      resolvedRepository.repositoryWorkspaceBinding?.repositoryWorkspaceBindingId ??
-      null;
-    await issueStore.upsert(
-      bootstrapBinding.bindingScope === null
-        ? {
-            issueIdentifier: issue.identifier,
-            trackerIssueId: issue.id,
-            repositoryKey: resolvedRepository.repository.repositoryKey,
-            latestRunStartedAt: null,
-            recordedAt: new Date().toISOString()
-          }
-        : {
-            issueIdentifier: issue.identifier,
-            trackerIssueId: issue.id,
-            repositoryKey: resolvedRepository.repository.repositoryKey,
-            bindingScope: bootstrapBinding.bindingScope,
-            repositoryWorkspaceBindingId:
-              repositoryWorkspaceBindingId ??
-              (() => {
-                throw new TypeError(
-                  `Hosted issue ${issue.identifier} requires a repository workspace binding id.`
-                );
-              })(),
-            latestRunStartedAt: null,
-            recordedAt: new Date().toISOString()
-          }
-    );
-  };
+      bindingCatalog: repositoryBindingCatalog,
+      bindingScope: bootstrapBinding.bindingScope,
+      issueStore
+    });
   const workflowSessionLoader = await createRuntimeWorkflowSessionLoader({
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker,
@@ -389,41 +346,16 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     tracker
   });
 
-  const workspaceBackendSelections = admittedRepositories.map((repository) => ({
-    repositoryKey: repository.repositoryKey,
-    selection: createRuntimeWorkspaceBackend(
-      {
-        ...env,
-        sourceRepo: repository.repoRoot
-      },
-      {
-        dockerHostFileMounts: dockerAuth.mounts,
-        dockerContainerEnv: buildDockerWorkspaceContainerEnv({
-          dockerGitHubCliAuth,
-          dockerLinearLaunchEnv,
-          dockerPiAuth
-        }),
-        runtimeManifest: repository.runtimeManifest
-      }
-    )
-  }));
-  const workspaceBackendSelection =
-    workspaceBackendSelections.find(
-      (entry) => entry.repositoryKey === primaryRepository.repositoryKey
-    )?.selection ??
-    (() => {
-      throw new TypeError(
-        `Workspace backend selection missing for repository ${JSON.stringify(
-          primaryRepository.repositoryKey
-        )}.`
-      );
-    })();
-  const workspaceBackendsByRepository = new Map(
-    workspaceBackendSelections.map((entry) => [entry.repositoryKey, entry.selection.backend])
-  );
-  const workspaceBackendPayload = buildWorkspaceBackendPayload({
+  const {
+    workspaceBackend,
+    workspaceBackendPayload,
+    primarySelection: workspaceBackendSelection
+  } = resolveRuntimeWorkspaceBackendSelection({
+    env,
+    admittedRepositories,
+    primaryRepositoryKey: primaryRepository.repositoryKey,
     workspaceRoot: runtimePolicy.workspace.root,
-    metadata: workspaceBackendSelection.metadata,
+    dockerHostFileMounts: dockerAuth.mounts,
     dockerGitHubCliAuth,
     dockerLinearLaunchEnv,
     dockerPiAuth
@@ -432,7 +364,7 @@ export async function loadDefaultSymphonyRuntimeAppServices(
     ...dockerPiAuth.launchEnv,
     ...dockerLinearLaunchEnv
   };
-  let dockerPreflight: SymphonyDockerWorkspacePreflightResult | null = null;
+  let dockerPreflight = null;
   if (enableDockerPreflight && workspaceBackendSelection.metadata.backendKind === "docker") {
     try {
       dockerPreflight = await preflightDockerWorkspaceBackendSelection({
@@ -466,13 +398,6 @@ export async function loadDefaultSymphonyRuntimeAppServices(
       throw error;
     }
   }
-  const workspaceBackend =
-    workspaceBackendsByRepository.size > 1
-      ? createRepositoryScopedWorkspaceBackend({
-          admittedRepositories,
-          backends: workspaceBackendsByRepository
-        })
-      : workspaceBackendSelection.backend;
   logger.info("Initialized workspace backend", {
     workspaceRoot: runtimePolicy.workspace.root,
     ...workspaceBackendSelection.metadata,
@@ -748,112 +673,8 @@ export async function loadDefaultSymphonyRuntimeAppServices(
   };
 }
 
-export function applyRuntimeManifestPiPolicy(
-  runtimePolicy: SymphonyResolvedRuntimePolicy,
-  runtimeManifest: SymphonyNormalizedRuntimeManifest
-): SymphonyResolvedRuntimePolicy {
-  if (!runtimeManifest.pi) {
-    return runtimePolicy;
-  }
-
-  const mergedPresets = {
-    ...runtimePolicy.pi.presets,
-    ...Object.fromEntries(
-      Object.entries(runtimeManifest.pi.presets).map(([presetName, preset]) => [
-        presetName,
-        {
-          model: preset.model,
-          reasoningEffort: preset.reasoningEffort ?? null,
-          authMode: preset.auth ?? "provider"
-        }
-      ])
-    )
-  };
-  const defaultPreset = runtimeManifest.pi.defaultPreset;
-  const defaultPresetConfig = mergedPresets[defaultPreset] ?? null;
-  const defaultModel = defaultPresetConfig?.model ?? runtimePolicy.pi.defaultModel;
-  const defaultReasoningEffort =
-    defaultPresetConfig?.reasoningEffort ?? runtimePolicy.pi.defaultReasoningEffort;
-
-  return {
-    ...runtimePolicy,
-    pi: {
-      ...runtimePolicy.pi,
-      defaultPreset,
-      presets: mergedPresets,
-      defaultModel,
-      defaultReasoningEffort
-    },
-    agentRuntime: {
-      ...runtimePolicy.agentRuntime,
-      defaultPreset,
-      presets: mergedPresets,
-      defaultModel,
-      defaultReasoningEffort
-    }
-  };
-}
-
-export function buildWorkspaceBackendPayload(input: {
-  workspaceRoot: string;
-  metadata: Record<string, unknown>;
-  dockerGitHubCliAuth: DockerGitHubCliAuthContract;
-  dockerLinearLaunchEnv: Record<string, string>;
-  dockerPiAuth: DockerPiAuthContract;
-}): Record<string, unknown> {
-  const {
-    workspaceRoot,
-    metadata,
-    dockerGitHubCliAuth,
-    dockerLinearLaunchEnv,
-    dockerPiAuth
-  } = input;
-
-  return {
-    workspaceRoot,
-    ...metadata,
-    dockerGitHubCliAuthMode:
-      dockerGitHubCliAuth.authEnvKey !== null
-        ? "env"
-        : dockerGitHubCliAuth.mount !== null
-          ? "mount"
-          : "none",
-    dockerGitHubCliAuthEnvKey: dockerGitHubCliAuth.authEnvKey,
-    dockerLinearApiKeyInjected:
-      Object.prototype.hasOwnProperty.call(dockerLinearLaunchEnv, "LINEAR_API_KEY"),
-    dockerPiAuthMounted: dockerPiAuth.mount !== null,
-    dockerPiProviderEnvKey: dockerPiAuth.providerEnvKey,
-    dockerPiProviderEnvMounted:
-      dockerPiAuth.providerEnvKey !== null &&
-      Object.prototype.hasOwnProperty.call(dockerPiAuth.launchEnv, dockerPiAuth.providerEnvKey)
-  };
-}
-
-export function buildDockerWorkspaceContainerEnv(input: {
-  dockerGitHubCliAuth: DockerGitHubCliAuthContract;
-  dockerLinearLaunchEnv: Record<string, string>;
-  dockerPiAuth: DockerPiAuthContract;
-}): Record<string, string> {
-  const {
-    dockerGitHubCliAuth,
-    dockerLinearLaunchEnv,
-    dockerPiAuth
-  } = input;
-
-  return {
-    ...dockerGitHubCliAuth.launchEnv,
-    ...dockerPiAuth.launchEnv,
-    ...dockerLinearLaunchEnv
-  };
-}
-
-async function preflightDockerWorkspaceBackendSelection(input: {
-  image: string;
-  shell: string | null;
-}) {
-  return await preflightSymphonyDockerWorkspaceImage({
-    image: input.image,
-    shell: input.shell,
-    timeoutMs: defaultSymphonyDockerWorkspacePreflightTimeoutMs
-  });
-}
+export { applyRuntimeManifestPiPolicy } from "./runtime-service-pi-policy.js";
+export {
+  buildDockerWorkspaceContainerEnv,
+  buildWorkspaceBackendPayload
+} from "./runtime-service-workspace-selection.js";

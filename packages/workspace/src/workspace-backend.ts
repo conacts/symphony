@@ -29,6 +29,30 @@ export {
   symphonyWorkspaceDirectoryName,
   SymphonyWorkspaceError
 } from "./workspace-identity.js";
+export {
+  BaseWorkspaceSession
+} from "./session/base-workspace-session.js";
+export {
+  createDockerWorkspaceSessionManager,
+  DockerContainerWorkspaceSession,
+  type DockerContainerWorkspaceSessionInput,
+  type DockerWorkspaceSessionManager,
+  type WorkspaceShellCommandInput
+} from "./session/session-manager.js";
+export {
+  combineWorkspaceSessionEventSinks,
+  createNoopWorkspaceSessionEventSink,
+  createWorkspaceSessionLifecycleSink,
+  type WorkspaceSessionEventSink
+} from "./session/session-sinks.js";
+export type {
+  WorkspaceSessionCommandCompletedEvent,
+  WorkspaceSessionCommandFailedEvent,
+  WorkspaceSessionCommandMetadata,
+  WorkspaceSessionCommandStartedEvent,
+  WorkspaceSessionEvent,
+  WorkspaceSessionKind
+} from "./session/session-events.js";
 export type {
   PreparedWorkspace,
   PreparedWorkspaceService,

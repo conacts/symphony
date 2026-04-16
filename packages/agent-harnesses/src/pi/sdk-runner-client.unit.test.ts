@@ -878,7 +878,12 @@ describe("pi sdk runner client", () => {
       reason: "Need the production API host before continuing.",
       prompt: "Provide the production API host.",
       detail: expect.objectContaining({
-        kind: "awaiting_input"
+        finalAssistantMessage: "Need the production API host before continuing.",
+        moduleResult: null,
+        stopReason: "end_turn",
+        providerStopReason: "stop",
+        lastActivityAt: "2026-04-14T18:01:03.000Z",
+        lastActivityType: "assistant_text_delta"
       })
     });
     expect(updates.at(-1)).toEqual({
@@ -981,8 +986,13 @@ describe("pi sdk runner client", () => {
       reason: "Command execution exceeded the configured timeout.",
       failureClass: "tool_timeout",
       detail: expect.objectContaining({
-        kind: "failed",
-        failureClass: "tool_timeout"
+        kind: "terminal_result",
+        result: expect.objectContaining({
+          stopReason: "error",
+          providerStopReason: "error",
+          lastActivityType: "command_failed"
+        }),
+        timeoutTrigger: null
       })
     });
   });
@@ -1090,12 +1100,19 @@ describe("pi sdk runner client", () => {
       reason: "Pi SDK runner idled for 30000ms without visible activity.",
       failureClass: "model_idle_timeout",
       detail: {
+        kind: "terminal_result",
         result: expect.objectContaining({
-          failureClass: "model_idle_timeout"
+          stopReason: null,
+          providerStopReason: null,
+          lastActivityAt: "2026-04-14T18:00:35.000Z",
+          lastActivityType: "assistant_text_delta"
         }),
-        timeoutTriggerEvent: expect.objectContaining({
-          eventType: "idle_timeout_triggered",
+        timeoutTrigger: expect.objectContaining({
+          failureClass: "model_idle_timeout",
           thresholdMs: 30_000,
+          callId: null,
+          toolName: null,
+          commandText: null,
           lastActivityAt: "2026-04-14T18:00:35.000Z",
           lastActivityType: "assistant_text_delta"
         })
@@ -1370,14 +1387,18 @@ describe("pi sdk runner client", () => {
         "Pi SDK runner exceeded the 900000ms tool timeout while waiting for bash command \"pnpm build\".",
       failureClass: "tool_timeout",
       detail: {
+        kind: "terminal_result",
         result: expect.objectContaining({
-          failureClass: "tool_timeout"
+          stopReason: null,
+          providerStopReason: null,
+          lastActivityType: "tool_call_heartbeat"
         }),
-        timeoutTriggerEvent: expect.objectContaining({
-          eventType: "tool_timeout_triggered",
+        timeoutTrigger: expect.objectContaining({
+          failureClass: "tool_timeout",
           thresholdMs: 900000,
           callId: "tool-bash-1",
           toolName: "bash",
+          commandText: "pnpm build",
           lastActivityType: "tool_call_heartbeat"
         })
       }

@@ -1,5 +1,6 @@
 import type { AgentRuntimeLaunchTarget, SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type { ThreadEvent, Usage } from "@symphony/agent-analytics";
+import type { SymphonyImplementationModuleResult } from "@symphony/runtime-contract";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 
 export type HarnessSessionLogger = {
@@ -20,6 +21,63 @@ export class HarnessSessionError extends Error {
   }
 }
 
+export type HarnessTimeoutFailureClass =
+  | "model_idle_timeout"
+  | "run_timeout"
+  | "tool_timeout";
+
+export type HarnessTimeoutTriggerDetail = {
+  failureClass: HarnessTimeoutFailureClass;
+  thresholdMs: number;
+  callId: string | null;
+  toolName: string | null;
+  commandText: string | null;
+  lastActivityAt: string | null;
+  lastActivityType: string | null;
+};
+
+export type HarnessTerminalTurnMetadata = {
+  finalAssistantMessage: string | null;
+  moduleResult: SymphonyImplementationModuleResult | null;
+  stopReason: string | null;
+  providerStopReason: string | null;
+  lastActivityAt: string | null;
+  lastActivityType: string | null;
+};
+
+export type HarnessAwaitingInputTurnDetail = HarnessTerminalTurnMetadata;
+
+export type HarnessBlockedTurnDetail = HarnessTerminalTurnMetadata;
+
+export type HarnessFailedTerminalResultDetail = {
+  kind: "terminal_result";
+  result: HarnessTerminalTurnMetadata;
+  timeoutTrigger: HarnessTimeoutTriggerDetail | null;
+};
+
+export type HarnessTransportTimeoutFailureDetail = {
+  kind: "transport_timeout";
+  transportTimeoutMs: number;
+  diagnostics: Record<string, unknown> | null;
+};
+
+export type HarnessRunnerErrorFailureDetail = {
+  kind: "runner_error";
+  failureClass: string | null;
+  runnerEventType: string | null;
+  diagnostics: Record<string, unknown> | null;
+};
+
+export type HarnessFailedTurnDetail =
+  | HarnessFailedTerminalResultDetail
+  | HarnessTransportTimeoutFailureDetail
+  | HarnessRunnerErrorFailureDetail;
+
+export type HarnessCompletionCandidate = {
+  kind: "module_result";
+  moduleResult: SymphonyImplementationModuleResult;
+};
+
 type HarnessTurnResultBase = {
   threadId: string;
   turnId: string;
@@ -34,20 +92,20 @@ export type HarnessAwaitingInputTurnResult = HarnessTurnResultBase & {
   kind: "awaiting_input";
   reason: string;
   prompt: string;
-  detail: unknown;
+  detail: HarnessAwaitingInputTurnDetail;
 };
 
 export type HarnessBlockedTurnResult = HarnessTurnResultBase & {
   kind: "blocked";
   reason: string;
-  detail: unknown;
+  detail: HarnessBlockedTurnDetail;
 };
 
 export type HarnessFailedTurnResult = HarnessTurnResultBase & {
   kind: "failed";
   reason: string;
   failureClass: string | null;
-  detail: unknown;
+  detail: HarnessFailedTurnDetail;
 };
 
 export type HarnessTurnResult =
@@ -58,6 +116,7 @@ export type HarnessTurnResult =
 
 export type HarnessRuntimeUpdate = {
   event: ThreadEvent;
+  completionCandidate?: HarnessCompletionCandidate | null;
   rawPayload?: unknown;
 };
 
@@ -115,3 +174,39 @@ export type HarnessControlMessageResult =
   | "approval_required"
   | "input_required"
   | "unhandled";
+
+export function isHarnessTransportTimeoutFailureDetail(
+  value: unknown
+): value is HarnessTransportTimeoutFailureDetail {
+  if (!isRecord(value) || value.kind !== "transport_timeout") {
+    return false;
+  }
+
+  return (
+    typeof value.transportTimeoutMs === "number" &&
+    isRecordOrNull(value.diagnostics)
+  );
+}
+
+export function isHarnessRunnerErrorFailureDetail(
+  value: unknown
+): value is HarnessRunnerErrorFailureDetail {
+  if (!isRecord(value) || value.kind !== "runner_error") {
+    return false;
+  }
+
+  return (
+    (typeof value.failureClass === "string" || value.failureClass === null) &&
+    (typeof value.runnerEventType === "string" ||
+      value.runnerEventType === null) &&
+    isRecordOrNull(value.diagnostics)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isRecordOrNull(value: unknown): value is Record<string, unknown> | null {
+  return value === null || isRecord(value);
+}

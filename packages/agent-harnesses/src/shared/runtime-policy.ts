@@ -1,7 +1,6 @@
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import type {
-  SymphonyAgentHarnessKind,
-  SymphonyAgentHarnessModule
+  SymphonyAgentHarnessKind
 } from "./types.js";
 
 export type HarnessModelRuntimePolicy = SymphonyAgentRuntimeConfig["pi"];
@@ -19,12 +18,4 @@ export function resolveHarnessProviderEnvKey(
   harnessKind: SymphonyAgentHarnessKind = runtimePolicy.agent.harness
 ): string | null {
   return resolveHarnessModelRuntimePolicy(runtimePolicy, harnessKind).provider?.envKey ?? null;
-}
-
-export function resolveHarnessModuleModelRuntimePolicy(
-  runtimePolicy: SymphonyAgentRuntimeConfig,
-  harness: Pick<SymphonyAgentHarnessModule, "definition">
-): HarnessModelRuntimePolicy {
-  void harness;
-  return runtimePolicy.pi;
 }

@@ -1,9 +1,7 @@
 import type { SymphonyAgentRuntimeConfig } from "@symphony/orchestrator";
 import { describe, expect, it } from "vitest";
-import { resolveAgentHarnessModule } from "./registry.js";
 import {
   resolveHarnessModelRuntimePolicy,
-  resolveHarnessModuleModelRuntimePolicy,
   resolveHarnessProviderEnvKey
 } from "./runtime-policy.js";
 
@@ -138,14 +136,6 @@ describe("harness runtime policy helpers", () => {
 
     expect(resolveHarnessModelRuntimePolicy(config)).toEqual(config.pi);
     expect(resolveHarnessProviderEnvKey(config)).toBe("OPENROUTER_API_KEY");
-  });
-
-  it("resolves module-scoped policy for the Pi harness", () => {
-    const config = createRuntimePolicy();
-    const pi = resolveAgentHarnessModule("pi");
-
-    expect(resolveHarnessModuleModelRuntimePolicy(config, pi)).toEqual(config.pi);
-    expect(resolveHarnessProviderEnvKey(config, "pi")).toBe("OPENROUTER_API_KEY");
   });
 
   it("returns null when the selected harness does not require a provider env key", () => {

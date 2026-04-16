@@ -1,10 +1,14 @@
 import type {
+  HarnessCompletionCandidate,
   HarnessRuntimeUpdate,
   HarnessSession,
   HarnessSessionClient,
   HarnessTurnResult
 } from "@symphony/agent-harnesses";
-import type { SymphonyImplementationModuleResult } from "@symphony/runtime-contract";
+import {
+  parseSymphonyImplementationModuleResultMessage,
+  type SymphonyImplementationModuleResult
+} from "@symphony/runtime-contract";
 import type { SymphonyRuntimeHarness } from "../core/runtime-harness.js";
 
 type TranscriptDrivenFakeHarnessContext = {
@@ -205,10 +209,12 @@ export function createTranscriptDrivenFakeHarnessStartSession(input: {
 
 export function buildHarnessRuntimeUpdate(input: {
   event: HarnessRuntimeUpdate["event"];
+  completionCandidate?: HarnessCompletionCandidate | null;
   rawPayload?: unknown;
 }): HarnessRuntimeUpdate {
   return {
     event: input.event,
+    completionCandidate: input.completionCandidate ?? null,
     rawPayload: input.rawPayload
   };
 }
@@ -216,8 +222,14 @@ export function buildHarnessRuntimeUpdate(input: {
 export function buildHarnessAgentMessageCompletedUpdate(input: {
   text: string;
   id?: string;
+  completionCandidate?: HarnessCompletionCandidate | null;
   rawPayload?: unknown;
 }): HarnessRuntimeUpdate {
+  const parsedCompletionCandidate =
+    input.completionCandidate === undefined
+      ? parseHarnessCompletionCandidate(input.text)
+      : input.completionCandidate;
+
   return buildHarnessRuntimeUpdate({
     event: {
       type: "item.completed",
@@ -227,6 +239,7 @@ export function buildHarnessAgentMessageCompletedUpdate(input: {
         text: input.text
       }
     },
+    completionCandidate: parsedCompletionCandidate ?? null,
     rawPayload: input.rawPayload
   });
 }
@@ -276,7 +289,35 @@ export function buildHarnessAwaitingInputTurnResult(
     usage: null,
     reason: "Need more input before continuing.",
     prompt: "Provide the missing input.",
-    detail: {},
+    detail: {
+      finalAssistantMessage: null,
+      moduleResult: null,
+      stopReason: null,
+      providerStopReason: null,
+      lastActivityAt: null,
+      lastActivityType: null
+    },
+    ...overrides
+  };
+}
+
+export function buildHarnessBlockedTurnResult(
+  overrides: Partial<Extract<HarnessTurnResult, { kind: "blocked" }>>
+): Extract<HarnessTurnResult, { kind: "blocked" }> {
+  return {
+    kind: "blocked",
+    threadId: "thread-1",
+    turnId: "turn-1",
+    usage: null,
+    reason: "Blocked on an external dependency.",
+    detail: {
+      finalAssistantMessage: null,
+      moduleResult: null,
+      stopReason: null,
+      providerStopReason: null,
+      lastActivityAt: null,
+      lastActivityType: null
+    },
     ...overrides
   };
 }
@@ -291,7 +332,12 @@ export function buildHarnessFailedTurnResult(
     usage: null,
     reason: "Harness execution failed.",
     failureClass: null,
-    detail: {},
+    detail: {
+      kind: "runner_error",
+      failureClass: null,
+      runnerEventType: null,
+      diagnostics: null
+    },
     ...overrides
   };
 }
@@ -324,6 +370,30 @@ export function buildImplementationModuleResultMessage(
     JSON.stringify(buildImplementationModuleResult(overrides), null, 2),
     "```"
   ].join("\n");
+}
+
+export function buildHarnessCompletionCandidate(
+  overrides: Partial<SymphonyImplementationModuleResult> = {}
+): HarnessCompletionCandidate {
+  return {
+    kind: "module_result",
+    moduleResult: buildImplementationModuleResult(overrides)
+  };
+}
+
+function parseHarnessCompletionCandidate(
+  messageText: string
+): HarnessCompletionCandidate | null {
+  const parsed = parseSymphonyImplementationModuleResultMessage({
+    messageText
+  });
+
+  return parsed.kind === "parsed"
+    ? {
+        kind: "module_result",
+        moduleResult: parsed.result
+      }
+    : null;
 }
 
 async function resolveScriptedValue<T>(

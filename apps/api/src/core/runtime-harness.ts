@@ -1,24 +1,10 @@
 import {
-  piHarnessModule,
-  type ActiveSymphonyAgentHarnessKind as SymphonyRuntimeHarnessKind
+  createPiRunner,
+  type PiRunner as SymphonyRuntimeHarness
 } from "@symphony/agent-harnesses";
 
-export type SymphonyRuntimeHarness = {
-  kind: SymphonyRuntimeHarnessKind;
-  definition: typeof piHarnessModule.definition;
-  startSession: NonNullable<typeof piHarnessModule.transport.startSession>;
-};
+export type { SymphonyRuntimeHarness };
 
 export function createPiRuntimeHarness(): SymphonyRuntimeHarness {
-  const startSession = piHarnessModule.transport.startSession;
-
-  if (piHarnessModule.transport.status !== "implemented" || !startSession) {
-    throw new TypeError("Pi runtime harness is not implemented.");
-  }
-
-  return {
-    kind: "pi",
-    definition: piHarnessModule.definition,
-    startSession
-  };
+  return createPiRunner();
 }

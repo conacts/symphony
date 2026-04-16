@@ -12,6 +12,7 @@ import type {
   WorkspaceManifestLifecyclePhaseSkipReason,
   WorkspaceManifestLifecyclePhaseTrigger,
 } from "./workspace-contracts.js";
+import type { DockerContainerWorkspaceSession } from "./session/session-manager.js";
 
 export const defaultContainerWorkspacePath = "/workspace";
 const defaultContainerNamePrefix = "symphony-workspace";
@@ -188,12 +189,10 @@ export type DockerPrepareManifestLifecycleInput = {
   containerId: string;
   created: boolean;
   workspacePath: string;
-  shell: string;
-  execUser: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   env: Record<string, string>;
   services: PreparedWorkspaceService[];
   statePath: string;
-  commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 };
