@@ -1,7 +1,5 @@
-import { resolve } from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline";
-import { fileURLToPath } from "node:url";
 import {
   parsePiRunnerCommand,
   type PiRunnerCommand
@@ -80,17 +78,6 @@ export async function runPiRunnerFromStdio(): Promise<void> {
 
   runtime?.session.dispose();
 }
-
-export function isPiRunnerEntrypoint(): boolean {
-  const currentFilePath = fileURLToPath(import.meta.url);
-  const argvPath = process.argv[1];
-  if (typeof argvPath !== "string" || argvPath.trim() === "") {
-    return false;
-  }
-
-  return currentFilePath === resolve(argvPath);
-}
-
 function parseCommandLine(line: string): PiRunnerCommand {
   let parsed: unknown;
   try {

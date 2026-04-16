@@ -222,6 +222,16 @@ export function createDockerWorkspaceBackend(
         shell,
         user: execUser
       });
+      if (descriptor.materialization.kind === "volume") {
+        await ensureVolumeWorkspaceOwnership({
+          commandRunner,
+          containerName: descriptor.containerName,
+          workspacePath,
+          shell,
+          containerUser: execUser,
+          timeoutMs
+        });
+      }
       // Copy runtime DB snapshot into volume-backed workspace
       if (runtimeDbSnapshotPath && descriptor.materialization.kind === "volume") {
         runtimeDbSnapshotContainerPath = await copyRuntimeDbSnapshotToVolumeWorkspace({
@@ -229,6 +239,9 @@ export function createDockerWorkspaceBackend(
           workspaceSession,
           workspacePath,
           commandRunner,
+          containerName: descriptor.containerName,
+          shell,
+          containerUser: execUser,
           timeoutMs,
           lifecycleRecorder: input.lifecycleRecorder
         });
@@ -2876,6 +2889,9 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
   workspaceSession: DockerContainerWorkspaceSession;
   workspacePath: string;
   commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  shell: string;
+  containerUser: string;
   timeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<string> {
@@ -2926,13 +2942,14 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
       );
     }
 
-    // Make the snapshot read-only in the container
-    await input.workspaceSession.runShellCommand({
-      command: `chmod 444 ${shellQuote(snapshotContainerPath)}`,
-      timeoutMs: input.timeoutMs,
-      metadata: {
-        operation: "runtime_db_snapshot_chmod"
-      }
+    await ensureVolumeWorkspaceSnapshotAccess({
+      commandRunner: input.commandRunner,
+      containerName: input.containerName,
+      workspacePath: input.workspacePath,
+      shell: input.shell,
+      containerUser: input.containerUser,
+      snapshotContainerPath,
+      timeoutMs: input.timeoutMs
     });
 
     await emitDockerManifestLifecyclePhaseEvent(
@@ -2985,6 +3002,106 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
   } finally {
     await rm(tempSnapshotDirectory, { recursive: true, force: true });
   }
+}
+
+async function ensureVolumeWorkspaceOwnership(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  workspacePath: string;
+  shell: string;
+  containerUser: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const { uid, gid } = parseContainerUserSpec(input.containerUser);
+  const result = await runDockerContainerRootCommand({
+    commandRunner: input.commandRunner,
+    containerName: input.containerName,
+    workspacePath: input.workspacePath,
+    shell: input.shell,
+    timeoutMs: input.timeoutMs,
+    command: [
+      `mkdir -p ${shellQuote(input.workspacePath)}`,
+      `chown -R ${shellQuote(`${uid}:${gid}`)} ${shellQuote(input.workspacePath)}`
+    ].join(" && ")
+  });
+
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_volume_ownership_failed",
+      `Failed to normalize volume-backed workspace ownership: ${result.stderr}`
+    );
+  }
+}
+
+async function ensureVolumeWorkspaceSnapshotAccess(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  workspacePath: string;
+  shell: string;
+  containerUser: string;
+  snapshotContainerPath: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const { uid, gid } = parseContainerUserSpec(input.containerUser);
+  const result = await runDockerContainerRootCommand({
+    commandRunner: input.commandRunner,
+    containerName: input.containerName,
+    workspacePath: input.workspacePath,
+    shell: input.shell,
+    timeoutMs: input.timeoutMs,
+    command: [
+      `chown ${shellQuote(`${uid}:${gid}`)} ${shellQuote(input.snapshotContainerPath)}`,
+      `chmod 444 ${shellQuote(input.snapshotContainerPath)}`
+    ].join(" && ")
+  });
+
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "runtime_db_snapshot_chmod_failed",
+      `Failed to normalize runtime DB snapshot permissions in container: ${result.stderr}`
+    );
+  }
+}
+
+async function runDockerContainerRootCommand(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  workspacePath: string;
+  shell: string;
+  command: string;
+  timeoutMs: number;
+}) {
+  return await input.commandRunner({
+    args: [
+      "exec",
+      "--workdir",
+      input.workspacePath,
+      input.containerName,
+      input.shell,
+      "-lc",
+      input.command
+    ],
+    timeoutMs: input.timeoutMs
+  });
+}
+
+function parseContainerUserSpec(containerUser: string): {
+  uid: string;
+  gid: string;
+} {
+  const [uid, gid] = containerUser.split(":");
+  const normalizedUid = normalizeNonEmptyString(uid);
+  const normalizedGid = normalizeNonEmptyString(gid) ?? normalizedUid;
+  if (!normalizedUid) {
+    throw new TypeError(
+      `Docker container user must define a uid. Received ${JSON.stringify(containerUser)}.`
+    );
+  }
+
+  return {
+    uid: normalizedUid,
+    gid: normalizedGid ?? normalizedUid
+  };
 }
 
 function isMissingRuntimeDbSnapshotSourceError(error: unknown): boolean {

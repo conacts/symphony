@@ -173,6 +173,155 @@ describe("docker client command runner", () => {
     expect(client.close).toHaveBeenCalledTimes(4);
   });
 
+  it("routes docker volume create with labels through the docker SDK", async () => {
+    const client = {
+      close: vi.fn(async () => undefined),
+      systemVersion: vi.fn(async () => ({ ServerVersion: "25.0.0" })),
+      imageInspect: vi.fn(async () => ({ Id: "sha256:image" })),
+      containerInspect: vi.fn(async () => ({
+        Id: "container-1",
+        Name: "/container-1",
+        Image: "image",
+        State: { Running: true, Status: "running" },
+        Config: { Labels: {}, Env: [] },
+        Mounts: [],
+        NetworkSettings: { Networks: {} }
+      })),
+      containerDelete: vi.fn(async () => undefined),
+      containerStop: vi.fn(async () => undefined),
+      containerStart: vi.fn(async () => undefined),
+      containerCreate: vi.fn(async () => ({ Id: "container-1", Warnings: [] })),
+      containerWait: vi.fn(async () => ({ StatusCode: 0 })),
+      containerExec: vi.fn(async () => ({ Id: "exec-1" })),
+      execStart: vi.fn(async () => undefined),
+      execInspect: vi.fn(async () => ({ ExitCode: 0 })),
+      containerLogs: vi.fn(async () => undefined),
+      volumeInspect: vi.fn(async () => {
+        throw new NotFoundError("missing volume");
+      }),
+      volumeCreate: vi.fn(async (request: { Name: string; Labels?: Record<string, string> }) => ({
+        Name: request.Name,
+        Driver: "local",
+        Mountpoint: `/var/lib/docker/volumes/${request.Name}`,
+        Labels: request.Labels ?? {},
+        Scope: "local",
+        Options: {}
+      })),
+      volumeDelete: vi.fn(async () => undefined),
+      networkInspect: vi.fn(async () => ({
+        Id: "network-1",
+        Name: "symphony-net",
+        Labels: {}
+      })),
+      networkDelete: vi.fn(async () => undefined)
+    };
+    const runner = createDockerWorkspaceCommandRunner({
+      clientFactory: async () => client as never
+    });
+
+    const result = await runner({
+      args: [
+        "volume",
+        "create",
+        "--label",
+        "dev.symphony.workspace-key=SYM-21",
+        "--label",
+        "dev.symphony.materialization=volume",
+        "symphony-workspace-volume-sym-21-cae57b65"
+      ],
+      timeoutMs: 1000
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("symphony-workspace-volume-sym-21-cae57b65");
+    expect(client.volumeCreate).toHaveBeenCalledWith({
+      Name: "symphony-workspace-volume-sym-21-cae57b65",
+      Labels: {
+        "dev.symphony.workspace-key": "SYM-21",
+        "dev.symphony.materialization": "volume"
+      }
+    });
+    expect(client.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes docker cp through the CLI runner", async () => {
+    const client = {
+      close: vi.fn(async () => undefined),
+      systemVersion: vi.fn(async () => ({ ServerVersion: "25.0.0" })),
+      imageInspect: vi.fn(async () => ({ Id: "sha256:image" })),
+      containerInspect: vi.fn(async () => ({
+        Id: "container-1",
+        Name: "/container-1",
+        Image: "image",
+        State: { Running: true, Status: "running" },
+        Config: { Labels: {}, Env: [] },
+        Mounts: [],
+        NetworkSettings: { Networks: {} }
+      })),
+      containerDelete: vi.fn(async () => undefined),
+      containerStop: vi.fn(async () => undefined),
+      containerStart: vi.fn(async () => undefined),
+      containerCreate: vi.fn(async () => ({ Id: "container-1", Warnings: [] })),
+      containerWait: vi.fn(async () => ({ StatusCode: 0 })),
+      containerExec: vi.fn(async () => ({ Id: "exec-1" })),
+      execStart: vi.fn(async () => undefined),
+      execInspect: vi.fn(async () => ({ ExitCode: 0 })),
+      containerLogs: vi.fn(async () => undefined),
+      volumeInspect: vi.fn(async () => ({
+        Name: "volume-1",
+        Driver: "local",
+        Mountpoint: "/var/lib/docker/volumes/volume-1",
+        Labels: {},
+        Scope: "local",
+        Options: {}
+      })),
+      volumeCreate: vi.fn(async () => ({
+        Name: "volume-1",
+        Driver: "local",
+        Mountpoint: "/var/lib/docker/volumes/volume-1",
+        Labels: {},
+        Scope: "local",
+        Options: {}
+      })),
+      volumeDelete: vi.fn(async () => undefined),
+      networkInspect: vi.fn(async () => ({
+        Id: "network-1",
+        Name: "symphony-net",
+        Labels: {}
+      })),
+      networkDelete: vi.fn(async () => undefined)
+    };
+    const cliRunner = vi.fn(async () => ({
+      exitCode: 0,
+      stdout: "",
+      stderr: ""
+    }));
+    const runner = createDockerWorkspaceCommandRunner({
+      clientFactory: async () => client as never,
+      cliRunner
+    });
+
+    const result = await runner({
+      args: [
+        "cp",
+        "/tmp/runtime-snapshot.db",
+        "symphony-workspace-col-123:/workspace/.symphony-runtime/runtime-snapshot.db"
+      ],
+      timeoutMs: 4321
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(cliRunner).toHaveBeenCalledWith({
+      args: [
+        "cp",
+        "/tmp/runtime-snapshot.db",
+        "symphony-workspace-col-123:/workspace/.symphony-runtime/runtime-snapshot.db"
+      ],
+      timeoutMs: 4321
+    });
+    expect(client.close).toHaveBeenCalledTimes(1);
+  });
+
   it("renders missing-object errors in the docker CLI shape", async () => {
     const client = {
       close: vi.fn(async () => undefined),

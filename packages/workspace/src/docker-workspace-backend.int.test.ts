@@ -668,6 +668,14 @@ describe("docker workspace backend", () => {
           };
         }
 
+        if (input.args[0] === "exec") {
+          return {
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+
         throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
       }
     });
@@ -729,6 +737,14 @@ describe("docker workspace backend", () => {
         (call) => call[0] === "run" && call.includes("--user")
       )
     ).toBe(false);
+    expect(
+      calls.some(
+        (call) =>
+          call[0] === "exec" &&
+          call.join(" ").includes("chown -R") &&
+          call.join(" ").includes("'/workspace'")
+      )
+    ).toBe(true);
   });
 
   it("cleans up volume-backed workspaces without a host repo path", async () => {
@@ -2503,7 +2519,20 @@ describe("docker workspace backend", () => {
     expect(lifecycleEvents).toContain("runtime_db_snapshot_copied");
     // Verify docker cp was called with the right arguments
     const cpCall = calls.find((call) => call[0] === "cp");
+    const ownershipCall = calls.find(
+      (call) =>
+        call[0] === "exec" &&
+        call.join(" ").includes("chown -R") &&
+        call.join(" ").includes("'/workspace'")
+    );
+    const snapshotAccessCall = calls.find(
+      (call) =>
+        call[0] === "exec" &&
+        call.join(" ").includes("chmod 444 '/workspace/.symphony-runtime/runtime-snapshot.db'")
+    );
     expect(cpCall).toBeDefined();
+    expect(ownershipCall).toBeDefined();
+    expect(snapshotAccessCall).toBeDefined();
     expect(copiedSnapshotHeader).toBe("SQLite format 3\u0000");
     expect(cpCall).toEqual([
       "cp",

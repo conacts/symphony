@@ -201,6 +201,7 @@ async function runDockerCommand(
         return await runDockerExecCommand(client, args, cliRunner);
       case "run":
         return await runDockerRunCommand(client, args);
+      case "cp":
       case "ps":
         return await cliRunner({
           args,
@@ -345,10 +346,10 @@ async function runDockerVolumeCommand(
   args: string[]
 ): Promise<DockerWorkspaceCommandResult> {
   const subcommand = args[1];
-  const targetName = requireCommandArgument(args, 2, "volume name");
 
   switch (subcommand) {
     case "inspect": {
+      const targetName = requireCommandArgument(args, 2, "volume name");
       let volume;
       try {
         volume = await client.volumeInspect(targetName);
@@ -365,7 +366,8 @@ async function runDockerVolumeCommand(
         stderr: ""
       };
     }
-    case "rm":
+    case "rm": {
+      const targetName = requireCommandArgument(args, 2, "volume name");
       try {
         await client.volumeDelete(targetName, { force: true });
       } catch (error) {
@@ -380,7 +382,13 @@ async function runDockerVolumeCommand(
         stdout: "",
         stderr: ""
       };
+    }
     case "create": {
+      const targetName = requireCommandArgument(
+        args,
+        args.length - 1,
+        "volume name"
+      );
       const labels = readCliLabels(args);
       const volume = await client.volumeCreate({
         Name: targetName,

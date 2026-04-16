@@ -330,6 +330,9 @@ importers:
       '@symphony/orchestrator':
         specifier: workspace:*
         version: link:../orchestrator
+      '@symphony/runtime-contract':
+        specifier: workspace:*
+        version: link:../runtime-contract
       '@symphony/tracker':
         specifier: workspace:*
         version: link:../tracker

@@ -1,10 +1,8 @@
 import process from "node:process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import {
-  executePiRunnerTurn,
-  type PiRunnerRuntime
-} from "./runner-entrypoint.js";
+import type { PiRunnerRuntime } from "./entrypoint/definition.js";
+import { executePiRunnerTurn } from "./entrypoint/turn-execution.js";
 
 type TestSession = PiRunnerRuntime["session"];
 type TestSessionListener = Parameters<TestSession["subscribe"]>[0];
