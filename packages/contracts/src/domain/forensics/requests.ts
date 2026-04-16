@@ -16,9 +16,7 @@ const optionalFilterSchema = z.preprocess((value) => {
 
 export const symphonyForensicsRunOutcomeSchema = z.enum([
   "completed",
-  "merged",
   "blocked",
-  "merge_blocked",
   "paused_max_turns",
   "startup_failed",
   "rate_limited",
@@ -35,7 +33,19 @@ const optionalOutcomeFilterSchema = z.preprocess((value) => {
   }
 
   const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
+  if (trimmed === "") {
+    return undefined;
+  }
+
+  if (trimmed === "merged") {
+    return "completed";
+  }
+
+  if (trimmed === "merge_blocked") {
+    return "blocked";
+  }
+
+  return trimmed;
 }, symphonyForensicsRunOutcomeSchema.optional());
 
 export const symphonyForensicsIssueTimeRangeSchema = z.enum([

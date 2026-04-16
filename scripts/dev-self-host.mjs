@@ -31,7 +31,7 @@ async function main() {
     SYMPHONY_SOURCE_REPOS: "",
     SYMPHONY_DB_FILE:
       normalizeText(process.env.SYMPHONY_DB_FILE) ??
-      path.join(repoRoot, "symphony.db"),
+      path.join(repoRoot, ".symphony", "runtime", "symphony.db"),
     SYMPHONY_RUNTIME_BASE_URL: runtimeBaseUrl,
     NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL:
       normalizeText(process.env.NEXT_PUBLIC_SYMPHONY_RUNTIME_BASE_URL) ??

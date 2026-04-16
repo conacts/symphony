@@ -96,7 +96,7 @@ export function runtimePackageEnvGuardrailEntries(
   ];
 }
 
-const legacyBusinessPackageNames = [
+const disallowedHostBusinessPackageNames = [
   "@coldets/api",
   "@coldets/cli",
   "@coldets/auth",
@@ -122,11 +122,11 @@ export function symphonyBoundaryImportRestrictions(importerName: string): {
   patterns: RestrictedImportPattern[];
 } {
   return {
-    paths: legacyBusinessPackageNames.map((name) => ({
+    paths: disallowedHostBusinessPackageNames.map((name) => ({
       name,
       message: symphonyBoundaryImportMessage(importerName)
     })),
-    patterns: legacyBusinessPackageNames.map((name) => ({
+    patterns: disallowedHostBusinessPackageNames.map((name) => ({
       group: [`${name}/**`],
       message: symphonyBoundaryImportMessage(importerName)
     }))

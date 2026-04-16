@@ -7,26 +7,22 @@ import {
   issueBranchName,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRuntimeCapabilityOperatorInspection } from "../core/runtime-app-types.js";
 import type {
-  SymphonyRuntimeWorkflowComparisonSignal,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLaunchTarget,
-  SymphonyRuntimeStateResult,
-  SymphonyRuntimeWorkflowComparisonResult
+  SymphonyRuntimeStateResult
 } from "@symphony/contracts";
-import { jsonValueSchema } from "@symphony/contracts";
 import {
   listSupportedPiModels,
   piModelLabelPrefix,
   resolvePiIssueModel
-} from "../core/agent-app-server-launch.js";
+} from "@symphony/agent-harnesses";
 import type { AdmittedRuntimeRepository } from "../core/runtime-admitted-repositories.js";
 import {
   requireWorkflowTrackerState,
   resolveRuntimeIssueTrackerState
 } from "../core/runtime-workflow-tracker-state.js";
-import type { SymphonyRuntimeWorkflowComparison } from "../core/runtime-workflow-comparison.js";
-
 type RuntimeIssuePiSelectionPolicy = {
   defaultModel: string | null;
   defaultPreset: string;
@@ -114,7 +110,8 @@ export function serializeRuntimeIssue(
   issueIdentifier: string,
   trackedIssue: SymphonyTrackerIssue | null,
   workflowTrackerState: string | null,
-  piSelectionPolicy: RuntimeIssuePiSelectionPolicy
+  piSelectionPolicy: RuntimeIssuePiSelectionPolicy,
+  operatorInspection: SymphonyRuntimeCapabilityOperatorInspection | null = null
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
     (entry) => entry.issue.identifier === issueIdentifier
@@ -206,10 +203,6 @@ export function serializeRuntimeIssue(
       refreshPath: "/api/v1/refresh",
       refreshDelegatesTo: ["poll", "reconcile"],
       githubPullRequestSearchUrl,
-      requeueDelegatesTo: ["linear", "github_rework_comment"],
-      requeueCommand: "/rework",
-      requeueHelpText:
-        "Refresh runs the normal poll/reconcile cycle now. Requeue still happens through /rework on GitHub or the admitted Linear state flow.",
       pi: {
         defaultModel: piSelectionPolicy.defaultModel,
         selectedModel,
@@ -217,65 +210,11 @@ export function serializeRuntimeIssue(
         modelOverrideLabelPrefix: piModelLabelPrefix,
         selectionHelpText:
           `Pi selection is label-driven. Use ${piModelLabelPrefix}<preset> for repo-defined tiers or ${piModelLabelPrefix}<model> for a direct model override.`
-      }
+      },
+      pendingClarification: operatorInspection?.pendingClarification ?? null,
+      capability: operatorInspection?.capability ?? null
     }
   };
-}
-
-export function serializeRuntimeWorkflowComparison(
-  comparison: SymphonyRuntimeWorkflowComparison
-): SymphonyRuntimeWorkflowComparisonResult {
-  return {
-    workflow: {
-      workflowId: comparison.replay.workflow.workflowId,
-      repositoryKey: comparison.replay.workflow.repositoryKey,
-      issueIdentifier: comparison.replay.workflow.issueIdentifier,
-      routerPresetId: comparison.replay.workflow.routerPresetId,
-      routerName: comparison.replay.workflow.routerName,
-      routerVersion: comparison.replay.workflow.routerVersion,
-      insertedAt: comparison.replay.workflow.insertedAt,
-      updatedAt: comparison.replay.workflow.updatedAt
-    },
-    replay: {
-      recordedEventCount: comparison.replay.history.length,
-      recordedSignalCount: comparison.replay.signals.length,
-      signals: comparison.replay.signals.map((signal) => ({
-        id: signal.id,
-        type: signal.type,
-        source: signal.source,
-        occurredAt: signal.occurredAt,
-        causationId: signal.causationId,
-        correlationId: signal.correlationId,
-        payload: serializeRuntimeWorkflowSignalPayload(signal.payload)
-      }))
-    },
-    comparedPresetIds: [...comparison.comparedPresetIds],
-    entries: comparison.comparison.entries.map((entry) => ({
-      candidateId: entry.candidateId,
-      finalNode: entry.simulation.projection.currentNode,
-      terminal: entry.simulation.projection.terminal,
-      pendingCommandCount: entry.simulation.projection.pendingCommands.length,
-      reasonCodes: entry.simulation.steps.map((step) => step.result.decision.reasonCode)
-    })),
-    summary: {
-      diverged: comparison.comparison.summary.diverged,
-      finalNodeByCandidate: {
-        ...comparison.comparison.summary.finalNodeByCandidate
-      },
-      reasonCodesByCandidate: {
-        ...comparison.comparison.summary.reasonCodesByCandidate
-      },
-      pendingCommandCountsByCandidate: {
-        ...comparison.comparison.summary.pendingCommandCountsByCandidate
-      }
-    }
-  };
-}
-
-function serializeRuntimeWorkflowSignalPayload(
-  payload: unknown
-): SymphonyRuntimeWorkflowComparisonSignal["payload"] {
-  return jsonValueSchema.parse(payload);
 }
 
 function serializeRuntimeWorkspace(

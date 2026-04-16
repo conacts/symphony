@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import type { RouteHistoryEventRecord } from "@symphony/db";
+import type { SymphonyRuntimeWorkflowObservabilityResult } from "@symphony/contracts";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createMemorySymphonyTracker } from "@symphony/tracker";
 import {
@@ -9,17 +9,7 @@ import {
   buildSymphonyTrackerIssue
 } from "@symphony/test-support";
 import { buildBindMountPreparedWorkspace } from "../../test-support/create-symphony-runtime-test-harness.js";
-import type {
-  WorkflowCommand,
-  WorkflowDecision,
-  WorkflowNodeId,
-  WorkflowProjection,
-  WorkflowRouteResult,
-  WorkflowSignal,
-  WorkflowSimulationResult
-} from "@symphony/router";
 import type { SymphonyRuntimeAppServices } from "../../core/runtime-app-types.js";
-import type { SymphonyRuntimeWorkflowComparison } from "../../core/runtime-workflow-comparison.js";
 import { jsonError } from "../../core/envelope.js";
 import { normalizeRuntimeError } from "../../core/errors.js";
 import type { SymphonyRuntimeAppContextSchema } from "../context.js";
@@ -50,74 +40,104 @@ describe("runtime routes", () => {
     expect(response.status).toBe(200);
     expect(payload.data.runtime.repositoryKey).toBe("openai/symphony");
     expect(payload.data.runtime.trackerKind).toBe("linear");
-    expect(payload.data.bootstrap.presetSelection.presetId).toBe("current-flow");
+    expect(payload.data.bootstrap.presetSelection.presetId).toBe("intelligent-flow");
     expect(payload.data.admittedRepositories).toEqual([]);
   });
 
-  it("serves workflow comparison results through the issue route", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
-    >().mockResolvedValue(buildWorkflowComparisonFixture());
+  it("serves workflow observability through the issue route", async () => {
+    const loadByIssueIdentifier = vi
+      .fn<SymphonyRuntimeAppServices["workflowObservability"]["loadByIssueIdentifier"]>()
+      .mockResolvedValue(buildWorkflowObservabilityFixture());
     const app = createRuntimeRoutesTestApp({
-      workflowComparison: {
-        compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
+      workflowObservability: {
+        loadByWorkflowId: vi.fn().mockResolvedValue(null),
+        loadByIssueIdentifier
       }
     });
 
     const response = await app.request(
-      "/api/v1/SYM-420/workflow-comparison?presetId=current-flow&presetId=auto-merge"
+      "/api/v1/SYM-420/workflow-observability?historyLimit=25&decisionLimit=5"
     );
     const payload = (await response.json()) as {
       data: {
         workflow: {
+          workflowId: string;
           issueIdentifier: string;
-          routerPresetId: string;
+        };
+        snapshot: {
+          currentNode: string | null;
+        } | null;
+        decisions: Array<{
+          commands: Array<{
+            settled: {
+              status: string;
+            } | null;
+          }>;
+        }>;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(loadByIssueIdentifier).toHaveBeenCalledWith({
+      issueIdentifier: "SYM-420",
+      recordedAt: expect.any(String),
+      historyLimit: 25,
+      decisionLimit: 5
+    });
+    expect(payload.data.workflow.workflowId).toBe("workflow-1");
+    expect(payload.data.workflow.issueIdentifier).toBe("SYM-420");
+    expect(payload.data.snapshot?.currentNode).toBe("active");
+    expect(payload.data.decisions[0]?.commands[0]?.settled?.status).toBe(
+      "succeeded"
+    );
+  });
+
+  it("serves workflow observability through the workflow route", async () => {
+    const loadByWorkflowId = vi
+      .fn<SymphonyRuntimeAppServices["workflowObservability"]["loadByWorkflowId"]>()
+      .mockResolvedValue(buildWorkflowObservabilityFixture());
+    const app = createRuntimeRoutesTestApp({
+      workflowObservability: {
+        loadByWorkflowId,
+        loadByIssueIdentifier: vi.fn().mockResolvedValue(null)
+      }
+    });
+
+    const response = await app.request("/api/v1/workflows/workflow-1/observability");
+    const payload = (await response.json()) as {
+      data: {
+        workflow: {
+          workflowId: string;
         };
         replay: {
-          recordedEventCount: number;
-          recordedSignalCount: number;
-        };
-        comparedPresetIds: string[];
-        summary: {
-          diverged: boolean;
-          finalNodeByCandidate: Record<string, string | null>;
+          recordedDecisionCount: number;
         };
       };
     };
 
     expect(response.status).toBe(200);
-    expect(compareByIssueIdentifier).toHaveBeenCalledWith({
-      issueIdentifier: "SYM-420",
-      presetIds: ["current-flow", "auto-merge"]
+    expect(loadByWorkflowId).toHaveBeenCalledWith({
+      workflowId: "workflow-1",
+      recordedAt: expect.any(String),
+      historyLimit: undefined,
+      decisionLimit: undefined
     });
-    expect(payload.data.workflow.issueIdentifier).toBe("SYM-420");
-    expect(payload.data.workflow.routerPresetId).toBe("current-flow");
-    expect(payload.data.replay.recordedEventCount).toBe(3);
-    expect(payload.data.replay.recordedSignalCount).toBe(3);
-    expect(payload.data.comparedPresetIds).toEqual([
-      "current-flow",
-      "auto-merge"
-    ]);
-    expect(payload.data.summary.diverged).toBe(true);
-    expect(payload.data.summary.finalNodeByCandidate).toEqual({
-      "current-flow": "review",
-      "auto-merge": "approved_merge"
-    });
+    expect(payload.data.workflow.workflowId).toBe("workflow-1");
+    expect(payload.data.replay.recordedDecisionCount).toBe(1);
   });
 
-  it("returns 404 when no persisted workflow exists for the issue", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
-    >().mockResolvedValue(null);
+  it("returns 404 when workflow observability is unavailable", async () => {
+    const loadByIssueIdentifier = vi
+      .fn<SymphonyRuntimeAppServices["workflowObservability"]["loadByIssueIdentifier"]>()
+      .mockResolvedValue(null);
     const app = createRuntimeRoutesTestApp({
-      workflowComparison: {
-        compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
+      workflowObservability: {
+        loadByWorkflowId: vi.fn().mockResolvedValue(null),
+        loadByIssueIdentifier
       }
     });
 
-    const response = await app.request("/api/v1/SYM-404/workflow-comparison");
+    const response = await app.request("/api/v1/SYM-404/workflow-observability");
     const payload = (await response.json()) as {
       error: {
         code: string;
@@ -126,62 +146,12 @@ describe("runtime routes", () => {
 
     expect(response.status).toBe(404);
     expect(payload.error.code).toBe("NOT_FOUND");
-    expect(compareByIssueIdentifier).toHaveBeenCalledWith({
+    expect(loadByIssueIdentifier).toHaveBeenCalledWith({
       issueIdentifier: "SYM-404",
-      presetIds: undefined
+      recordedAt: expect.any(String),
+      historyLimit: undefined,
+      decisionLimit: undefined
     });
-  });
-
-  it("fails fast on unknown workflow comparison preset ids", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
-    >().mockResolvedValue(null);
-    const app = createRuntimeRoutesTestApp({
-      workflowComparison: {
-        compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
-      }
-    });
-
-    const response = await app.request(
-      "/api/v1/SYM-420/workflow-comparison?presetId=unknown-preset"
-    );
-    const payload = (await response.json()) as {
-      error: {
-        code: string;
-        message: string;
-      };
-    };
-
-    expect(response.status).toBe(400);
-    expect(payload.error.code).toBe("VALIDATION_FAILED");
-    expect(payload.error.message).toMatch(/unknown workflow router preset/i);
-    expect(compareByIssueIdentifier).not.toHaveBeenCalled();
-  });
-
-  it("fails fast on duplicate workflow comparison preset ids", async () => {
-    const compareByIssueIdentifier = vi.fn<
-      SymphonyRuntimeAppServices["workflowComparison"]["compareByIssueIdentifier"]
-    >().mockResolvedValue(null);
-    const app = createRuntimeRoutesTestApp({
-      workflowComparison: {
-        compareByWorkflowId: vi.fn().mockResolvedValue(null),
-        compareByIssueIdentifier
-      }
-    });
-
-    const response = await app.request(
-      "/api/v1/SYM-420/workflow-comparison?presetId=current-flow&presetId=current-flow"
-    );
-    const payload = (await response.json()) as {
-      error: {
-        code: string;
-      };
-    };
-
-    expect(response.status).toBe(400);
-    expect(payload.error.code).toBe("VALIDATION_FAILED");
-    expect(compareByIssueIdentifier).not.toHaveBeenCalled();
   });
 
   it("prefers workflow-authoritative tracker state for runtime issue details", async () => {
@@ -194,9 +164,7 @@ describe("runtime routes", () => {
       .fn<SymphonyRuntimeAppServices["workflowRead"]["loadWorkflowLifecycleView"]>()
       .mockResolvedValue({
         workflowId: "workflow-123",
-        trackerState: "Approved",
-        latestReworkHandoff: null,
-        latestMergeResult: null
+        trackerState: "Bootstrapping"
       });
     const app = createRuntimeRoutesTestApp({
       tracker,
@@ -215,10 +183,280 @@ describe("runtime routes", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(payload.data.tracked.state).toBe("Approved");
+    expect(payload.data.tracked.state).toBe("Bootstrapping");
     expect(loadWorkflowLifecycleView).toHaveBeenCalledWith({
       issueIdentifier: "COL-123"
     });
+  });
+
+  it("includes capability operator state in runtime issue details", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      identifier: "COL-123",
+      state: "In Progress"
+    });
+    const inspectByIssueIdentifier = vi
+      .fn<SymphonyRuntimeAppServices["capabilityOperator"]["inspectByIssueIdentifier"]>()
+      .mockResolvedValue({
+        pendingClarification: {
+          kind: "capability",
+          requestId: "clarify_123",
+          raisedByCapabilityId: "implement.spec",
+          workEpoch: 1,
+          summary: "Need clarification before continuing implement.spec.",
+          nextAction:
+            "Answer the clarification questions to resume the current execution.",
+          answerPath: "/api/v1/COL-123/clarification-answer",
+          questions: [
+            {
+              id: "question_1",
+              prompt: "What behavior should this capability prove?",
+              context: null
+            }
+          ]
+        },
+        capability: {
+          workflowId: "workflow-123",
+          contractId: "contract-123",
+          policyId: "default",
+          planKind: "awaiting_input",
+          summary: "Need clarification before continuing implement.spec.",
+          decidedAt: "2026-04-13T18:00:00.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: null,
+          workEpoch: 1,
+          completion: null,
+          pendingClarification: {
+            kind: "capability",
+            requestId: "clarify_123",
+            raisedByCapabilityId: "implement.spec",
+            workEpoch: 1,
+            summary: "Need clarification before continuing implement.spec.",
+            nextAction:
+              "Answer the clarification questions to resume the current execution.",
+            answerPath: "/api/v1/COL-123/clarification-answer",
+            questions: [
+              {
+                id: "question_1",
+                prompt: "What behavior should this capability prove?",
+                context: null
+              }
+            ]
+          }
+        }
+      });
+    const app = createRuntimeRoutesTestApp({
+      tracker: createMemorySymphonyTracker([issue]),
+      capabilityOperator: {
+        inspectByIssueIdentifier,
+        answerPendingClarificationByWorkflowId: vi.fn()
+      }
+    });
+
+    const response = await app.request("/api/v1/COL-123");
+    const payload = (await response.json()) as {
+      data: {
+        operator: {
+          pendingClarification: {
+            requestId: string;
+            kind: string;
+          } | null;
+          capability: {
+            planKind: string;
+            pendingClarification: {
+              requestId: string;
+            } | null;
+          } | null;
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.operator.pendingClarification?.requestId).toBe("clarify_123");
+    expect(payload.data.operator.pendingClarification?.kind).toBe("capability");
+    expect(payload.data.operator.capability?.planKind).toBe("awaiting_input");
+    expect(payload.data.operator.capability?.pendingClarification?.requestId).toBe(
+      "clarify_123"
+    );
+    expect(inspectByIssueIdentifier).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes pre-execution clarification in runtime issue details without fabricating capability execution state", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      identifier: "SYM-19",
+      state: "Paused"
+    });
+    const inspectByIssueIdentifier = vi
+      .fn<SymphonyRuntimeAppServices["capabilityOperator"]["inspectByIssueIdentifier"]>()
+      .mockResolvedValue({
+        capability: null,
+        pendingClarification: {
+          kind: "contract_intake",
+          requestId: "clarify_contract_19",
+          raisedByCapabilityId: null,
+          workEpoch: null,
+          summary:
+            "Ticket needs more detail before Symphony can derive a valid execution contract.",
+          nextAction:
+            'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+          answerPath: null,
+          questions: [
+            {
+              id: "done_definition",
+              prompt: "What concrete outcome should count as done for this ticket?",
+              context: null
+            }
+          ]
+        }
+      });
+    const app = createRuntimeRoutesTestApp({
+      tracker: createMemorySymphonyTracker([issue]),
+      capabilityOperator: {
+        inspectByIssueIdentifier,
+        answerPendingClarificationByWorkflowId: vi.fn()
+      }
+    });
+
+    const response = await app.request("/api/v1/SYM-19");
+    const payload = (await response.json()) as {
+      data: {
+        operator: {
+          pendingClarification: {
+            kind: string;
+            requestId: string;
+            answerPath: string | null;
+          } | null;
+          capability: null;
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.operator.pendingClarification).toEqual(
+      expect.objectContaining({
+        kind: "contract_intake",
+        requestId: "clarify_contract_19",
+        answerPath: null
+      })
+    );
+    expect(payload.data.operator.capability).toBeNull();
+  });
+
+  it("records clarification answers through the runtime operator route", async () => {
+    const answerPendingClarificationByWorkflowId = vi
+      .fn<
+        SymphonyRuntimeAppServices["capabilityOperator"]["answerPendingClarificationByWorkflowId"]
+      >()
+      .mockResolvedValue({
+        issueIdentifier: "COL-123",
+        workflowId: "workflow-123",
+        requestId: "clarify_123",
+        answeredAt: "2026-04-13T18:10:00.000Z",
+        capability: {
+          workflowId: "workflow-123",
+          contractId: "contract-123",
+          policyId: "default",
+          planKind: "execute",
+          summary: "Next capability execution is implement.spec.",
+          decidedAt: "2026-04-13T18:10:01.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: "builder_fast",
+          workEpoch: 1,
+          pendingClarification: null,
+          completion: null
+        }
+      });
+    const publishIssueUpdated = vi.fn();
+    const app = createRuntimeRoutesTestApp({
+      capabilityOperator: {
+        inspectByIssueIdentifier: vi.fn().mockResolvedValue({
+          pendingClarification: {
+            kind: "capability",
+            requestId: "clarify_123",
+            raisedByCapabilityId: "implement.spec",
+            workEpoch: 1,
+            summary: "Need clarification before continuing implement.spec.",
+            nextAction:
+              "Answer the clarification questions to resume the current execution.",
+            answerPath: "/api/v1/COL-123/clarification-answer",
+            questions: [
+              {
+                id: "question_1",
+                prompt: "What behavior should this capability prove?",
+                context: null
+              }
+            ]
+          },
+          capability: {
+            workflowId: "workflow-123",
+            contractId: "contract-123",
+            policyId: "default",
+            planKind: "awaiting_input",
+            summary: "Need clarification before continuing implement.spec.",
+            decidedAt: "2026-04-13T18:09:00.000Z",
+            capabilityId: "implement.spec",
+            modelProfileId: null,
+            workEpoch: 1,
+            completion: null,
+            pendingClarification: {
+              kind: "capability",
+              requestId: "clarify_123",
+              raisedByCapabilityId: "implement.spec",
+              workEpoch: 1,
+              summary: "Need clarification before continuing implement.spec.",
+              nextAction:
+                "Answer the clarification questions to resume the current execution.",
+              answerPath: "/api/v1/COL-123/clarification-answer",
+              questions: [
+                {
+                  id: "question_1",
+                  prompt: "What behavior should this capability prove?",
+                  context: null
+                }
+              ]
+            }
+          }
+        }),
+        answerPendingClarificationByWorkflowId
+      },
+      realtime: {
+        ...createRuntimeServicesStub({}).realtime,
+        publishIssueUpdated
+      }
+    });
+
+    const response = await app.request("/api/v1/COL-123/clarification-answer", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        requestId: "clarify_123",
+        answers: {
+          question_1: "Proceed with strict backend behavior."
+        }
+      })
+    });
+    const payload = (await response.json()) as {
+      data: {
+        requestId: string;
+        capability: {
+          planKind: string;
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.requestId).toBe("clarify_123");
+    expect(payload.data.capability.planKind).toBe("execute");
+    expect(answerPendingClarificationByWorkflowId).toHaveBeenCalledWith({
+      workflowId: "workflow-123",
+      recordedAt: expect.any(String),
+      requestId: "clarify_123",
+      answers: {
+        question_1: "Proceed with strict backend behavior."
+      }
+    });
+    expect(publishIssueUpdated).toHaveBeenCalledWith("COL-123");
   });
 
   it("fails fast when runtime state serialization sees a live entry without workflow-authoritative tracker state", async () => {
@@ -354,7 +592,7 @@ function createRuntimeServicesStub(
       manifestPath: null,
       bindingScope: null,
       presetSelection: {
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "registry_default",
         repositoryKey: null,
         manifestPath: null
@@ -395,7 +633,7 @@ function createRuntimeServicesStub(
         manifestPath: null,
         bindingScope: null,
         presetSelection: {
-          presetId: "current-flow",
+          presetId: "intelligent-flow",
           source: "registry_default",
           repositoryKey: null,
           manifestPath: null
@@ -478,20 +716,15 @@ function createRuntimeServicesStub(
     workflowRead: {
       loadWorkflowLifecycleView: vi.fn().mockResolvedValue(null)
     },
-    runtimeTools: {
-      recordDeliveryReport: vi.fn(),
-      submitSpikeResult: vi.fn(),
-      cancelIssue: vi.fn(),
-      submitMergeResult: vi.fn()
-    } as SymphonyRuntimeAppServices["runtimeTools"],
-    workflowComparison: {
-      compareByWorkflowId: vi.fn().mockResolvedValue(null),
-      compareByIssueIdentifier: vi.fn().mockResolvedValue(null)
+    capabilityOperator: {
+      inspectByIssueIdentifier: vi.fn().mockResolvedValue(null),
+      answerPendingClarificationByWorkflowId: vi.fn()
+    },
+    workflowObservability: {
+      loadByWorkflowId: vi.fn().mockResolvedValue(null),
+      loadByIssueIdentifier: vi.fn().mockResolvedValue(null)
     },
     routeWorkflows: {} as SymphonyRuntimeAppServices["routeWorkflows"],
-    githubReviewIngress: {
-      ingest: vi.fn()
-    } as SymphonyRuntimeAppServices["githubReviewIngress"],
     realtime: {
       openConnection: vi.fn(),
       closeConnection: vi.fn(),
@@ -507,340 +740,243 @@ function createRuntimeServicesStub(
   };
 }
 
-function buildWorkflowComparisonFixture(): SymphonyRuntimeWorkflowComparison {
-  const workflowId = "workflow-1";
-  const signals: WorkflowSignal[] = [
-    {
-      id: "signal_todo_observed",
-      type: "tracker.state_observed",
-      source: "tracker",
-      occurredAt: "2026-04-11T12:01:00.000Z",
-      causationId: null,
-      correlationId: null,
-      payload: {
-        trackerState: "Todo"
-      }
-    },
-    {
-      id: "signal_implementation_started",
-      type: "runtime.run_started",
-      source: "runtime",
-      occurredAt: "2026-04-11T12:01:10.000Z",
-      causationId: null,
-      correlationId: null,
-      payload: {
-        runId: "run-1",
-        runMode: "implementation"
-      }
-    },
-    {
-      id: "signal_delivery_completed",
-      type: "runtime.delivery_reported",
-      source: "runtime",
-      occurredAt: "2026-04-11T12:01:20.000Z",
-      causationId: null,
-      correlationId: null,
-      payload: {
-        runId: "run-1",
-        status: "completed"
-      }
-    }
-  ];
-  const history = signals.map((signal, index) =>
-    buildReplayHistoryRecord({
-      workflowId,
-      signal,
-      eventSequence: index + 1
-    })
-  );
-
-  const currentFlowCommand = buildCommand("command-review");
-  const autoMergeCommand = buildCommand("command-merge");
-
-  const currentFlowSimulation = buildSimulation({
-    workflowId,
-    finalNode: "review",
-    finalCommand: currentFlowCommand,
-    steps: [
-      {
-        signal: signals[0],
-        fromNode: null,
-        toNode: "bootstrapping",
-        reasonCode: "todo_claimed_for_dispatch",
-        emittedCommands: [buildCommand("command-bootstrap")]
-      },
-      {
-        signal: signals[1],
-        fromNode: "bootstrapping",
-        toNode: "implementation",
-        reasonCode: "implementation_run_started",
-        emittedCommands: []
-      },
-      {
-        signal: signals[2],
-        fromNode: "implementation",
-        toNode: "review",
-        reasonCode: "delivery_reported",
-        emittedCommands: [currentFlowCommand]
-      }
-    ]
-  });
-
-  const autoMergeSimulation = buildSimulation({
-    workflowId,
-    finalNode: "approved_merge",
-    finalCommand: autoMergeCommand,
-    steps: [
-      {
-        signal: signals[0],
-        fromNode: null,
-        toNode: "bootstrapping",
-        reasonCode: "todo_claimed_for_dispatch",
-        emittedCommands: [buildCommand("command-bootstrap-auto")]
-      },
-      {
-        signal: signals[1],
-        fromNode: "bootstrapping",
-        toNode: "implementation",
-        reasonCode: "implementation_run_started",
-        emittedCommands: []
-      },
-      {
-        signal: signals[2],
-        fromNode: "implementation",
-        toNode: "approved_merge",
-        reasonCode: "delivery_reported_auto_approved",
-        emittedCommands: [autoMergeCommand]
-      }
-    ]
-  });
-
+function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabilityResult {
   return {
+    workflow: {
+      workflowId: "workflow-1",
+      trackerIssueId: "tracker-420",
+      repositoryKey: "openai/symphony",
+      issueIdentifier: "SYM-420",
+      bindingScope: null,
+      routerPresetId: "intelligent-flow",
+      routerName: "symphony-intelligent-flow",
+      routerVersion: "1",
+      archivedAt: null,
+      insertedAt: "2026-04-11T12:00:00.000Z",
+      updatedAt: "2026-04-11T12:01:20.000Z"
+    },
+    trackerState: "In Progress",
+    capability: {
+      workflowId: "workflow-1",
+      contractId: "contract-1",
+      policyId: "default",
+      planKind: "execute" as const,
+      summary: "Next capability execution is implement.spec.",
+      decidedAt: "2026-04-11T12:01:20.000Z",
+      capabilityId: "implement.spec",
+      modelProfileId: "builder_fast",
+      workEpoch: 2,
+      pendingClarification: null,
+      completion: null
+    },
+    pendingClarification: null,
+    snapshot: {
+      eventSequence: 4,
+      currentNode: "active",
+      terminal: false,
+      lastSignalId: "signal_runtime_completed",
+      lastDecisionId: "decision_runtime_completed",
+      pendingCommandCount: 1,
+      projection: {
+        currentNode: "active",
+        terminal: false,
+        pendingCommands: [
+          {
+            id: "command-review",
+            kind: "request.review",
+            payload: {
+              workflowId: "workflow-1"
+            },
+            dedupeKey: null
+          }
+        ]
+      }
+    },
     replay: {
-      workflow: {
-        workflowId,
-        trackerIssueId: "tracker-420",
-        repositoryKey: "openai/symphony",
-        issueIdentifier: "SYM-420",
-        bindingScope: null,
-        routerPresetId: "current-flow",
-        routerName: "current-flow",
-        routerVersion: "1",
-        archivedAt: null,
-        insertedAt: "2026-04-11T12:00:00.000Z",
-        updatedAt: "2026-04-11T12:01:20.000Z"
-      },
-      history,
-      signals
-    },
-    comparedPresetIds: ["current-flow", "auto-merge"],
-    comparison: {
-      workflowId,
-      signals,
-      entries: [
+      recordedEventCount: 4,
+      recordedSignalCount: 2,
+      recordedDecisionCount: 1,
+      recordedCommandCount: 1,
+      settledCommandCount: 1,
+      signals: [
         {
-          candidateId: "current-flow",
-          simulation: currentFlowSimulation
+          id: "signal_todo_observed",
+          type: "tracker.state_observed",
+          source: "tracker" as const,
+          occurredAt: "2026-04-11T12:01:00.000Z",
+          causationId: null,
+          correlationId: null,
+          payload: {
+            trackerState: "Todo"
+          }
         },
         {
-          candidateId: "auto-merge",
-          simulation: autoMergeSimulation
+          id: "signal_runtime_completed",
+          type: "runtime.completed",
+          source: "runtime" as const,
+          occurredAt: "2026-04-11T12:01:20.000Z",
+          causationId: null,
+          correlationId: null,
+          payload: {
+            kind: "delivered",
+            runId: "run-1",
+            runMode: "implementation",
+            reason: null
+          }
         }
-      ],
-      summary: {
-        diverged: true,
-        finalNodeByCandidate: {
-          "current-flow": "review",
-          "auto-merge": "approved_merge"
-        },
-        reasonCodesByCandidate: {
-          "current-flow": [
-            "todo_claimed_for_dispatch",
-            "implementation_run_started",
-            "delivery_reported"
-          ],
-          "auto-merge": [
-            "todo_claimed_for_dispatch",
-            "implementation_run_started",
-            "delivery_reported_auto_approved"
-          ]
-        },
-        pendingCommandCountsByCandidate: {
-          "current-flow": 1,
-          "auto-merge": 1
+      ]
+    },
+    routerDecision: null,
+    currentModule: {
+      executionId: null,
+      module: {
+        moduleId: "implement.spec",
+        phase: "implementing",
+        executionKind: "agent",
+        summary: "Implement the requested ticket slice.",
+        description:
+          "Produces the canonical change set for the current work epoch.",
+        enabledByDefault: true,
+        runtimeSupported: true,
+        supportedModelProfileIds: ["builder_fast", "builder_deep"],
+        producesEvidenceIds: ["change_set"],
+        requiresEvidenceIds: []
+      },
+      workEpoch: 2,
+      attempt: null,
+      state: "selected",
+      summary: "Next capability execution is implement.spec.",
+      modelProfileId: "builder_fast",
+      selectedAt: "2026-04-11T12:01:20.000Z",
+      startedAt: null,
+      completedAt: null,
+      retryable: null,
+      reasonCode: null,
+      failureKind: null,
+      evidenceProduced: [],
+      decision: null
+    },
+    recentModuleRuns: [],
+    history: [
+      {
+        eventId: "history_1",
+        eventSequence: 1,
+        kind: "signal_recorded" as const,
+        recordedAt: "2026-04-11T12:01:00.000Z",
+        signalId: "signal_todo_observed",
+        signalType: "tracker.state_observed",
+        signalSource: "tracker" as const,
+        decisionId: null,
+        commandId: null,
+        fromNode: null,
+        toNode: null,
+        edgeId: null,
+        reasonCode: null,
+        event: {
+          kind: "signal_recorded",
+          recordedAt: "2026-04-11T12:01:00.000Z",
+          signal: {
+            id: "signal_todo_observed",
+            type: "tracker.state_observed",
+            source: "tracker",
+            occurredAt: "2026-04-11T12:01:00.000Z",
+            causationId: null,
+            correlationId: null,
+            payload: {
+              trackerState: "Todo"
+            }
+          }
+        }
+      },
+      {
+        eventId: "history_2",
+        eventSequence: 2,
+        kind: "decision_recorded" as const,
+        recordedAt: "2026-04-11T12:01:20.000Z",
+        signalId: "signal_runtime_completed",
+        signalType: "runtime.completed",
+        signalSource: "runtime" as const,
+        decisionId: "decision_runtime_completed",
+        commandId: null,
+        fromNode: "bootstrapping",
+        toNode: "active",
+        edgeId: "claimed_run_started_to_active",
+        reasonCode: "active_selected_implementation",
+        event: {
+          kind: "decision_recorded",
+          recordedAt: "2026-04-11T12:01:20.000Z",
+          decision: {
+            id: "decision_runtime_completed",
+            fromNode: "bootstrapping",
+            toNode: "active",
+            edgeId: "claimed_run_started_to_active",
+            reasonCode: "active_selected_implementation",
+            commands: [
+              {
+                id: "command-review",
+                kind: "request.review",
+                payload: {
+                  workflowId: "workflow-1"
+                },
+                dedupeKey: null
+              }
+            ]
+          }
         }
       }
-    }
-  };
-}
-
-function buildReplayHistoryRecord(input: {
-  workflowId: string;
-  signal: WorkflowSignal;
-  eventSequence: number;
-}): RouteHistoryEventRecord<WorkflowNodeId> {
-  const recordedAt = input.signal.occurredAt;
-
-  return {
-    eventId: `history_${input.eventSequence}`,
-    workflowId: input.workflowId,
-    eventSequence: input.eventSequence,
-    kind: "signal_recorded",
-    recordedAt,
-    signalId: input.signal.id,
-    signalType: input.signal.type,
-    signalSource: input.signal.source,
-    decisionId: null,
-    commandId: null,
-    fromNode: null,
-    toNode: null,
-    edgeId: null,
-    reasonCode: null,
-    event: {
-      kind: "signal_recorded",
-      signal: input.signal,
-      recordedAt
-    },
-    insertedAt: recordedAt
-  };
-}
-
-function buildSimulation(input: {
-  workflowId: string;
-  finalNode: WorkflowNodeId;
-  finalCommand: WorkflowCommand;
-  steps: ReadonlyArray<{
-    signal: WorkflowSignal;
-    fromNode: WorkflowNodeId | null;
-    toNode: WorkflowNodeId;
-    reasonCode: string;
-    emittedCommands: WorkflowCommand[];
-  }>;
-}): WorkflowSimulationResult<WorkflowNodeId, unknown> {
-  let projection = buildProjection({
-    workflowId: input.workflowId,
-    currentNode: null,
-    pendingCommands: [],
-    recordedSignalIds: [],
-    emittedCommandIds: [],
-    sequence: 0,
-    lastSignal: null,
-    lastDecision: null
-  });
-
-  const results: WorkflowRouteResult<WorkflowNodeId, unknown>[] = input.steps.map(
-    (step, index) => {
-      const decision = buildDecision({
-        id: `decision_${index + 1}_${step.reasonCode}`,
-        fromNode: step.fromNode,
-        toNode: step.toNode,
-        reasonCode: step.reasonCode,
-        commands: step.emittedCommands
-      });
-      const signalEvent = {
-        kind: "signal_recorded" as const,
-        signal: step.signal,
-        recordedAt: step.signal.occurredAt
-      };
-      const events = [
-        signalEvent,
-        {
-          kind: "decision_recorded" as const,
-          decision,
-          recordedAt: step.signal.occurredAt
+    ],
+    decisions: [
+      {
+        decisionId: "decision_runtime_completed",
+        eventSequence: 2,
+        signalId: "signal_runtime_completed",
+        fromNode: "bootstrapping",
+        toNode: "active",
+        edgeId: "claimed_run_started_to_active",
+        reasonCode: "active_selected_implementation",
+        policy: {
+          presetId: "intelligent-flow"
         },
-        ...step.emittedCommands.map((command) => ({
-          kind: "command_emitted" as const,
-          decisionId: decision.id,
-          command,
-          recordedAt: step.signal.occurredAt
-        }))
-      ];
-      const projectionAfter = buildProjection({
-        workflowId: input.workflowId,
-        currentNode: step.toNode,
-        pendingCommands:
-          index === input.steps.length - 1 ? [input.finalCommand] : step.emittedCommands,
-        recordedSignalIds: [...projection.recordedSignalIds, step.signal.id],
-        emittedCommandIds: [
-          ...projection.emittedCommandIds,
-          ...step.emittedCommands.map((command) => command.id)
+        projectionBefore: {
+          currentNode: "claimed"
+        },
+        projectionAfter: {
+          currentNode: "active"
+        },
+        commands: [
+          {
+            commandId: "command-review",
+            kind: "request.review",
+            dedupeKey: null,
+            payload: {
+              workflowId: "workflow-1"
+            },
+            settled: {
+              eventId: "history_4",
+              eventSequence: 4,
+              recordedAt: "2026-04-11T12:01:21.000Z",
+              status: "succeeded" as const,
+              payload: {
+                accepted: true
+              }
+            }
+          }
         ],
-        sequence: projection.sequence + events.length,
-        lastSignal: step.signal,
-        lastDecision: decision
-      });
-      const result: WorkflowRouteResult<WorkflowNodeId, unknown> = {
-        projectionBefore: projection,
-        signalEvent,
-        decision,
-        events,
-        projectionAfter
-      };
-
-      projection = projectionAfter;
-      return result;
+        trace: [
+          {
+            message: "Router selected implement.spec and advanced the lifecycle into active execution."
+          }
+        ],
+        selectionMetadata: {
+          score: 1
+        },
+        recordedAt: "2026-04-11T12:01:20.000Z",
+        insertedAt: "2026-04-11T12:01:20.000Z"
+      }
+    ],
+    filters: {
+      historyLimit: 25,
+      decisionLimit: 5
     }
-  );
-
-  return {
-    history: results.flatMap((result) => result.events),
-    projection,
-    steps: results.map((result) => ({
-      signal: result.signalEvent.signal,
-      result
-    }))
-  };
-}
-
-function buildProjection(input: {
-  workflowId: string;
-  currentNode: WorkflowNodeId | null;
-  pendingCommands: WorkflowCommand[];
-  recordedSignalIds: string[];
-  emittedCommandIds: string[];
-  sequence: number;
-  lastSignal: WorkflowSignal | null;
-  lastDecision: WorkflowDecision<WorkflowNodeId> | null;
-}): WorkflowProjection<WorkflowNodeId, unknown> {
-  return {
-    workflowId: input.workflowId,
-    currentNode: input.currentNode,
-    pendingCommands: input.pendingCommands,
-    recordedSignalIds: input.recordedSignalIds,
-    emittedCommandIds: input.emittedCommandIds,
-    terminal: false,
-    sequence: input.sequence,
-    data: null,
-    lastSignal: input.lastSignal,
-    lastDecision: input.lastDecision
-  };
-}
-
-function buildDecision(input: {
-  id: string;
-  fromNode: WorkflowNodeId | null;
-  toNode: WorkflowNodeId;
-  reasonCode: string;
-  commands: WorkflowCommand[];
-}): WorkflowDecision<WorkflowNodeId> {
-  return {
-    id: input.id,
-    fromNode: input.fromNode,
-    toNode: input.toNode,
-    edgeId: `edge_${input.reasonCode}`,
-    reasonCode: input.reasonCode,
-    commands: input.commands,
-    trace: [],
-    selectionMetadata: null
-  };
-}
-
-function buildCommand(id: string): WorkflowCommand {
-  return {
-    id,
-    kind: "tracker.transition",
-    payload: null,
-    dedupeKey: null
   };
 }

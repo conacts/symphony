@@ -1,5 +1,5 @@
-import { dockerEnvFlags, dockerUserFlags } from "./docker-client.js";
 import type { DockerWorkspaceCommandRunner } from "./docker-shared.js";
+import { createDockerWorkspaceSessionManager } from "./session/session-manager.js";
 import type { SymphonyWorkspaceContext } from "./workspace-identity.js";
 import { SymphonyWorkspaceError } from "./workspace-identity.js";
 
@@ -15,28 +15,29 @@ export async function runWorkspaceHookInContainer(input: {
   workerHost: string | null;
   env: Record<string, string | undefined> | undefined;
 }): Promise<void> {
-  const args = [
-    "exec",
-    ...dockerUserFlags(input.user),
-    ...dockerEnvFlags(
-      buildWorkspaceHookEnv(
+  const sessionManager = createDockerWorkspaceSessionManager({
+    commandRunner: input.commandRunner
+  });
+  const result = await sessionManager
+    .openContainerSession({
+      containerName: input.containerName,
+      workspacePath: input.workspacePath,
+      shell: input.shell,
+      user: input.user
+    })
+    .runShellCommand({
+      command: input.command,
+      timeoutMs: input.timeoutMs,
+      env: buildWorkspaceHookEnv(
         input.workspacePath,
         input.context,
         input.workerHost,
         input.env
-      )
-    ),
-    "--workdir",
-    input.workspacePath,
-    input.containerName,
-    input.shell,
-    "-lc",
-    input.command
-  ];
-  const result = await input.commandRunner({
-    args,
-    timeoutMs: input.timeoutMs
-  });
+      ),
+      metadata: {
+        operation: "workspace_hook"
+      }
+    });
 
   if (result.exitCode !== 0) {
     throw new SymphonyWorkspaceError(

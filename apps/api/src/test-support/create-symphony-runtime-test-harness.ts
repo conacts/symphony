@@ -5,7 +5,6 @@ import {
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
 import { createSymphonyForensicsReadModel } from "@symphony/forensics";
-import { SymphonyGithubReviewProcessor } from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import {
   createMemorySymphonyTracker,
@@ -33,7 +32,6 @@ import {
 } from "@symphony/db";
 import { createSilentSymphonyLogger } from "@symphony/logger";
 import { createAgentAnalyticsReadPort } from "../core/agent-analytics-read-port.js";
-import { createSymphonyGitHubReviewIngressService } from "../core/github-review-ingress.js";
 import {
   createIssueTimelinePort,
   createRuntimeLogsPort
@@ -113,15 +111,6 @@ export function buildSymphonyRuntimePolicyForRoot(
   overrides: Partial<SymphonyResolvedRuntimePolicy> = {}
 ): SymphonyResolvedRuntimePolicy {
   const baseConfig = buildSymphonyRuntimePolicy();
-  const githubOverrideRecord =
-    overrides.github && typeof overrides.github === "object"
-      ? (overrides.github as Record<string, unknown>)
-      : null;
-  const allowedReviewCommentLogins = Array.isArray(
-    githubOverrideRecord?.allowedReviewCommentLogins
-  )
-    ? (githubOverrideRecord.allowedReviewCommentLogins as string[])
-    : null;
 
   return {
     ...baseConfig,
@@ -169,15 +158,6 @@ export function buildSymphonyRuntimePolicyForRoot(
     github: {
       ...baseConfig.github,
       repo: "openai/symphony",
-      webhookSecret: "secret",
-      statePath: path.join(root, "github-state.json"),
-      allowedReviewLogins: ["reviewer"],
-      allowedReworkCommentLogins: ["reviewer"],
-      ...(allowedReviewCommentLogins
-        ? {
-            allowedReviewCommentLogins
-          }
-        : {}),
       ...overrides.github
     } as SymphonyResolvedRuntimePolicy["github"]
   };
@@ -480,7 +460,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
       manifestPath: null,
       bindingScope: null,
       presetSelection: {
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "registry_default",
         repositoryKey: null,
         manifestPath: null
@@ -525,7 +505,7 @@ export async function createSymphonyRuntimeTestHarness(input: {
         manifestPath: null,
         bindingScope: null,
         presetSelection: {
-          presetId: "current-flow",
+          presetId: "intelligent-flow",
           source: "registry_default",
           repositoryKey: null,
           manifestPath: null
@@ -579,64 +559,6 @@ export async function createSymphonyRuntimeTestHarness(input: {
     runtimeLogs: createRuntimeLogsPort({
       runtimeLogStore
     }),
-    runtimeTools: {
-      async recordDeliveryReport() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      },
-      async submitSpikeResult() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      },
-      async cancelIssue() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      },
-      async submitMergeResult() {
-        return {
-          success: true,
-          output: JSON.stringify({ ok: true }),
-          contentItems: [
-            {
-              type: "inputText",
-              text: JSON.stringify({ ok: true })
-            }
-          ]
-        };
-      }
-    },
-    workflowComparison: {
-      async compareByWorkflowId() {
-        return null;
-      },
-      async compareByIssueIdentifier() {
-        return null;
-      }
-    },
     routeWorkflows: {
       async ensureWorkflowForIssue() {
         throw new Error("Runtime test harness does not support route workflow writes.");
@@ -676,6 +598,12 @@ export async function createSymphonyRuntimeTestHarness(input: {
       },
       async resumeSessionByScopedIssue() {
         return null;
+      },
+      async loadExecutionContractByWorkflowId() {
+        return null;
+      },
+      async saveExecutionContract() {
+        throw new Error("Runtime test harness does not support route workflow writes.");
       },
       async recordRouteResult() {
         throw new Error("Runtime test harness does not support route workflow writes.");
@@ -754,30 +682,28 @@ export async function createSymphonyRuntimeTestHarness(input: {
 
         return {
           workflowId: `workflow-${issueIdentifier}`,
-          trackerState,
-          latestReworkHandoff: null,
-          latestMergeResult: null
+          trackerState
         };
       }
     },
-    githubReviewIngress: createSymphonyGitHubReviewIngressService({
-      githubPolicy: runtimePolicy.github,
-      reviewProcessor: new SymphonyGithubReviewProcessor({
-        policyConfig: {
-          tracker: runtimePolicy.tracker,
-          github: runtimePolicy.github
-        },
-        tracker,
-        pullRequestResolver: {
-          async fetchPullRequest() {
-            return {
-              headRef: issue.branchName ?? `symphony/${issue.identifier}`,
-              htmlUrl: "https://github.com/openai/symphony/pull/123"
-            };
-          }
-        }
-      })
-    }),
+    capabilityOperator: {
+      async inspectByIssueIdentifier() {
+        return null;
+      },
+      async answerPendingClarificationByWorkflowId() {
+        throw new Error(
+          "Runtime test harness does not support capability clarification answers."
+        );
+      }
+    },
+    workflowObservability: {
+      async loadByWorkflowId() {
+        return null;
+      },
+      async loadByIssueIdentifier() {
+        return null;
+      }
+    },
     realtime: createSymphonyRealtimeHub(
       input.realtimeNow ? { now: input.realtimeNow } : undefined
     ),

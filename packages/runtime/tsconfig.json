@@ -16,9 +16,6 @@
       "path": "../orchestrator/tsconfig.build.json"
     },
     {
-      "path": "../review/tsconfig.build.json"
-    },
-    {
       "path": "../runtime-policy/tsconfig.build.json"
     },
     {

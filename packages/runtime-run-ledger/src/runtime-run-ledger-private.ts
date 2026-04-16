@@ -16,8 +16,7 @@ import type {
 import type { SymphonyAgentAnalyticsEvent } from "./agent-analytics-types.js";
 
 const symphonyCompletedRunOutcomes = new Set([
-  "completed",
-  "merged"
+  "completed"
 ]);
 
 export function createEmptyRuntimeRunLedgerDocument(): SymphonyRuntimeRunLedgerDocument {

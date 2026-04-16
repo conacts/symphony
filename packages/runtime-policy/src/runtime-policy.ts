@@ -96,6 +96,7 @@ export type SymphonyPiRuntimePolicy = SymphonyHarnessModelRuntimePolicy & {
   turnTimeoutMs: number;
   readTimeoutMs: number;
   stallTimeoutMs: number;
+  toolTimeoutMs: number | null;
 };
 
 export type SymphonyHooksRuntimePolicy = {
@@ -123,12 +124,6 @@ export type SymphonyWorkflowServerConfig = SymphonyServerRuntimePolicy;
 
 export type SymphonyGitHubRuntimePolicy = {
   repo: string | null;
-  webhookSecret: string | null;
-  apiToken: string | null;
-  statePath: string | null;
-  allowedReviewLogins: string[];
-  allowedReviewCommentLogins: string[];
-  allowedReworkCommentLogins: string[];
 };
 export type SymphonyWorkflowGitHubConfig = SymphonyGitHubRuntimePolicy;
 
@@ -215,11 +210,7 @@ export function resolveRuntimePolicy(
     effectiveRawConfig.observability
   );
   const server = normalizeServerConfig(effectiveRawConfig.server);
-  const github = normalizeGitHubConfig(
-    effectiveRawConfig.github,
-    env,
-    workspace.root
-  );
+  const github = normalizeGitHubConfig(effectiveRawConfig.github, env);
 
   validateSemanticConfig({
     tracker,
@@ -264,7 +255,7 @@ function normalizeTrackerConfig(
   const tracker = getNestedRecord(value);
   const dispatchableStates = normalizeStringArray(
     tracker.dispatchableStates ?? tracker.activeStates,
-    ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"]
+    ["Todo", "Bootstrapping", "In Progress"]
   );
 
   return {
@@ -427,14 +418,18 @@ function normalizePiConfig(value: unknown): SymphonyPiRuntimePolicy {
     ),
     readTimeoutMs: normalizePositiveInteger(
       pi.readTimeoutMs,
-      5_000,
+      30_000,
       "pi.readTimeoutMs"
     ),
     stallTimeoutMs: normalizeNonNegativeInteger(
       pi.stallTimeoutMs,
       300_000,
       "pi.stallTimeoutMs"
-    )
+    ),
+    toolTimeoutMs:
+      pi.toolTimeoutMs === undefined || pi.toolTimeoutMs === null
+        ? 900_000
+        : normalizeOptionalPositiveInteger(pi.toolTimeoutMs, "pi.toolTimeoutMs")
   };
 }
 
@@ -548,32 +543,11 @@ function normalizeServerConfig(value: unknown): SymphonyServerRuntimePolicy {
 
 function normalizeGitHubConfig(
   value: unknown,
-  env: SymphonyRuntimePolicyEnv,
-  workspaceRoot: string
+  env: SymphonyRuntimePolicyEnv
 ): SymphonyGitHubRuntimePolicy {
   const github = getNestedRecord(value);
   return {
-    repo: normalizeOptionalString(resolveEnvToken(github.repo, env)),
-    webhookSecret:
-      normalizeOptionalString(resolveEnvToken(github.webhookSecret, env)) ??
-      normalizeOptionalString(env.GITHUB_WEBHOOK_SECRET) ??
-      null,
-    apiToken:
-      normalizeOptionalString(resolveEnvToken(github.apiToken, env)) ??
-      normalizeOptionalString(env.GITHUB_TOKEN) ??
-      null,
-    statePath:
-      normalizeOptionalString(resolveEnvToken(github.statePath, env)) ??
-      path.join(workspaceRoot, ".symphony", "github-state.json"),
-    allowedReviewLogins: normalizeStringArray(github.allowedReviewLogins, []),
-    allowedReviewCommentLogins: normalizeStringArray(
-      github.allowedReviewCommentLogins,
-      []
-    ),
-    allowedReworkCommentLogins: normalizeStringArray(
-      github.allowedReworkCommentLogins,
-      []
-    )
+    repo: normalizeOptionalString(resolveEnvToken(github.repo, env))
   };
 }
 

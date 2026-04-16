@@ -8,6 +8,7 @@ import { useRuntimeIssue } from "@/hooks/use-runtime-issue";
 import { IssueDetailView } from "@/features/issues/components/issue-detail-view";
 import { IssueRequeuePanel } from "@/features/issues/components/issue-requeue-panel";
 import { useIssueDetail } from "@/features/issues/hooks/use-issue-detail";
+import { useIssueWorkflowObservability } from "@/features/issues/hooks/use-issue-workflow-observability";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
@@ -27,15 +28,51 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
     websocketUrl: model.websocketUrl,
     issueIdentifier: input.issueIdentifier
   });
+  const workflowObservabilityState = useIssueWorkflowObservability({
+    runtimeBaseUrl: model.runtimeBaseUrl,
+    websocketUrl: model.websocketUrl,
+    issueIdentifier: input.issueIdentifier
+  });
+  const connectionStatus =
+    issueDetailState.status === "connected" ||
+    runtimeIssueState.status === "connected" ||
+    workflowObservabilityState.status === "connected"
+      ? "connected"
+      : issueDetailState.status === "degraded" &&
+          runtimeIssueState.status === "degraded" &&
+          workflowObservabilityState.status === "degraded"
+        ? "degraded"
+        : "connecting";
   const connection = useMemo(
     () =>
       buildRuntimeSummaryConnectionState({
-        status: issueDetailState.status,
-        error: issueDetailState.error,
-        hasSnapshot: issueDetailState.resource !== null
+        status: connectionStatus,
+        error:
+          workflowObservabilityState.error ??
+          issueDetailState.error ??
+          runtimeIssueState.error,
+        hasSnapshot:
+          issueDetailState.resource !== null ||
+          runtimeIssueState.resource !== null ||
+          workflowObservabilityState.resource !== null
       }),
-    [issueDetailState.error, issueDetailState.resource, issueDetailState.status]
+    [
+      connectionStatus,
+      issueDetailState.error,
+      issueDetailState.resource,
+      runtimeIssueState.error,
+      runtimeIssueState.resource,
+      workflowObservabilityState.error,
+      workflowObservabilityState.resource
+    ]
   );
+  const handleCapabilityUpdated = async () => {
+    await Promise.all([
+      runtimeIssueState.refresh(),
+      issueDetailState.refresh(),
+      workflowObservabilityState.refresh()
+    ]);
+  };
 
   return (
     <ControlPlanePage
@@ -49,12 +86,18 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
           issueDetail={issueDetailState.resource}
           issueIdentifier={input.issueIdentifier}
           loading={runtimeIssueState.loading}
+          runtimeBaseUrl={model.runtimeBaseUrl}
+          onCapabilityUpdated={handleCapabilityUpdated}
         />
         <IssueDetailView
           connection={connection}
-          error={issueDetailState.error}
+          issueDetailError={issueDetailState.error}
           issueDetail={issueDetailState.resource}
-          loading={issueDetailState.loading}
+          issueDetailLoading={issueDetailState.loading}
+          runtimeIssue={runtimeIssueState.resource}
+          workflowObservability={workflowObservabilityState.resource}
+          workflowObservabilityError={workflowObservabilityState.error}
+          workflowObservabilityLoading={workflowObservabilityState.loading}
         />
       </div>
     </ControlPlanePage>

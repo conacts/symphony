@@ -4,7 +4,6 @@ export {
   createMemorySymphonyTracker,
   hasSymphonyLabel,
   isLinearIssueInScope,
-  isSymphonyAutoReworkDisabled,
   isSymphonyProjectAssigned,
   isSymphonyWorkflowDisabled,
   issueBranchName,
@@ -12,8 +11,7 @@ export {
   issueMatchesTerminalState,
   linearScope,
   resolveSymphonyRepositoryLabel,
-  symphonyDisabledLabel,
-  symphonyNoAutoReworkLabel
+  symphonyDisabledLabel
 } from "./symphony-tracker.js";
 export {
   normalizeIssueState,

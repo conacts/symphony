@@ -47,7 +47,8 @@ describe("runtime workspace backend selection", () => {
         "pnpm",
         "python3",
         "psql",
-        "rg"
+        "rg",
+        "symphony-pi-runner"
       ],
       workspacePath: null,
       containerNamePrefix: null,
@@ -87,7 +88,8 @@ describe("runtime workspace backend selection", () => {
         "pnpm",
         "python3",
         "psql",
-        "rg"
+        "rg",
+        "symphony-pi-runner"
       ],
       workspacePath: "/workspace",
       containerNamePrefix: "symphony-test",
@@ -127,7 +129,8 @@ describe("runtime workspace backend selection", () => {
         "pnpm",
         "python3",
         "psql",
-        "rg"
+        "rg",
+        "symphony-pi-runner"
       ],
       workspacePath: "/workspace",
       containerNamePrefix: "symphony-test",
@@ -167,7 +170,8 @@ describe("runtime workspace backend selection", () => {
         "pnpm",
         "python3",
         "psql",
-        "rg"
+        "rg",
+        "symphony-pi-runner"
       ],
       workspacePath: null,
       containerNamePrefix: null,

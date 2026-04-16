@@ -7,7 +7,6 @@ import {
   renderSymphonyRuntimeManifestSource
 } from "@symphony/test-support";
 import {
-  createSymphonyIssueStore,
   initializeSymphonyDb,
   symphonyGitHubInstallationIdentitiesTable,
   symphonyGitHubRepositoryIdentitiesTable,
@@ -19,7 +18,6 @@ import {
   symphonyRepositoryTeamBindingsTable,
   symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
-import type { WorkflowSignal } from "@symphony/router";
 import {
   buildSymphonyTrackerIssue,
   type MemorySymphonyTracker
@@ -30,6 +28,7 @@ import {
 } from "../test-support/create-symphony-runtime-app-services-harness.js";
 import {
   applyRuntimeManifestPiPolicy,
+  buildDockerWorkspaceContainerEnv,
   buildWorkspaceBackendPayload,
   loadDefaultSymphonyRuntimeAppServices
 } from "./runtime-services.js";
@@ -40,7 +39,6 @@ import {
 } from "./runtime-service-bootstrap.js";
 import { resolveDockerWorkspaceAuthContracts } from "./runtime-auth-contract.js";
 import { createSymphonyRuntimeTestHarness } from "../test-support/create-symphony-runtime-test-harness.js";
-import { createRuntimeCurrentFlowRouting } from "./runtime-workflow-presets.js";
 import {
   buildBootstrapInstallLifecycleEvent,
   createRuntimeDbObserverTestSupport
@@ -278,7 +276,7 @@ describe("runtime services", () => {
           workingDirectory: "."
         },
         workflow: {
-          defaultRouterPreset: "current-flow"
+          defaultRouterPreset: "intelligent-flow"
         },
         env: {
           host: {
@@ -309,7 +307,7 @@ describe("runtime services", () => {
       });
 
       expect(bootstrap.workflowPresetSelection).toEqual({
-        presetId: "current-flow",
+        presetId: "intelligent-flow",
         source: "runtime_manifest",
         repositoryKey: "openai/symphony",
         manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
@@ -319,7 +317,7 @@ describe("runtime services", () => {
     }
   });
 
-  it("prefers an explicit bootstrap workflow preset override", async () => {
+  it("records an explicit intelligent-flow bootstrap override", async () => {
     const fixture = await createRuntimeBootstrapFixture({
       runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
         schemaVersion: 1,
@@ -332,7 +330,7 @@ describe("runtime services", () => {
           workingDirectory: "."
         },
         workflow: {
-          defaultRouterPreset: "current-flow"
+          defaultRouterPreset: "intelligent-flow"
         },
         env: {
           host: {
@@ -360,15 +358,65 @@ describe("runtime services", () => {
       const bootstrap = await loadRuntimeServiceBootstrap({
         env: fixture.env,
         environmentSource: fixture.environmentSource,
-        workflowPresetOverride: "auto-merge"
+        workflowPresetOverride: "intelligent-flow"
       });
 
       expect(bootstrap.workflowPresetSelection).toEqual({
-        presetId: "auto-merge",
+        presetId: "intelligent-flow",
         source: "bootstrap_override",
         repositoryKey: "openai/symphony",
         manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
       });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("rejects explicit bootstrap workflow preset overrides that request an invalid preset", async () => {
+    const fixture = await createRuntimeBootstrapFixture({
+      runtimeManifestSource: renderSymphonyRuntimeManifestSource(({
+        schemaVersion: 1,
+        repositoryKey: "openai/symphony",
+        linear: {
+          teamKey: "SYM"
+        },
+        workspace: {
+          packageManager: "pnpm",
+          workingDirectory: "."
+        },
+        workflow: {
+          defaultRouterPreset: "intelligent-flow"
+        },
+        env: {
+          host: {
+            required: [],
+            optional: []
+          },
+          inject: {}
+        },
+        lifecycle: {
+          bootstrap: [],
+          migrate: [],
+          verify: [
+            {
+              name: "verify",
+              run: "pnpm test"
+            }
+          ],
+          seed: [],
+          cleanup: []
+        }
+      }) as never)
+    });
+
+    try {
+      await expect(
+        loadRuntimeServiceBootstrap({
+          env: fixture.env,
+          environmentSource: fixture.environmentSource,
+          workflowPresetOverride: "missing"
+        })
+      ).rejects.toThrow(/invalid workflow preset/i);
     } finally {
       await fixture.cleanup();
     }
@@ -456,7 +504,7 @@ describe("runtime services", () => {
     }
   });
 
-  it("forwards explicit bootstrap repository and preset overrides through full service loading", async () => {
+  it("forwards explicit bootstrap repository selection while preserving intelligent-flow live routing", async () => {
     const fixture = await createRuntimeBootstrapFixture();
 
     const explicitRepositorySource: SymphonyRuntimeBootstrapRepositorySource = {
@@ -493,7 +541,7 @@ describe("runtime services", () => {
           startMachineLoadMonitor: false,
           enableDockerPreflight: false,
           repositorySource: explicitRepositorySource,
-          workflowPresetOverride: "auto-merge"
+          workflowPresetOverride: "intelligent-flow"
         }
       );
 
@@ -504,7 +552,7 @@ describe("runtime services", () => {
         manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts"),
         bindingScope: null,
         presetSelection: {
-          presetId: "auto-merge",
+          presetId: "intelligent-flow",
           source: "bootstrap_override",
           repositoryKey: "openai/symphony",
           manifestPath: path.join(fixture.env.sourceRepo!, ".symphony", "runtime.ts")
@@ -594,6 +642,7 @@ describe("runtime services", () => {
         expect(bootstrap.runtimePolicy.agent.harness).toBe("pi");
         expect(bootstrap.runtimePolicy.agentRuntime.command).toBe("pi");
         expect(bootstrap.runtimePolicy.agentRuntime.readTimeoutMs).toBe(120_000);
+        expect(bootstrap.runtimePolicy.pi.readTimeoutMs).toBe(30_000);
         expect(bootstrap.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
         expect(bootstrap.runtimePolicy.pi.defaultModel).toBe(
           "xiaomi/mimo-v2-pro"
@@ -876,7 +925,7 @@ describe("runtime services", () => {
           workingDirectory: "."
         },
         workflow: {
-          defaultRouterPreset: "current-flow"
+          defaultRouterPreset: "intelligent-flow"
         },
         pi: {
           defaultPreset: "basic",
@@ -1002,6 +1051,42 @@ describe("runtime services", () => {
         dockerPiProviderEnvMounted: true
       })
     );
+  });
+
+  it("builds workspace container envs with provider env injection", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-pi-env-"));
+    tempDirectories.push(root);
+    const home = path.join(root, "home");
+    await mkdir(path.join(home, ".pi", "agent"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(home, ".pi", "agent", "auth.json"),
+      '{"ok":true}\n'
+    );
+
+    const dockerAuth = resolveDockerWorkspaceAuthContracts(
+      {
+        HOME: home,
+        OPENROUTER_API_KEY: "test-openrouter-api-key"
+      },
+      {
+        preferredApiKeyEnvKey: "OPENROUTER_API_KEY"
+      }
+    );
+
+    expect(
+      buildDockerWorkspaceContainerEnv({
+        dockerGitHubCliAuth: dockerAuth.githubCli,
+        dockerLinearLaunchEnv: {
+          LINEAR_API_KEY: "test-linear-api-key"
+        },
+        dockerPiAuth: dockerAuth.pi
+      })
+    ).toEqual({
+      OPENROUTER_API_KEY: "test-openrouter-api-key",
+      LINEAR_API_KEY: "test-linear-api-key"
+    });
   });
 
   it("builds workspace backend payloads that prefer GH_TOKEN env injection", () => {
@@ -1152,7 +1237,17 @@ describe("runtime services", () => {
         const issue = buildSymphonyTrackerIssue({
           id: "issue-restart-review",
           identifier: "SYM-RESTART",
-          state: "In Review"
+          state: "Bootstrapping",
+          description: [
+            "## Objective",
+            "Keep the issue in the live intelligent-flow bootstrapping shell.",
+            "",
+            "## Done Definition",
+            "- The workflow remains bootstrapping until a run starts.",
+            "",
+            "## Merge Policy",
+            "manual"
+          ].join("\n")
         });
         const tracker = harness.services.tracker as MemorySymphonyTracker;
         tracker.setIssues([issue]);
@@ -1164,8 +1259,8 @@ describe("runtime services", () => {
         expect(firstObservation).toEqual(
           expect.objectContaining({
             issueIdentifier: issue.identifier,
-            observedTrackerState: "In Review",
-            workflowTrackerState: "In Review",
+            observedTrackerState: "Bootstrapping",
+            workflowTrackerState: "Failed",
             observed: true,
             recordedAt: expect.any(String)
           })
@@ -1184,7 +1279,12 @@ describe("runtime services", () => {
           }
         );
         const restartedTracker = restartedServices.tracker as MemorySymphonyTracker;
-        restartedTracker.setIssues([issue]);
+        restartedTracker.setIssues([
+          {
+            ...issue,
+            state: "Failed"
+          }
+        ]);
 
         const secondObservation =
           await restartedServices.trackerStateIngress.observeNonRunningIssue({
@@ -1193,8 +1293,8 @@ describe("runtime services", () => {
         expect(secondObservation).toEqual(
           expect.objectContaining({
             issueIdentifier: issue.identifier,
-            observedTrackerState: "In Review",
-            workflowTrackerState: "In Review",
+            observedTrackerState: "Failed",
+            workflowTrackerState: "Failed",
             observed: false,
             recordedAt: expect.any(String)
           })
@@ -1214,99 +1314,6 @@ describe("runtime services", () => {
     runtimeServicesIntegrationTestTimeoutMs
   );
 
-  it(
-    "exposes workflow comparison through runtime services",
-    async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness();
-      harnesses.push(harness);
-
-      try {
-        const repositoryKey = harness.services.runtimePolicy.github.repo;
-        if (!repositoryKey) {
-          throw new TypeError(
-            "Runtime workflow comparison service test requires runtimePolicy.github.repo."
-          );
-        }
-
-        const issue = buildSymphonyTrackerIssue({
-          id: "issue-compare-flow",
-          identifier: "SYM-COMPARE",
-          state: "Todo"
-        });
-        const tracker = harness.services.tracker as MemorySymphonyTracker;
-        tracker.setIssues([issue]);
-
-        await seedCurrentFlowWorkflowHistory({
-          services: harness.services,
-          trackerConfig: harness.services.runtimePolicy.tracker,
-          repositoryKey,
-          issueIdentifier: issue.identifier,
-          trackerIssueId: issue.id,
-          dbFile: harness.env.dbFile,
-          createdAt: "2026-04-11T12:00:00.000Z",
-          signals: [
-            {
-              id: "signal_todo_observed",
-              signal: (routing) =>
-                routing.module.runtimeAdapter.createTrackerStateObservedSignal({
-                  id: "signal_todo_observed",
-                  occurredAt: "2026-04-11T12:01:00.000Z",
-                  trackerState: "Todo",
-                  runId: null,
-                  runMode: null,
-                  causationId: null,
-                  correlationId: null
-                })
-            },
-            {
-              id: "signal_implementation_started",
-              signal: (routing) =>
-                routing.module.runtimeAdapter.createRunStartedSignal({
-                  id: "signal_implementation_started",
-                  occurredAt: "2026-04-11T12:01:10.000Z",
-                  runId: "run-compare-1",
-                  runMode: "implementation",
-                  causationId: null,
-                  correlationId: null
-                })
-            },
-            {
-              id: "signal_delivery_completed",
-              signal: (routing) =>
-                routing.module.runtimeAdapter.createDeliveryReportedSignal({
-                  id: "signal_delivery_completed",
-                  occurredAt: "2026-04-11T12:01:20.000Z",
-                  runId: "run-compare-1",
-                  status: "completed",
-                  causationId: null,
-                  correlationId: null
-                })
-            }
-          ]
-        });
-
-        const comparison =
-          await harness.services.workflowComparison.compareByIssueIdentifier({
-            issueIdentifier: issue.identifier,
-            presetIds: ["current-flow", "auto-merge"]
-          });
-
-        expect(comparison?.replay.workflow.issueIdentifier).toBe(issue.identifier);
-        expect(comparison?.comparedPresetIds).toEqual([
-          "current-flow",
-          "auto-merge"
-        ]);
-        expect(comparison?.comparison.summary.diverged).toBe(true);
-        expect(comparison?.comparison.summary.finalNodeByCandidate).toEqual({
-          "current-flow": "review",
-          "auto-merge": "approved_merge"
-        });
-      } finally {
-        await harness.cleanup();
-      }
-    },
-    runtimeServicesIntegrationTestTimeoutMs
-  );
 });
 
 async function waitFor(
@@ -1400,10 +1407,6 @@ async function createRuntimeBootstrapFixture(input: {
     SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
     SYMPHONY_POLL_INTERVAL_MS: "50",
     SYMPHONY_GITHUB_REPOSITORY: "openai/symphony",
-    SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
-    SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer",
     ...input.environmentSource
   };
 
@@ -1417,72 +1420,6 @@ async function createRuntimeBootstrapFixture(input: {
       });
     }
   };
-}
-
-async function seedCurrentFlowWorkflowHistory(input: {
-  services: Awaited<ReturnType<typeof loadDefaultSymphonyRuntimeAppServices>>;
-  trackerConfig: SymphonyRuntimeAppServicesHarness["services"]["runtimePolicy"]["tracker"];
-  repositoryKey: string;
-  issueIdentifier: string;
-  trackerIssueId: string;
-  dbFile: string;
-  createdAt: string;
-  signals: Array<{
-    id: string;
-    signal(
-      routing: Awaited<ReturnType<typeof createRuntimeCurrentFlowRouting>>
-    ): WorkflowSignal;
-  }>;
-}): Promise<void> {
-  const routing = await createRuntimeCurrentFlowRouting({
-    trackerConfig: input.trackerConfig,
-    now: () => new Date(input.createdAt)
-  });
-  const database = initializeSymphonyDb({
-    dbFile: input.dbFile
-  });
-
-  try {
-    const issueStore = createSymphonyIssueStore(database.db);
-    await issueStore.upsert({
-      issueIdentifier: input.issueIdentifier,
-      trackerIssueId: input.trackerIssueId,
-      repositoryKey: input.repositoryKey,
-      latestRunStartedAt: null,
-      recordedAt: "2026-04-09T23:59:00.000Z"
-    });
-
-    await input.services.routeWorkflows.ensureWorkflowForIssue({
-      trackerIssueId: input.trackerIssueId,
-      issueIdentifier: input.issueIdentifier,
-      repositoryKey: input.repositoryKey,
-      routerPresetId: routing.presetId,
-      router: routing.router,
-      createdAt: input.createdAt
-    });
-
-    for (const entry of input.signals) {
-      const resumed =
-        await input.services.routeWorkflows.resumeSessionByIssueIdentifier({
-          issueIdentifier: input.issueIdentifier,
-          router: routing.router,
-          policy: routing.policy
-        });
-      if (!resumed) {
-        throw new TypeError(
-          `Route workflow could not be resumed for ${input.issueIdentifier} while recording ${entry.id}.`
-        );
-      }
-
-      await input.services.routeWorkflows.recordRouteResult({
-        workflowId: resumed.hydrationState.workflow.workflowId,
-        policy: routing.policy,
-        result: await resumed.session.receiveAsync(entry.signal(routing))
-      });
-    }
-  } finally {
-    database.close();
-  }
 }
 
 async function createMultiRepoRuntimeBootstrapFixture(): Promise<{
@@ -1557,11 +1494,7 @@ async function createMultiRepoRuntimeBootstrapFixture(): Promise<{
     SYMPHONY_LINEAR_TEAM_KEY: "COL",
     SYMPHONY_WORKSPACE_ROOT: workspaceRoot,
     SYMPHONY_POLL_INTERVAL_MS: "50",
-    SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2",
-    SYMPHONY_GITHUB_WEBHOOK_SECRET: "secret",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_LOGINS: "reviewer",
-    SYMPHONY_GITHUB_ALLOWED_REVIEW_COMMENT_LOGINS: "",
-    SYMPHONY_GITHUB_ALLOWED_REWORK_LOGINS: "reviewer"
+    SYMPHONY_GITHUB_REPOSITORY: "conacts/coldets-v2"
   };
 
   return {
@@ -1725,7 +1658,7 @@ function buildRuntimeManifest(input: {
       workingDirectory: "."
     },
     workflow: {
-      defaultRouterPreset: "current-flow"
+      defaultRouterPreset: "intelligent-flow"
     },
     pi: {
       defaultPreset: input.defaultPreset,

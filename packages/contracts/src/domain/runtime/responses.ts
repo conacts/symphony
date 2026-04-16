@@ -440,43 +440,201 @@ export const symphonyRuntimeWorkflowComparisonSignalSchema = z.strictObject({
   payload: jsonValueSchema
 });
 
-export const symphonyRuntimeWorkflowComparisonCandidateSchema = z.strictObject({
-  candidateId: nonEmptyStringSchema,
-  finalNode: nullableNonEmptyStringSchema,
-  terminal: z.boolean(),
-  pendingCommandCount: z.number().int().nonnegative(),
-  reasonCodes: z.array(nonEmptyStringSchema)
+export const symphonyRuntimeWorkflowDescriptorSchema = z.strictObject({
+  workflowId: nonEmptyStringSchema,
+  trackerIssueId: nonEmptyStringSchema,
+  repositoryKey: nonEmptyStringSchema,
+  issueIdentifier: nonEmptyStringSchema,
+  bindingScope: symphonyRuntimeBindingScopeSchema.nullable(),
+  routerPresetId: nonEmptyStringSchema,
+  routerName: nonEmptyStringSchema,
+  routerVersion: nonEmptyStringSchema,
+  archivedAt: isoTimestampSchema.nullable(),
+  insertedAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema
 });
 
-export const symphonyRuntimeWorkflowComparisonSummarySchema = z.strictObject({
-  diverged: z.boolean(),
-  finalNodeByCandidate: z.record(nonEmptyStringSchema, nullableNonEmptyStringSchema),
-  reasonCodesByCandidate: z.record(nonEmptyStringSchema, z.array(nonEmptyStringSchema)),
-  pendingCommandCountsByCandidate: z.record(
-    nonEmptyStringSchema,
-    z.number().int().nonnegative()
+export const symphonyRuntimeWorkflowSnapshotSchema = z.strictObject({
+  eventSequence: z.number().int().nonnegative(),
+  currentNode: nullableNonEmptyStringSchema,
+  terminal: z.boolean(),
+  lastSignalId: nullableNonEmptyStringSchema,
+  lastDecisionId: nullableNonEmptyStringSchema,
+  pendingCommandCount: z.number().int().nonnegative(),
+  projection: jsonValueSchema
+});
+
+export const symphonyRuntimeWorkflowReplaySummarySchema = z.strictObject({
+  recordedEventCount: z.number().int().nonnegative(),
+  recordedSignalCount: z.number().int().nonnegative(),
+  recordedDecisionCount: z.number().int().nonnegative(),
+  recordedCommandCount: z.number().int().nonnegative(),
+  settledCommandCount: z.number().int().nonnegative(),
+  signals: z.array(symphonyRuntimeWorkflowComparisonSignalSchema)
+});
+
+export const symphonyRuntimeWorkflowHistoryEventSchema = z.strictObject({
+  eventId: nonEmptyStringSchema,
+  eventSequence: z.number().int().nonnegative(),
+  kind: z.enum([
+    "signal_recorded",
+    "decision_recorded",
+    "command_emitted",
+    "command_settled"
+  ]),
+  recordedAt: isoTimestampSchema,
+  signalId: nullableNonEmptyStringSchema,
+  signalType: nullableNonEmptyStringSchema,
+  signalSource: symphonyRuntimeWorkflowSignalSourceSchema.nullable(),
+  decisionId: nullableNonEmptyStringSchema,
+  commandId: nullableNonEmptyStringSchema,
+  fromNode: nullableNonEmptyStringSchema,
+  toNode: nullableNonEmptyStringSchema,
+  edgeId: nullableNonEmptyStringSchema,
+  reasonCode: nullableNonEmptyStringSchema,
+  event: jsonValueSchema
+});
+
+export const symphonyRuntimeWorkflowDecisionCommandSettlementSchema = z.strictObject({
+  eventId: nonEmptyStringSchema,
+  eventSequence: z.number().int().nonnegative(),
+  recordedAt: isoTimestampSchema,
+  status: z.enum(["succeeded", "failed"]),
+  payload: jsonValueSchema
+});
+
+export const symphonyRuntimeWorkflowDecisionCommandSchema = z.strictObject({
+  commandId: nonEmptyStringSchema,
+  kind: nonEmptyStringSchema,
+  dedupeKey: nullableNonEmptyStringSchema,
+  payload: jsonValueSchema,
+  settled: symphonyRuntimeWorkflowDecisionCommandSettlementSchema.nullable()
+});
+
+export const symphonyRuntimeWorkflowDecisionSchema = z.strictObject({
+  decisionId: nonEmptyStringSchema,
+  eventSequence: z.number().int().nonnegative(),
+  signalId: nonEmptyStringSchema,
+  fromNode: nullableNonEmptyStringSchema,
+  toNode: nullableNonEmptyStringSchema,
+  edgeId: nullableNonEmptyStringSchema,
+  reasonCode: nonEmptyStringSchema,
+  policy: jsonValueSchema,
+  projectionBefore: jsonValueSchema,
+  projectionAfter: jsonValueSchema,
+  commands: z.array(symphonyRuntimeWorkflowDecisionCommandSchema),
+  trace: z.array(jsonValueSchema),
+  selectionMetadata: jsonValueSchema.nullable(),
+  recordedAt: isoTimestampSchema,
+  insertedAt: isoTimestampSchema
+});
+
+export const symphonyRuntimeWorkflowModuleSchema = z.strictObject({
+  moduleId: nonEmptyStringSchema,
+  phase: nonEmptyStringSchema,
+  executionKind: z.enum(["agent", "system"]),
+  summary: nonEmptyStringSchema,
+  description: nonEmptyStringSchema,
+  enabledByDefault: z.boolean(),
+  runtimeSupported: z.boolean(),
+  supportedModelProfileIds: z.array(nonEmptyStringSchema),
+  producesEvidenceIds: z.array(nonEmptyStringSchema),
+  requiresEvidenceIds: z.array(nonEmptyStringSchema)
+});
+
+export const symphonyRuntimeWorkflowRouterDecisionCandidateSchema = z.strictObject({
+  module: symphonyRuntimeWorkflowModuleSchema,
+  rank: z.number().int().nonnegative().nullable(),
+  reasonCode: nonEmptyStringSchema,
+  summary: nonEmptyStringSchema,
+  selected: z.boolean()
+});
+
+export const symphonyRuntimeWorkflowRouterDecisionSummarySchema = z.strictObject({
+  decisionId: nonEmptyStringSchema,
+  recordedAt: isoTimestampSchema,
+  policyId: nonEmptyStringSchema,
+  reasonCode: nonEmptyStringSchema,
+  selectionMode: nonEmptyStringSchema,
+  selectionSummary: nonEmptyStringSchema,
+  selectionRationale: nonEmptyStringSchema,
+  confidence: z.number().min(0).max(1).nullable(),
+  fallbackReason: nullableNonEmptyStringSchema,
+  selectedModule: symphonyRuntimeWorkflowModuleSchema,
+  admissibleCandidates: z.array(
+    symphonyRuntimeWorkflowRouterDecisionCandidateSchema
+  ),
+  rejectedCandidates: z.array(
+    symphonyRuntimeWorkflowRouterDecisionCandidateSchema
   )
 });
 
-export const symphonyRuntimeWorkflowComparisonResultSchema = z.strictObject({
-  workflow: z.strictObject({
-    workflowId: nonEmptyStringSchema,
-    repositoryKey: nonEmptyStringSchema,
-    issueIdentifier: nonEmptyStringSchema,
-    routerPresetId: nonEmptyStringSchema,
-    routerName: nonEmptyStringSchema,
-    routerVersion: nonEmptyStringSchema,
-    insertedAt: isoTimestampSchema,
-    updatedAt: isoTimestampSchema
-  }),
-  replay: z.strictObject({
-    recordedEventCount: z.number().int().nonnegative(),
-    recordedSignalCount: z.number().int().nonnegative(),
-    signals: z.array(symphonyRuntimeWorkflowComparisonSignalSchema)
-  }),
-  comparedPresetIds: z.array(nonEmptyStringSchema).nonempty(),
-  entries: z.array(symphonyRuntimeWorkflowComparisonCandidateSchema).nonempty(),
-  summary: symphonyRuntimeWorkflowComparisonSummarySchema
+export const symphonyRuntimeWorkflowModuleDecisionSchema = z.strictObject({
+  decisionId: nonEmptyStringSchema,
+  recordedAt: isoTimestampSchema,
+  reasonCode: nonEmptyStringSchema,
+  selectionMode: nullableNonEmptyStringSchema,
+  selectionSummary: nullableNonEmptyStringSchema,
+  selectionRationale: nullableNonEmptyStringSchema
+});
+
+export const symphonyRuntimeWorkflowEvidenceArtifactSchema = z.strictObject({
+  label: nonEmptyStringSchema,
+  uri: nullableNonEmptyStringSchema
+});
+
+export const symphonyRuntimeWorkflowEvidenceRecordSchema = z.strictObject({
+  evidenceId: nonEmptyStringSchema,
+  summary: nonEmptyStringSchema,
+  artifacts: z.array(symphonyRuntimeWorkflowEvidenceArtifactSchema)
+});
+
+export const symphonyRuntimeWorkflowModuleObservationStateSchema = z.enum([
+  "selected",
+  "started",
+  "clarification_requested",
+  "completed",
+  "changes_requested",
+  "failed",
+  "blocked"
+]);
+
+export const symphonyRuntimeWorkflowModuleObservationSchema = z.strictObject({
+  executionId: nullableNonEmptyStringSchema,
+  module: symphonyRuntimeWorkflowModuleSchema,
+  workEpoch: z.number().int().positive(),
+  attempt: z.number().int().positive().nullable(),
+  state: symphonyRuntimeWorkflowModuleObservationStateSchema,
+  summary: nonEmptyStringSchema,
+  modelProfileId: nullableNonEmptyStringSchema,
+  selectedAt: isoTimestampSchema,
+  startedAt: isoTimestampSchema.nullable(),
+  completedAt: isoTimestampSchema.nullable(),
+  retryable: z.boolean().nullable(),
+  reasonCode: nullableNonEmptyStringSchema,
+  failureKind: nullableNonEmptyStringSchema,
+  evidenceProduced: z.array(symphonyRuntimeWorkflowEvidenceRecordSchema),
+  decision: symphonyRuntimeWorkflowModuleDecisionSchema.nullable()
+});
+
+export const symphonyRuntimeWorkflowObservabilityResultSchema = z.strictObject({
+  workflow: symphonyRuntimeWorkflowDescriptorSchema,
+  trackerState: nullableNonEmptyStringSchema,
+  capability: z.lazy(() => symphonyRuntimeIssueCapabilityStateSchema).nullable(),
+  pendingClarification: z
+    .lazy(() => symphonyRuntimeIssuePendingClarificationSchema)
+    .nullable(),
+  snapshot: symphonyRuntimeWorkflowSnapshotSchema.nullable(),
+  replay: symphonyRuntimeWorkflowReplaySummarySchema,
+  routerDecision: symphonyRuntimeWorkflowRouterDecisionSummarySchema.nullable(),
+  currentModule: symphonyRuntimeWorkflowModuleObservationSchema.nullable(),
+  recentModuleRuns: z.array(symphonyRuntimeWorkflowModuleObservationSchema),
+  history: z.array(symphonyRuntimeWorkflowHistoryEventSchema),
+  decisions: z.array(symphonyRuntimeWorkflowDecisionSchema),
+  filters: z.strictObject({
+    historyLimit: z.number().int().positive().nullable(),
+    decisionLimit: z.number().int().positive().nullable()
+  })
 });
 
 export const symphonyRuntimeTrackedIssueSchema = z.strictObject({
@@ -492,18 +650,82 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
   refreshPath: nonEmptyStringSchema,
   refreshDelegatesTo: z.tuple([z.literal("poll"), z.literal("reconcile")]),
   githubPullRequestSearchUrl: z.string().url().nullable(),
-  requeueDelegatesTo: z
-    .array(z.enum(["linear", "github_rework_comment"]))
-    .nonempty(),
-  requeueCommand: nonEmptyStringSchema,
-  requeueHelpText: nonEmptyStringSchema,
   pi: z.strictObject({
     defaultModel: nullableNonEmptyStringSchema,
     selectedModel: nullableNonEmptyStringSchema,
     availableModels: z.array(nonEmptyStringSchema),
-    modelOverrideLabelPrefix: nonEmptyStringSchema,
-    selectionHelpText: nonEmptyStringSchema
-  })
+        modelOverrideLabelPrefix: nonEmptyStringSchema,
+        selectionHelpText: nonEmptyStringSchema
+      })
+});
+
+const symphonyRuntimeIssueClarificationQuestionSchema = z.strictObject({
+  id: nonEmptyStringSchema,
+  prompt: nonEmptyStringSchema,
+  context: nullableNonEmptyStringSchema
+});
+
+const symphonyRuntimeIssuePendingClarificationSchema = z.discriminatedUnion(
+  "kind",
+  [
+    z.strictObject({
+      kind: z.literal("contract_intake"),
+      requestId: nonEmptyStringSchema,
+      raisedByCapabilityId: z.null(),
+      workEpoch: z.null(),
+      summary: nonEmptyStringSchema,
+      nextAction: nonEmptyStringSchema,
+      questions: z.array(symphonyRuntimeIssueClarificationQuestionSchema).min(1),
+      answerPath: z.null()
+    }),
+    z.strictObject({
+      kind: z.literal("capability"),
+      requestId: nonEmptyStringSchema,
+      raisedByCapabilityId: nonEmptyStringSchema,
+      workEpoch: z.number().int().positive(),
+      summary: nonEmptyStringSchema,
+      nextAction: nonEmptyStringSchema,
+      questions: z.array(symphonyRuntimeIssueClarificationQuestionSchema).min(1),
+      answerPath: nonEmptyStringSchema
+    })
+  ]
+);
+
+const symphonyRuntimeIssueCapabilityCompletionSchema = z.strictObject({
+  workEpoch: z.number().int().positive(),
+  result: z.literal("ready_for_completion"),
+  satisfiedCapabilityIds: z.array(nonEmptyStringSchema),
+  missingCapabilityIds: z.array(nonEmptyStringSchema),
+  satisfiedEvidenceIds: z.array(nonEmptyStringSchema),
+  missingEvidenceIds: z.array(nonEmptyStringSchema),
+  reasons: z.array(nonEmptyStringSchema)
+});
+
+export const symphonyRuntimeIssueCapabilityStateSchema = z.strictObject({
+  workflowId: nonEmptyStringSchema,
+  contractId: nonEmptyStringSchema,
+  policyId: nonEmptyStringSchema,
+  planKind: z.enum([
+    "execute",
+    "awaiting_input",
+    "blocked",
+    "ready_for_completion"
+  ]),
+  summary: nonEmptyStringSchema,
+  decidedAt: isoTimestampSchema,
+  capabilityId: nullableNonEmptyStringSchema,
+  modelProfileId: nullableNonEmptyStringSchema,
+  workEpoch: z.number().int().positive().nullable(),
+  pendingClarification: symphonyRuntimeIssuePendingClarificationSchema.nullable(),
+  completion: symphonyRuntimeIssueCapabilityCompletionSchema.nullable()
+});
+
+export const symphonyRuntimeClarificationAnswerResultSchema = z.strictObject({
+  issueIdentifier: nonEmptyStringSchema,
+  workflowId: nonEmptyStringSchema,
+  requestId: nonEmptyStringSchema,
+  answeredAt: isoTimestampSchema,
+  capability: symphonyRuntimeIssueCapabilityStateSchema
 });
 
 export const symphonyRuntimeIssueResultSchema = z.strictObject({
@@ -516,7 +738,10 @@ export const symphonyRuntimeIssueResultSchema = z.strictObject({
   retry: symphonyRuntimeIssueRetryStateSchema.nullable(),
   lastError: nullableNonEmptyStringSchema,
   tracked: symphonyRuntimeTrackedIssueSchema,
-  operator: symphonyRuntimeIssueOperatorSchema
+  operator: symphonyRuntimeIssueOperatorSchema.extend({
+    pendingClarification: symphonyRuntimeIssuePendingClarificationSchema.nullable(),
+    capability: symphonyRuntimeIssueCapabilityStateSchema.nullable()
+  })
 });
 
 export const symphonyRuntimeRefreshResultSchema = z.strictObject({
@@ -589,11 +814,14 @@ export const symphonyRuntimeIssueResponseSchema = createEnvelopeSchema(
 export const symphonyRuntimeRefreshResponseSchema = createEnvelopeSchema(
   symphonyRuntimeRefreshResultSchema
 );
+export const symphonyRuntimeClarificationAnswerResponseSchema = createEnvelopeSchema(
+  symphonyRuntimeClarificationAnswerResultSchema
+);
 export const symphonyRuntimeTrackerStateObservationResponseSchema = createEnvelopeSchema(
   symphonyRuntimeTrackerStateObservationResultSchema
 );
-export const symphonyRuntimeWorkflowComparisonResponseSchema = createEnvelopeSchema(
-  symphonyRuntimeWorkflowComparisonResultSchema
+export const symphonyRuntimeWorkflowObservabilityResponseSchema = createEnvelopeSchema(
+  symphonyRuntimeWorkflowObservabilityResultSchema
 );
 export const symphonyRuntimeLogsResponseSchema = createEnvelopeSchema(
   symphonyRuntimeLogsResultSchema
@@ -694,8 +922,23 @@ export type SymphonyRuntimeLaunchTarget = z.infer<
 >;
 export type SymphonyRuntimeTrackedIssue = z.infer<typeof symphonyRuntimeTrackedIssueSchema>;
 export type SymphonyRuntimeIssueOperator = z.infer<typeof symphonyRuntimeIssueOperatorSchema>;
+export type SymphonyRuntimeIssueClarificationQuestion = z.infer<
+  typeof symphonyRuntimeIssueClarificationQuestionSchema
+>;
+export type SymphonyRuntimeIssuePendingClarification = z.infer<
+  typeof symphonyRuntimeIssuePendingClarificationSchema
+>;
+export type SymphonyRuntimeIssueCapabilityCompletion = z.infer<
+  typeof symphonyRuntimeIssueCapabilityCompletionSchema
+>;
+export type SymphonyRuntimeIssueCapabilityState = z.infer<
+  typeof symphonyRuntimeIssueCapabilityStateSchema
+>;
 export type SymphonyRuntimeIssueResult = z.infer<typeof symphonyRuntimeIssueResultSchema>;
 export type SymphonyRuntimeRefreshResult = z.infer<typeof symphonyRuntimeRefreshResultSchema>;
+export type SymphonyRuntimeClarificationAnswerResult = z.infer<
+  typeof symphonyRuntimeClarificationAnswerResultSchema
+>;
 export type SymphonyRuntimeTrackerStateObservationDisposition = z.infer<
   typeof symphonyRuntimeTrackerStateObservationDispositionSchema
 >;
@@ -705,14 +948,53 @@ export type SymphonyRuntimeTrackerStateObservationResult = z.infer<
 export type SymphonyRuntimeWorkflowComparisonSignal = z.infer<
   typeof symphonyRuntimeWorkflowComparisonSignalSchema
 >;
-export type SymphonyRuntimeWorkflowComparisonCandidate = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonCandidateSchema
+export type SymphonyRuntimeWorkflowDescriptor = z.infer<
+  typeof symphonyRuntimeWorkflowDescriptorSchema
 >;
-export type SymphonyRuntimeWorkflowComparisonSummary = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonSummarySchema
+export type SymphonyRuntimeWorkflowSnapshot = z.infer<
+  typeof symphonyRuntimeWorkflowSnapshotSchema
 >;
-export type SymphonyRuntimeWorkflowComparisonResult = z.infer<
-  typeof symphonyRuntimeWorkflowComparisonResultSchema
+export type SymphonyRuntimeWorkflowReplaySummary = z.infer<
+  typeof symphonyRuntimeWorkflowReplaySummarySchema
+>;
+export type SymphonyRuntimeWorkflowHistoryEvent = z.infer<
+  typeof symphonyRuntimeWorkflowHistoryEventSchema
+>;
+export type SymphonyRuntimeWorkflowDecisionCommandSettlement = z.infer<
+  typeof symphonyRuntimeWorkflowDecisionCommandSettlementSchema
+>;
+export type SymphonyRuntimeWorkflowDecisionCommand = z.infer<
+  typeof symphonyRuntimeWorkflowDecisionCommandSchema
+>;
+export type SymphonyRuntimeWorkflowDecision = z.infer<
+  typeof symphonyRuntimeWorkflowDecisionSchema
+>;
+export type SymphonyRuntimeWorkflowModule = z.infer<
+  typeof symphonyRuntimeWorkflowModuleSchema
+>;
+export type SymphonyRuntimeWorkflowRouterDecisionCandidate = z.infer<
+  typeof symphonyRuntimeWorkflowRouterDecisionCandidateSchema
+>;
+export type SymphonyRuntimeWorkflowRouterDecisionSummary = z.infer<
+  typeof symphonyRuntimeWorkflowRouterDecisionSummarySchema
+>;
+export type SymphonyRuntimeWorkflowModuleDecision = z.infer<
+  typeof symphonyRuntimeWorkflowModuleDecisionSchema
+>;
+export type SymphonyRuntimeWorkflowEvidenceArtifact = z.infer<
+  typeof symphonyRuntimeWorkflowEvidenceArtifactSchema
+>;
+export type SymphonyRuntimeWorkflowEvidenceRecord = z.infer<
+  typeof symphonyRuntimeWorkflowEvidenceRecordSchema
+>;
+export type SymphonyRuntimeWorkflowModuleObservationState = z.infer<
+  typeof symphonyRuntimeWorkflowModuleObservationStateSchema
+>;
+export type SymphonyRuntimeWorkflowModuleObservation = z.infer<
+  typeof symphonyRuntimeWorkflowModuleObservationSchema
+>;
+export type SymphonyRuntimeWorkflowObservabilityResult = z.infer<
+  typeof symphonyRuntimeWorkflowObservabilityResultSchema
 >;
 export type SymphonyRuntimeLogEntry = z.infer<typeof symphonyRuntimeLogEntrySchema>;
 export type SymphonyRuntimeLogsResult = z.infer<typeof symphonyRuntimeLogsResultSchema>;

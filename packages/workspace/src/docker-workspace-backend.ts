@@ -21,7 +21,6 @@ import {
   dockerCommandError,
   dockerEnvFlags,
   dockerLabelFlags,
-  dockerUserFlags,
   requireHostUserSpec,
   isDockerMissingObject,
   resolveDockerTimeoutMs,
@@ -42,6 +41,10 @@ import {
   ensureMaterializedWorkspace,
   removeMaterializedWorkspace
 } from "./docker-materialization.js";
+import {
+  createDockerWorkspaceSessionManager,
+  type DockerContainerWorkspaceSession
+} from "./session/session-manager.js";
 import {
   buildManagedContainerLabels,
   bindMaterializationKind,
@@ -139,6 +142,9 @@ export function createDockerWorkspaceBackend(
   const runtimeManifest = options.runtimeManifest ?? null;
   const sharedPostgres = options.sharedPostgres ?? null;
   const commandRunner = options.commandRunner ?? defaultDockerWorkspaceCommandRunner;
+  const sessionManager = createDockerWorkspaceSessionManager({
+    commandRunner
+  });
   const configuredCommandTimeoutMs = options.commandTimeoutMs ?? null;
   const runtimeDbSnapshotPath = normalizeNonEmptyString(options.runtimeDbSnapshotPath ?? undefined);
 
@@ -210,25 +216,41 @@ export function createDockerWorkspaceBackend(
         timeoutMs,
         containerUser: execUser
       });
+      const workspaceSession = sessionManager.openContainerSession({
+        containerName: descriptor.containerName,
+        workspacePath,
+        shell,
+        user: execUser
+      });
+      if (descriptor.materialization.kind === "volume") {
+        await ensureVolumeWorkspaceOwnership({
+          commandRunner,
+          containerName: descriptor.containerName,
+          workspacePath,
+          shell,
+          containerUser: execUser,
+          timeoutMs
+        });
+      }
       // Copy runtime DB snapshot into volume-backed workspace
       if (runtimeDbSnapshotPath && descriptor.materialization.kind === "volume") {
         runtimeDbSnapshotContainerPath = await copyRuntimeDbSnapshotToVolumeWorkspace({
           sourceDbPath: runtimeDbSnapshotPath,
-          containerName: descriptor.containerName,
+          workspaceSession,
           workspacePath,
           commandRunner,
+          containerName: descriptor.containerName,
+          shell,
+          containerUser: execUser,
           timeoutMs,
           lifecycleRecorder: input.lifecycleRecorder
         });
       }
       await hydrateWorkspaceFromMountedSourceRepo({
         sourceRepoPath,
-        commandRunner,
         timeoutMs,
-        shell,
-        containerName: descriptor.containerName,
+        workspaceSession,
         workspacePath,
-        user: execUser,
         issueIdentifier: input.context.issueIdentifier,
         branchName:
           normalizeNonEmptyString(input.context.branchName ?? undefined) ?? null,
@@ -287,12 +309,10 @@ export function createDockerWorkspaceBackend(
               containerId: container.container.id,
               created,
               workspacePath,
-              shell,
-              execUser,
+              workspaceSession,
               env: envBundle.values,
               services: services.summaries,
               statePath: manifestLifecycleStatePath,
-              commandRunner,
               defaultTimeoutMs: timeoutMs,
               lifecycleRecorder: input.lifecycleRecorder
             })
@@ -458,18 +478,23 @@ export function createDockerWorkspaceBackend(
         }
 
         if (!preserveWorkspace && runtimeManifest) {
+          const cleanupWorkspaceSession = sessionManager.openContainerSession({
+            containerName: descriptor.containerName,
+            workspacePath: cleanupWorkspacePath,
+            shell,
+            user:
+              input.workspace?.executionTarget.kind === "container"
+                ? input.workspace.executionTarget.user
+                : requireHostUserSpec()
+          });
           manifestLifecycleCleanup = await runDockerCleanupManifestLifecycle({
             runtimeManifest,
             descriptor,
             containerName: descriptor.containerName,
             containerId: container.id,
             workspacePath: cleanupWorkspacePath,
-            shell,
             running: container.running,
-            execUser:
-              input.workspace?.executionTarget.kind === "container"
-                ? input.workspace.executionTarget.user
-                : requireHostUserSpec(),
+            workspaceSession: cleanupWorkspaceSession,
             env:
               input.workspace?.envBundle.values ??
               resolveDockerWorkspaceEnvBundle({
@@ -482,7 +507,6 @@ export function createDockerWorkspaceBackend(
                 trackerIssueId: null,
                 services: buildResolvedCleanupServices(serviceDescriptors)
               }).values,
-            commandRunner,
             defaultTimeoutMs: timeoutMs,
             lifecycleRecorder: input.lifecycleRecorder
           });
@@ -506,21 +530,27 @@ export function createDockerWorkspaceBackend(
       }
 
       if (!preserveWorkspace && runtimeManifest && !container) {
+        const cleanupWorkspacePath =
+          input.workspace?.executionTarget.kind === "container"
+            ? input.workspace.executionTarget.workspacePath
+            : workspacePath;
+        const cleanupWorkspaceSession = sessionManager.openContainerSession({
+          containerName: descriptor.containerName,
+          workspacePath: cleanupWorkspacePath,
+          shell,
+          user:
+            input.workspace?.executionTarget.kind === "container"
+              ? input.workspace.executionTarget.user
+              : requireHostUserSpec()
+        });
         manifestLifecycleCleanup = await runDockerCleanupManifestLifecycle({
           runtimeManifest,
           descriptor,
           containerName: descriptor.containerName,
           containerId: null,
-          workspacePath:
-            input.workspace?.executionTarget.kind === "container"
-              ? input.workspace.executionTarget.workspacePath
-              : workspacePath,
-          shell,
+          workspacePath: cleanupWorkspacePath,
           running: false,
-          execUser:
-            input.workspace?.executionTarget.kind === "container"
-              ? input.workspace.executionTarget.user
-              : requireHostUserSpec(),
+          workspaceSession: cleanupWorkspaceSession,
           env:
             input.workspace?.envBundle.values ??
             resolveDockerWorkspaceEnvBundle({
@@ -528,15 +558,11 @@ export function createDockerWorkspaceBackend(
               environmentSource: input.env,
               issueIdentifier: descriptor.issueIdentifier,
               workspaceKey: descriptor.workspaceKey,
-              workspacePath:
-                input.workspace?.executionTarget.kind === "container"
-                  ? input.workspace.executionTarget.workspacePath
-                  : workspacePath,
+              workspacePath: cleanupWorkspacePath,
               runId: input.runId ?? null,
               trackerIssueId: null,
               services: buildResolvedCleanupServices(serviceDescriptors)
             }).values,
-          commandRunner,
           defaultTimeoutMs: timeoutMs,
           lifecycleRecorder: input.lifecycleRecorder
         });
@@ -672,12 +698,9 @@ function parseGitDirPointer(
 
 async function hydrateWorkspaceFromMountedSourceRepo(input: {
   sourceRepoPath: string | null;
-  commandRunner: DockerWorkspaceCommandRunner;
   timeoutMs: number;
-  shell: string;
-  containerName: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   workspacePath: string;
-  user: string;
   issueIdentifier: string;
   branchName: string | null;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
@@ -706,7 +729,20 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
     `branch_name=${shellQuote(branchName)}`,
     `source_repo=${shellQuote(defaultContainerSourceRepoPath)}`,
     "if [ -d .git ]; then",
-    "  echo reused",
+    "  repo_status=$(git status --porcelain --untracked-files=normal || true)",
+    "  if [ -n \"$repo_status\" ]; then",
+    "    echo reused",
+    "    exit 0",
+    "  fi",
+    "  source_head=$(git -C \"$source_repo\" rev-parse HEAD 2>/dev/null || true)",
+    "  current_head=$(git rev-parse HEAD 2>/dev/null || true)",
+    "  if [ -z \"$source_head\" ] || [ \"$source_head\" = \"$current_head\" ]; then",
+    "    echo reused",
+    "    exit 0",
+    "  fi",
+    "  git fetch --no-tags \"$source_repo\" \"$source_head\" >/dev/null 2>&1",
+    "  git checkout -B \"$branch_name\" FETCH_HEAD >/dev/null 2>&1",
+    "  echo refreshed",
     "  exit 0",
     "fi",
     "existing_entry=$(find . -mindepth 1 -maxdepth 1 ! -name '.symphony-runtime' -print -quit || true)",
@@ -733,18 +769,15 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
     "echo hydrated"
   ].join("\n");
 
-  const result = await input.commandRunner({
-    args: [
-      "exec",
-      ...dockerUserFlags(input.user),
-      "--workdir",
-      input.workspacePath,
-      input.containerName,
-      input.shell,
-      "-lc",
-      hydrationScript
-    ],
-    timeoutMs: input.timeoutMs
+  const result = await input.workspaceSession.runShellCommand({
+    command: hydrationScript,
+    timeoutMs: input.timeoutMs,
+    cwd: input.workspacePath,
+    metadata: {
+      operation: "workspace_repo_hydration",
+      issueIdentifier: input.issueIdentifier,
+      branchName
+    }
   });
 
   const endedAt = new Date().toISOString();
@@ -761,13 +794,19 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
     );
   }
 
-  const outcome =
-    result.stdout.trim().split(/\s+/).includes("hydrated") ? "hydrated" : "reused";
+  const stdoutTokens = result.stdout.trim().split(/\s+/);
+  const outcome = stdoutTokens.includes("hydrated")
+    ? "hydrated"
+    : stdoutTokens.includes("refreshed")
+      ? "refreshed"
+      : "reused";
   await emitDockerManifestLifecyclePhaseEvent(
     input.lifecycleRecorder,
     "workspace_repo_hydration_completed",
     outcome === "hydrated"
       ? "Workspace repo hydration completed."
+      : outcome === "refreshed"
+        ? "Workspace repo hydration refreshed the existing repo from source."
       : "Workspace repo hydration skipped because the repo already existed.",
     {
       hydration: {
@@ -815,11 +854,8 @@ async function runDockerPrepareManifestLifecycle(
     runtimeManifest: input.runtimeManifest,
     phasePlans,
     workspacePath: input.workspacePath,
-    shell: input.shell,
-    containerName: input.containerName,
-    execUser: input.execUser,
+    workspaceSession: input.workspaceSession,
     env: input.env,
-    commandRunner: input.commandRunner,
     defaultTimeoutMs: input.defaultTimeoutMs,
     lifecycleRecorder: input.lifecycleRecorder
   });
@@ -834,11 +870,8 @@ async function runDockerPrepareManifestLifecycle(
       skipReason: plan.skipReason,
       runtimeManifest: input.runtimeManifest,
       workspacePath: input.workspacePath,
-      shell: input.shell,
-      containerName: input.containerName,
-      execUser: input.execUser,
+      workspaceSession: input.workspaceSession,
       env: input.env,
-      commandRunner: input.commandRunner,
       defaultTimeoutMs: input.defaultTimeoutMs,
       lifecycleRecorder: input.lifecycleRecorder
     });
@@ -871,11 +904,8 @@ async function ensureDockerWorkspaceDependenciesForBootstrap(input: {
   runtimeManifest: SymphonyLoadedRuntimeManifest;
   phasePlans: DockerManifestLifecyclePhasePlan[];
   workspacePath: string;
-  shell: string;
-  containerName: string;
-  execUser: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   env: Record<string, string>;
-  commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<void> {
@@ -920,23 +950,20 @@ async function ensureDockerWorkspaceDependenciesForBootstrap(input: {
     startedAt
   );
 
-  const result = await input.commandRunner({
-    args: [
-      "exec",
-      ...dockerUserFlags(input.execUser),
-      ...dockerEnvFlags(input.env),
-      "--workdir",
-      input.workspacePath,
-      input.containerName,
-      input.shell,
-      "-lc",
-      buildDockerWorkspaceDependencyInstallScript({
-        workspacePath: input.workspacePath,
-        workingDirectory,
-        installCommand
-      })
-    ],
-    timeoutMs: input.defaultTimeoutMs
+  const result = await input.workspaceSession.runShellCommand({
+    command: buildDockerWorkspaceDependencyInstallScript({
+      workspacePath: input.workspacePath,
+      workingDirectory,
+      installCommand
+    }),
+    timeoutMs: input.defaultTimeoutMs,
+    cwd: input.workspacePath,
+    env: input.env,
+    metadata: {
+      operation: "workspace_dependency_install",
+      packageManager: input.runtimeManifest.manifest.workspace.packageManager,
+      workingDirectory
+    }
   });
   const endedAt = new Date().toISOString();
 
@@ -991,11 +1018,9 @@ async function runDockerCleanupManifestLifecycle(input: {
   containerName: string;
   containerId: string | null;
   workspacePath: string;
-  shell: string;
   running: boolean;
-  execUser: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   env: Record<string, string>;
-  commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<DockerManifestLifecyclePhaseRecord> {
@@ -1007,11 +1032,8 @@ async function runDockerCleanupManifestLifecycle(input: {
     skipReason: input.running ? null : "container_not_running",
     runtimeManifest: input.runtimeManifest,
     workspacePath: input.workspacePath,
-    shell: input.shell,
-    containerName: input.containerName,
-    execUser: input.execUser,
+    workspaceSession: input.workspaceSession,
     env: input.env,
-    commandRunner: input.commandRunner,
     defaultTimeoutMs: input.defaultTimeoutMs,
     lifecycleRecorder: input.lifecycleRecorder
   });
@@ -1103,11 +1125,8 @@ async function executeDockerManifestLifecyclePhase(input: {
   skipReason: WorkspaceManifestLifecyclePhaseSkipReason | null;
   runtimeManifest: SymphonyLoadedRuntimeManifest;
   workspacePath: string;
-  shell: string;
-  containerName: string;
-  execUser: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   env: Record<string, string>;
-  commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<DockerManifestLifecyclePhaseRecord> {
@@ -1159,11 +1178,8 @@ async function executeDockerManifestLifecyclePhase(input: {
       step,
       runtimeManifest: input.runtimeManifest,
       workspacePath: input.workspacePath,
-      shell: input.shell,
-      containerName: input.containerName,
-      execUser: input.execUser,
+      workspaceSession: input.workspaceSession,
       env: input.env,
-      commandRunner: input.commandRunner,
       defaultTimeoutMs: input.defaultTimeoutMs,
       lifecycleRecorder: input.lifecycleRecorder
     });
@@ -1222,11 +1238,8 @@ async function executeDockerManifestLifecycleStep(input: {
   step: SymphonyLoadedRuntimeManifest["manifest"]["lifecycle"]["bootstrap"][number];
   runtimeManifest: SymphonyLoadedRuntimeManifest;
   workspacePath: string;
-  shell: string;
-  containerName: string;
-  execUser: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   env: Record<string, string>;
-  commandRunner: DockerWorkspaceCommandRunner;
   defaultTimeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<DockerManifestLifecycleStepRecord> {
@@ -1254,20 +1267,16 @@ async function executeDockerManifestLifecycleStep(input: {
     startedAt
   );
 
-  const args = [
-    "exec",
-    ...dockerUserFlags(input.execUser),
-    ...dockerEnvFlags(input.env),
-    "--workdir",
+  const result = await input.workspaceSession.runShellCommand({
+    command: input.step.run,
+    timeoutMs,
     cwd,
-    input.containerName,
-    input.shell,
-    "-lc",
-    input.step.run
-  ];
-  const result = await input.commandRunner({
-    args,
-    timeoutMs
+    env: input.env,
+    metadata: {
+      operation: "manifest_lifecycle_step",
+      phase: input.phase,
+      stepName: input.step.name
+    }
   });
   const endedAt = new Date().toISOString();
   const stepRecord: DockerManifestLifecycleStepRecord = {
@@ -2896,9 +2905,12 @@ async function copyRuntimeDbSnapshotToBindMountWorkspace(input: {
  */
 async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
   sourceDbPath: string;
-  containerName: string;
+  workspaceSession: DockerContainerWorkspaceSession;
   workspacePath: string;
   commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  shell: string;
+  containerUser: string;
   timeoutMs: number;
   lifecycleRecorder?: WorkspaceBackendEventRecorder;
 }): Promise<string> {
@@ -2918,16 +2930,12 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
     });
 
     // Create the target directory in the container
-    const mkdirArgs = [
-      "exec",
-      input.containerName,
-      "sh",
-      "-lc",
-      `mkdir -p ${shellQuote(path.posix.join(input.workspacePath, dockerManifestLifecycleStateDirectoryName))}`
-    ];
-    const mkdirResult = await input.commandRunner({
-      args: mkdirArgs,
-      timeoutMs: input.timeoutMs
+    const mkdirResult = await input.workspaceSession.runShellCommand({
+      command: `mkdir -p ${shellQuote(path.posix.join(input.workspacePath, dockerManifestLifecycleStateDirectoryName))}`,
+      timeoutMs: input.timeoutMs,
+      metadata: {
+        operation: "runtime_db_snapshot_prepare_directory"
+      }
     });
     if (mkdirResult.exitCode !== 0) {
       throw new SymphonyWorkspaceError(
@@ -2940,7 +2948,7 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
     const cpArgs = [
       "cp",
       snapshotHostPath,
-      `${input.containerName}:${snapshotContainerPath}`
+      `${input.workspaceSession.containerName}:${snapshotContainerPath}`
     ];
     const cpResult = await input.commandRunner({
       args: cpArgs,
@@ -2953,16 +2961,13 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
       );
     }
 
-    // Make the snapshot read-only in the container
-    const chmodArgs = [
-      "exec",
-      input.containerName,
-      "sh",
-      "-lc",
-      `chmod 444 ${shellQuote(snapshotContainerPath)}`
-    ];
-    await input.commandRunner({
-      args: chmodArgs,
+    await ensureVolumeWorkspaceSnapshotAccess({
+      commandRunner: input.commandRunner,
+      containerName: input.containerName,
+      workspacePath: input.workspacePath,
+      shell: input.shell,
+      containerUser: input.containerUser,
+      snapshotContainerPath,
       timeoutMs: input.timeoutMs
     });
 
@@ -3016,6 +3021,106 @@ async function copyRuntimeDbSnapshotToVolumeWorkspace(input: {
   } finally {
     await rm(tempSnapshotDirectory, { recursive: true, force: true });
   }
+}
+
+async function ensureVolumeWorkspaceOwnership(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  workspacePath: string;
+  shell: string;
+  containerUser: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const { uid, gid } = parseContainerUserSpec(input.containerUser);
+  const result = await runDockerContainerRootCommand({
+    commandRunner: input.commandRunner,
+    containerName: input.containerName,
+    workspacePath: input.workspacePath,
+    shell: input.shell,
+    timeoutMs: input.timeoutMs,
+    command: [
+      `mkdir -p ${shellQuote(input.workspacePath)}`,
+      `chown -R ${shellQuote(`${uid}:${gid}`)} ${shellQuote(input.workspacePath)}`
+    ].join(" && ")
+  });
+
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "workspace_docker_volume_ownership_failed",
+      `Failed to normalize volume-backed workspace ownership: ${result.stderr}`
+    );
+  }
+}
+
+async function ensureVolumeWorkspaceSnapshotAccess(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  workspacePath: string;
+  shell: string;
+  containerUser: string;
+  snapshotContainerPath: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const { uid, gid } = parseContainerUserSpec(input.containerUser);
+  const result = await runDockerContainerRootCommand({
+    commandRunner: input.commandRunner,
+    containerName: input.containerName,
+    workspacePath: input.workspacePath,
+    shell: input.shell,
+    timeoutMs: input.timeoutMs,
+    command: [
+      `chown ${shellQuote(`${uid}:${gid}`)} ${shellQuote(input.snapshotContainerPath)}`,
+      `chmod 444 ${shellQuote(input.snapshotContainerPath)}`
+    ].join(" && ")
+  });
+
+  if (result.exitCode !== 0) {
+    throw new SymphonyWorkspaceError(
+      "runtime_db_snapshot_chmod_failed",
+      `Failed to normalize runtime DB snapshot permissions in container: ${result.stderr}`
+    );
+  }
+}
+
+async function runDockerContainerRootCommand(input: {
+  commandRunner: DockerWorkspaceCommandRunner;
+  containerName: string;
+  workspacePath: string;
+  shell: string;
+  command: string;
+  timeoutMs: number;
+}) {
+  return await input.commandRunner({
+    args: [
+      "exec",
+      "--workdir",
+      input.workspacePath,
+      input.containerName,
+      input.shell,
+      "-lc",
+      input.command
+    ],
+    timeoutMs: input.timeoutMs
+  });
+}
+
+function parseContainerUserSpec(containerUser: string): {
+  uid: string;
+  gid: string;
+} {
+  const [uid, gid] = containerUser.split(":");
+  const normalizedUid = normalizeNonEmptyString(uid);
+  const normalizedGid = normalizeNonEmptyString(gid) ?? normalizedUid;
+  if (!normalizedUid) {
+    throw new TypeError(
+      `Docker container user must define a uid. Received ${JSON.stringify(containerUser)}.`
+    );
+  }
+
+  return {
+    uid: normalizedUid,
+    gid: normalizedGid ?? normalizedUid
+  };
 }
 
 function isMissingRuntimeDbSnapshotSourceError(error: unknown): boolean {

@@ -70,7 +70,7 @@ export async function loadRuntimeServiceBootstrap(input: {
   if (runtimePolicy.agent.harness !== "pi") {
     throw new SymphonyRuntimePolicyError(
       "invalid_workflow_config",
-      `Runtime execution rejects legacy harness '${runtimePolicy.agent.harness}' for launch/execute. Use agent.harness: "pi".`
+      `Runtime execution requires agent.harness: "pi". Received "${runtimePolicy.agent.harness}".`
     );
   }
 

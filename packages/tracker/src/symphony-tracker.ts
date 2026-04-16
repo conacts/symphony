@@ -4,7 +4,6 @@ import {
 } from "./tracker-config.js";
 
 export const symphonyDisabledLabel = "symphony:disabled";
-export const symphonyNoAutoReworkLabel = "symphony:no-auto-rework";
 const symphonyRepositoryLabelPrefix = "repo:";
 
 export type SymphonyTrackerIssue = {
@@ -95,12 +94,6 @@ export function resolveSymphonyRepositoryLabel(
   }
 
   return null;
-}
-
-export function isSymphonyAutoReworkDisabled(
-  issue: Pick<SymphonyTrackerIssue, "labels">
-): boolean {
-  return hasSymphonyLabel(issue, symphonyNoAutoReworkLabel);
 }
 
 export function isSymphonyProjectAssigned(

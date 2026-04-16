@@ -189,7 +189,7 @@ function compareDescendingTimestamps(
 }
 
 function isCompletedOutcome(outcome: SymphonyRunOutcome | null): boolean {
-  return outcome === "completed" || outcome === "merged";
+  return outcome === "completed";
 }
 
 export function isProblemOutcome(outcome: SymphonyRunOutcome | null): boolean {
@@ -226,9 +226,13 @@ export function normalizeRuntimeRunStatus(status: string): SymphonyRunStatus {
 export function normalizeRuntimeRunOutcome(outcome: string): SymphonyRunOutcome {
   switch (outcome) {
     case "completed":
+      return outcome;
     case "merged":
+      return "completed";
     case "blocked":
+      return outcome;
     case "merge_blocked":
+      return "blocked";
     case "paused_max_turns":
     case "startup_failed":
     case "rate_limited":

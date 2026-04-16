@@ -210,7 +210,7 @@ export function RunTranscriptTurnEntry(input: {
           items={[
             entry.recordedAt,
             entry.duration,
-            entry.timeoutSeconds !== null ? formatTimeoutSeconds(entry.timeoutSeconds) : null
+            buildCommandTimeoutLabel(entry)
           ]}
         />
         <Task className="mb-0" defaultOpen={false}>
@@ -378,6 +378,22 @@ function formatPiWriteLineCount(lineCount: number): string {
   return lineCount === 1 ? "1 line written" : `${lineCount} lines written`;
 }
 
-function formatTimeoutSeconds(timeoutSeconds: number): string {
-  return `${formatCount(timeoutSeconds)}-second timeout`;
+function buildCommandTimeoutLabel(
+  entry: Extract<AgentRunTranscriptEntry, { kind: "command" }>
+): string | null {
+  if (entry.timeoutSeconds === null) {
+    return null;
+  }
+
+  if (didCommandTimeOut(entry)) {
+    return `Timed out after ${formatCount(entry.timeoutSeconds)} seconds`;
+  }
+
+  return `${formatCount(entry.timeoutSeconds)}-second limit`;
+}
+
+function didCommandTimeOut(
+  entry: Extract<AgentRunTranscriptEntry, { kind: "command" }>
+): boolean {
+  return entry.status.toLowerCase() === "failed" && /timed out/i.test(entry.outputText);
 }

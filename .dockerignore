@@ -1,0 +1,10 @@
+**
+!.dockerignore
+!docker/
+!docker/workspace-runner/
+!docker/workspace-runner/Dockerfile
+!docker/workspace-runner/pi-sdk-runner.package.json
+!packages/
+!packages/agent-harnesses/
+!packages/agent-harnesses/src/
+!packages/agent-harnesses/src/**

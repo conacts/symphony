@@ -6,9 +6,6 @@ import type {
   SymphonyRuntimeTurnFinishAttrs,
   SymphonyRuntimeTurnStartAttrs
 } from "@symphony/db";
-import type {
-  SymphonyGitHubReviewEvent
-} from "@symphony/github-review";
 import type { SymphonyOrchestratorSnapshot } from "@symphony/orchestrator";
 import {
   buildSymphonyTrackerIssue
@@ -19,21 +16,10 @@ import {
   defaultSymphonyPiPresetName,
   type SymphonyResolvedRuntimePolicy
 } from "@symphony/runtime-policy";
-import type { SymphonyReworkHandoffTriggerKind } from "@symphony/runtime-contract";
 
 export { buildSymphonyTrackerIssue } from "@symphony/tracker";
 
 let fixtureCounter = 0;
-
-type SymphonyReworkHandoffFixture = {
-  source: "github_review";
-  triggerKind: SymphonyReworkHandoffTriggerKind;
-  reviewContextUrl: string | null;
-  pullRequestUrl: string | null;
-  actorLogin: string | null;
-  feedbackBody: string | null;
-  recordedAt: string;
-};
 
 type RuntimeMergeResultFixture = {
   status: "merged" | "blocked";
@@ -50,10 +36,28 @@ export function buildSymphonyRuntimePolicy(
   const defaultPiProfileDefaults = defaultSymphonyPiProfileDefaults();
   const workspaceRoot =
     overrides.workspace?.root ?? path.join(tmpdir(), "symphony-test-workspaces");
-  const githubStatePath =
-    overrides.github?.statePath === undefined
-      ? path.join(workspaceRoot, ".symphony", "github-state.json")
-      : overrides.github.statePath;
+  const {
+    toolTimeoutMs: overriddenPiToolTimeoutMs,
+    ...remainingPiOverrides
+  } = overrides.pi ?? {};
+  const resolvedPiPolicy = {
+    profile: defaultPiProfileDefaults.profile,
+    defaultModel: defaultPiProfileDefaults.defaultModel,
+    defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort,
+    defaultPreset: defaultSymphonyPiPresetName,
+    presets: buildSymphonyDefaultPiPresets({
+      defaultModel: defaultPiProfileDefaults.defaultModel,
+      defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort
+    }),
+    provider: {
+      ...defaultPiProfileDefaults.provider
+    },
+    turnTimeoutMs: 3_600_000,
+    readTimeoutMs: 30_000,
+    stallTimeoutMs: 300_000,
+    ...remainingPiOverrides,
+    toolTimeoutMs: overriddenPiToolTimeoutMs ?? null
+  };
 
   return {
     tracker: {
@@ -63,10 +67,10 @@ export function buildSymphonyRuntimePolicy(
       teamKey: "COL",
       excludedProjectIds: [],
       assignee: null,
-      dispatchableStates: ["Todo", "Bootstrapping", "In Progress", "Rework", "Approved"],
+      dispatchableStates: ["Todo", "Bootstrapping", "In Progress"],
       terminalStates: ["Canceled", "Done"],
       claimTransitionToState: "Bootstrapping",
-      claimTransitionFromStates: ["Todo", "Rework"],
+      claimTransitionFromStates: ["Todo"],
       startupFailureTransitionToState: "Failed",
       pauseTransitionToState: "Paused",
       blockedTransitionToState: "Blocked",
@@ -94,21 +98,7 @@ export function buildSymphonyRuntimePolicy(
       ...overrides.agent
     },
     pi: {
-      profile: defaultPiProfileDefaults.profile,
-      defaultModel: defaultPiProfileDefaults.defaultModel,
-      defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort,
-      defaultPreset: defaultSymphonyPiPresetName,
-      presets: buildSymphonyDefaultPiPresets({
-        defaultModel: defaultPiProfileDefaults.defaultModel,
-        defaultReasoningEffort: defaultPiProfileDefaults.defaultReasoningEffort
-      }),
-      provider: {
-        ...defaultPiProfileDefaults.provider
-      },
-      turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
-      stallTimeoutMs: 300_000,
-      ...overrides.pi
+      ...resolvedPiPolicy
     },
     agentRuntime: {
       command: "pi",
@@ -125,7 +115,7 @@ export function buildSymphonyRuntimePolicy(
       }),
       provider: null,
       turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
+      readTimeoutMs: 30_000,
       stallTimeoutMs: 300_000,
       ...overrides.agentRuntime
     },
@@ -150,79 +140,8 @@ export function buildSymphonyRuntimePolicy(
     },
     github: {
       repo: "openai/symphony",
-      webhookSecret: null,
-      apiToken: null,
-      statePath: githubStatePath,
-      allowedReviewLogins: [],
-      allowedReviewCommentLogins: [],
-      allowedReworkCommentLogins: [],
       ...overrides.github
     }
-  };
-}
-
-export function buildSymphonyGithubReviewEvent(
-  overrides: Partial<
-    Extract<SymphonyGitHubReviewEvent, { event: "pull_request_review" }>
-  > = {}
-): SymphonyGitHubReviewEvent {
-  const payload =
-    "payload" in overrides && overrides.payload
-      ? overrides.payload
-      : {
-          reviewState: "changes_requested",
-          reviewBody: "The current implementation needs one more pass.",
-          authorLogin: "reviewer",
-          headRef: "symphony/COL-123",
-          headSha: "abc123",
-          reviewId: 1,
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
-          pullRequestHtmlUrl: "https://github.com/openai/symphony/pull/123"
-        };
-
-  return {
-    event: "pull_request_review",
-    repository: "openai/symphony",
-    ...overrides,
-    payload
-  };
-}
-
-export function buildSymphonyGithubIssueCommentEvent(
-  overrides: Partial<Extract<SymphonyGitHubReviewEvent, { event: "issue_comment" }>> = {}
-): SymphonyGitHubReviewEvent {
-  const payload =
-    "payload" in overrides && overrides.payload
-      ? overrides.payload
-      : {
-          issueNumber: 123,
-          commentId: 456,
-          commentBody: "/rework Please address the feedback.",
-          authorLogin: "reviewer",
-          pullRequestUrl: "https://api.github.com/repos/openai/symphony/pulls/123",
-          commentHtmlUrl: "https://github.com/openai/symphony/pull/123#issuecomment-456"
-        };
-
-  return {
-    event: "issue_comment",
-    repository: "openai/symphony",
-    ...overrides,
-    payload
-  };
-}
-
-export function buildSymphonyReworkHandoff(
-  overrides: Partial<SymphonyReworkHandoffFixture> = {}
-): SymphonyReworkHandoffFixture {
-  return {
-    source: "github_review",
-    triggerKind: "review_comment",
-    reviewContextUrl: "https://github.com/openai/symphony/pull/123#pullrequestreview-456",
-    pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-    actorLogin: "chatgpt-codex-connector",
-    feedbackBody: "Please rename this API and add the missing test coverage.",
-    recordedAt: "2026-04-06T00:00:00.000Z",
-    ...overrides
   };
 }
 

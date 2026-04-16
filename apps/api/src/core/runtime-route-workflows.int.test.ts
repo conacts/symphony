@@ -13,16 +13,16 @@ import {
   symphonyRepositoryWorkspaceBindingsTable
 } from "@symphony/db";
 import {
-  createSymphonyCurrentFlowRunStartedSignal,
-  createSymphonyCurrentFlowTrackerStateObservedSignal,
-  createSymphonyCurrentFlowRouterAsync,
+  createSymphonyIntelligentFlowRunStartedSignal,
+  createSymphonyIntelligentFlowTrackerStateObservedSignal,
+  createSymphonyIntelligentFlowRouterAsync,
   createDeterministicStrategy,
   createWorkflowRouterAsync,
   WorkflowEdge,
   WorkflowNode,
-  type SymphonyCurrentFlowData,
-  type SymphonyCurrentFlowNode,
-  type SymphonyCurrentFlowPolicy,
+  type SymphonyIntelligentFlowData,
+  type SymphonyIntelligentFlowNode,
+  type SymphonyIntelligentFlowPolicy,
   type WorkflowRouter
 } from "@symphony/router";
 import type {
@@ -138,8 +138,8 @@ describe("runtime route workflows", () => {
         trackerIssueId: "tracker-410",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
-        routerPresetId: "current-flow",
-        router: await createSymphonyCurrentFlowRouterAsync(),
+        routerPresetId: "intelligent-flow",
+        router: await createSymphonyIntelligentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:00.000Z"
       });
       const workflowId = ensured.workflow.workflowId;
@@ -156,8 +156,8 @@ describe("runtime route workflows", () => {
         trackerIssueId: "tracker-410",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410",
-        routerPresetId: "current-flow",
-        router: await createSymphonyCurrentFlowRouterAsync(),
+        routerPresetId: "intelligent-flow",
+        router: await createSymphonyIntelligentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:30.000Z"
       });
 
@@ -178,12 +178,12 @@ describe("runtime route workflows", () => {
         await routeWorkflows.loadReplayStateByIssueIdentifier<TestNode>("SYM-410");
 
       expect(ensured.created).toBe(true);
-      expect(ensured.workflow.routerPresetId).toBe("current-flow");
-      expect(ensured.workflow.routerName).toBe("symphony-current-flow");
+      expect(ensured.workflow.routerPresetId).toBe("intelligent-flow");
+      expect(ensured.workflow.routerName).toBe("symphony-intelligent-flow");
       expect(ensuredAgain.created).toBe(false);
       expect(recorded.decision.decisionId).toBe("decision_bootstrap");
       expect(byWorkflowId?.workflow.workflowId).toBe(workflowId);
-      expect(byWorkflowId?.workflow.routerPresetId).toBe("current-flow");
+      expect(byWorkflowId?.workflow.routerPresetId).toBe("intelligent-flow");
       expect(byWorkflowId?.snapshot?.projection.currentNode).toBe("bootstrapping");
       expect(byWorkflowId?.snapshot?.projection.recordedSignalIds).toEqual([
         "signal_todo_observed"
@@ -250,8 +250,8 @@ describe("runtime route workflows", () => {
           organizationId: "org_001",
           linearWorkspaceIdentityId: "linear_workspace_identity_001"
         },
-        routerPresetId: "current-flow",
-        router: await createSymphonyCurrentFlowRouterAsync(),
+        routerPresetId: "intelligent-flow",
+        router: await createSymphonyIntelligentFlowRouterAsync(),
         createdAt: "2026-04-10T00:29:00.000Z"
       });
 
@@ -329,7 +329,7 @@ describe("runtime route workflows", () => {
         trackerIssueId: "tracker-410A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410A",
-        routerPresetId: "current-flow",
+        routerPresetId: "intelligent-flow",
         routerName: "custom-router",
         routerVersion: "9",
         createdAt: "2026-04-10T00:29:00.000Z"
@@ -340,8 +340,8 @@ describe("runtime route workflows", () => {
           trackerIssueId: "tracker-410A",
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-410A",
-          routerPresetId: "current-flow",
-          router: await createSymphonyCurrentFlowRouterAsync(),
+          routerPresetId: "intelligent-flow",
+          router: await createSymphonyIntelligentFlowRouterAsync(),
           createdAt: "2026-04-10T00:29:30.000Z"
         })
       ).rejects.toThrow(
@@ -379,7 +379,7 @@ describe("runtime route workflows", () => {
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-410B",
         routerPresetId: "alternate-flow",
-        routerName: "symphony-current-flow",
+        routerName: "symphony-intelligent-flow",
         routerVersion: "1",
         createdAt: "2026-04-10T00:29:00.000Z"
       });
@@ -389,11 +389,69 @@ describe("runtime route workflows", () => {
           trackerIssueId: "tracker-410B",
           repositoryKey: "openai/symphony",
           issueIdentifier: "SYM-410B",
-          routerPresetId: "current-flow",
-          router: await createSymphonyCurrentFlowRouterAsync(),
+          routerPresetId: "intelligent-flow",
+          router: await createSymphonyIntelligentFlowRouterAsync(),
           createdAt: "2026-04-10T00:29:30.000Z"
         })
       ).rejects.toThrow("is bound to router preset alternate-flow");
+    } finally {
+      database.close();
+    }
+  });
+
+  it("archives an incompatible live workflow and creates a replacement when requested", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "symphony-runtime-route-preset-replace-"));
+    tempDirectories.push(root);
+
+    const database = initializeSymphonyDb({
+      dbFile: path.join(root, "symphony.db")
+    });
+    const issueStore = createSymphonyIssueStore(database.db);
+    const routeWorkflowStore = createRouteWorkflowStore(database.db);
+    const routeWorkflows = createRouteWorkflowPort({
+      routeWorkflowStore
+    });
+
+    try {
+      await issueStore.upsert({
+        issueIdentifier: "SYM-410C",
+        trackerIssueId: "tracker-410C",
+        repositoryKey: "openai/symphony",
+        latestRunStartedAt: null,
+        recordedAt: "2026-04-10T00:28:00.000Z"
+      });
+
+      const previousWorkflowId = await routeWorkflowStore.createWorkflow({
+        trackerIssueId: "tracker-410C",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-410C",
+        routerPresetId: "intelligent-flow",
+        routerName: "symphony-intelligent-flow",
+        routerVersion: "1",
+        createdAt: "2026-04-10T00:29:00.000Z"
+      });
+
+      const ensured = await routeWorkflows.ensureWorkflowForIssue({
+        trackerIssueId: "tracker-410C",
+        repositoryKey: "openai/symphony",
+        issueIdentifier: "SYM-410C",
+        routerPresetId: "test-flow",
+        router: await createTestRouter(),
+        createdAt: "2026-04-10T00:29:30.000Z",
+        replaceIncompatibleLiveWorkflow: true
+      });
+
+      const archivedWorkflow = await routeWorkflowStore.getWorkflow(previousWorkflowId);
+      const liveWorkflow = await routeWorkflowStore.getWorkflowForTrackerIssueId(
+        "tracker-410C"
+      );
+
+      expect(ensured.created).toBe(true);
+      expect(ensured.workflow.workflowId).not.toBe(previousWorkflowId);
+      expect(ensured.workflow.routerPresetId).toBe("test-flow");
+      expect(archivedWorkflow?.archivedAt).toBe("2026-04-10T00:29:30.000Z");
+      expect(liveWorkflow?.workflowId).toBe(ensured.workflow.workflowId);
+      expect(liveWorkflow?.routerPresetId).toBe("test-flow");
     } finally {
       database.close();
     }
@@ -495,7 +553,7 @@ describe("runtime route workflows", () => {
     const routeWorkflows = createRouteWorkflowPort({
       routeWorkflowStore
     });
-    const router = await createSymphonyCurrentFlowRouterAsync({
+    const router = await createSymphonyIntelligentFlowRouterAsync({
       now: () => new Date("2026-04-10T00:30:00.000Z"),
       createId: (() => {
         let counter = 0;
@@ -517,7 +575,7 @@ describe("runtime route workflows", () => {
         trackerIssueId: "tracker-411A",
         repositoryKey: "openai/symphony",
         issueIdentifier: "SYM-411A",
-        routerPresetId: "current-flow",
+        routerPresetId: "intelligent-flow",
         router,
         createdAt: "2026-04-10T00:29:30.000Z"
       });
@@ -528,7 +586,7 @@ describe("runtime route workflows", () => {
       });
 
       const bootstrapResult = await initialSession.receiveAsync(
-        createSymphonyCurrentFlowTrackerStateObservedSignal({
+        createSymphonyIntelligentFlowTrackerStateObservedSignal({
           id: "signal_todo_observed",
           occurredAt: "2026-04-10T00:30:00.000Z",
           state: "Todo",
@@ -545,13 +603,15 @@ describe("runtime route workflows", () => {
       });
 
       const trackerTransitionCommand = bootstrapResult.decision.commands.find(
-        (command) => command.kind === "tracker.transition"
+        (command: { kind: string }) => command.kind === "tracker.transition"
       );
       const dispatchCommand = bootstrapResult.decision.commands.find(
-        (command) => command.kind === "run.dispatch"
+        (command: { kind: string }) => command.kind === "run.dispatch"
       );
       if (!trackerTransitionCommand || !dispatchCommand) {
-        throw new TypeError("Expected current-flow bootstrap to emit tracker and dispatch commands.");
+        throw new TypeError(
+          "Expected intelligent-flow bootstrap to emit tracker and dispatch commands."
+        );
       }
 
       const trackerSettledProjection = await initialSession.settleCommandAsync({
@@ -570,9 +630,9 @@ describe("runtime route workflows", () => {
       });
 
       const resumed = await routeWorkflows.resumeSessionByWorkflowId<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
+        SymphonyIntelligentFlowNode,
+        SymphonyIntelligentFlowData,
+        SymphonyIntelligentFlowPolicy
       >({
         workflowId,
         router,
@@ -583,7 +643,7 @@ describe("runtime route workflows", () => {
       }
 
       const runStartedResult = await resumed.session.receiveAsync(
-        createSymphonyCurrentFlowRunStartedSignal({
+        createSymphonyIntelligentFlowRunStartedSignal({
           id: "signal_run_started",
           occurredAt: "2026-04-10T00:30:02.000Z",
           runId: "run-411A",
@@ -634,11 +694,11 @@ describe("runtime route workflows", () => {
       });
 
       const hydration = await routeWorkflows.loadHydrationStateByWorkflowId<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
+        SymphonyIntelligentFlowNode,
+        SymphonyIntelligentFlowData,
+        SymphonyIntelligentFlowPolicy
       >(workflowId);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("implementation");
+      expect(hydration?.snapshot?.projection.currentNode).toBe("active");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("In Progress");
       expect(hydration?.tailHistory.map((entry) => entry.kind)).toEqual([
         "command_settled"
@@ -646,15 +706,15 @@ describe("runtime route workflows", () => {
       expect(hydration?.tailHistory[0]?.commandId).toBe(dispatchCommand.id);
 
       const rehydrated = await routeWorkflows.rehydrateProjectionByWorkflowId<
-        SymphonyCurrentFlowNode,
-        SymphonyCurrentFlowData,
-        SymphonyCurrentFlowPolicy
+        SymphonyIntelligentFlowNode,
+        SymphonyIntelligentFlowData,
+        SymphonyIntelligentFlowPolicy
       >({
         workflowId,
         router,
         policy: {}
       });
-      expect(rehydrated?.projection.currentNode).toBe("implementation");
+      expect(rehydrated?.projection.currentNode).toBe("active");
       expect(rehydrated?.projection.pendingCommands).toEqual([]);
       expect(rehydrated?.projection.data.lastDispatchStatus).toBe("succeeded");
     } finally {

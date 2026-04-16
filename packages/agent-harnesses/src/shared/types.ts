@@ -17,29 +17,6 @@ export type SymphonyAgentHarnessDefinition = {
   notes: string[];
 };
 
-export type SymphonyAgentHarnessTransportContract = {
-  status: "implemented" | "planned";
-  integration: "runtime" | "unknown";
-  startSession?: (
-    input: import("./session-types.js").HarnessLaunchSessionInput
-  ) => Promise<import("./session-types.js").HarnessSession>;
-  notes: string[];
-};
-
-export type SymphonyAgentHarnessAnalyticsContract<TAdapter = unknown> = {
-  status: "implemented" | "planned";
-  mode: "native" | "projection" | "unknown";
-  lossiness: "none" | "best_effort" | "unknown";
-  adapter: TAdapter | null;
-  notes: string[];
-};
-
-export type SymphonyAgentHarnessModule<TAnalyticsAdapter = unknown> = {
-  definition: SymphonyAgentHarnessDefinition;
-  transport: SymphonyAgentHarnessTransportContract;
-  analytics: SymphonyAgentHarnessAnalyticsContract<TAnalyticsAdapter>;
-};
-
 export type SymphonyAgentHarnessAnalyticsProjection<TEvent, TLoss> = {
   events: TEvent[];
   losses: TLoss[];

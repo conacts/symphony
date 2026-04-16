@@ -300,7 +300,13 @@ function hasHighMachinePressure(run: SymphonyForensicsRunSummary): boolean {
 
 function hasMissingDeliveryReportFailure(run: SymphonyForensicsRunSummary): boolean {
   return (
-    run.errorMessage?.includes("symphony tool finish") === true ||
-    run.agentFailureMessagePreview?.includes("symphony tool finish") === true
+    run.errorClass === "terminal_result_failure" ||
+    run.agentFailureKind === "terminal_result_failure" ||
+    run.errorClass === "missing_terminal_result" ||
+    run.agentFailureKind === "missing_terminal_result" ||
+    run.errorMessage?.includes("explicit terminal result") === true ||
+    run.errorMessage?.includes("structured terminal result") === true ||
+    run.agentFailureMessagePreview?.includes("explicit terminal result") === true ||
+    run.agentFailureMessagePreview?.includes("structured terminal result") === true
   );
 }

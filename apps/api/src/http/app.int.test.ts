@@ -1,10 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
-  buildSymphonyTrackerIssue,
-  buildSymphonyGitHubIssueCommentPayload,
-  buildSymphonyGitHubPullRequestReviewCommentPayload,
-  buildSymphonyGitHubPullRequestReviewPayload,
-  signSymphonyGitHubWebhook
+  buildSymphonyTrackerIssue
 } from "@symphony/test-support";
 import {
   createSymphonyIssueStore,
@@ -12,9 +8,9 @@ import {
   initializeSymphonyDb
 } from "@symphony/db";
 import type {
-  SymphonyCurrentFlowData,
-  SymphonyCurrentFlowNode,
-  SymphonyCurrentFlowPolicy
+  SymphonyIntelligentFlowData,
+  SymphonyIntelligentFlowNode,
+  SymphonyIntelligentFlowPolicy
 } from "@symphony/router";
 import type { MemorySymphonyTracker } from "@symphony/tracker";
 import { createSymphonyRuntimeApp } from "./app.js";
@@ -104,7 +100,7 @@ describe("@symphony/api app", () => {
       expect(configPayload.data.runtime.repositoryKey).toBe("openai/symphony");
       expect(configPayload.data.runtime.githubRepository).toBe("openai/symphony");
       expect(configPayload.data.bootstrap.presetSelection.presetId).toBe(
-        "current-flow"
+        "intelligent-flow"
       );
       expect(configPayload.data.admittedRepositories.map((entry) => entry.repositoryKey)).toEqual([
         "openai/symphony"
@@ -123,7 +119,7 @@ describe("@symphony/api app", () => {
         teamKey: "COL",
         projectId: "project-1"
       },
-      workflowTrackerState: "Approved"
+      workflowTrackerState: "Bootstrapping"
     });
     harnesses.push(harness);
 
@@ -150,7 +146,7 @@ describe("@symphony/api app", () => {
 
     expect(stateResponse.status).toBe(200);
     expect(statePayload.data.running[0]?.threadId).toBe("thread-live");
-    expect(statePayload.data.running[0]?.state).toBe("Approved");
+    expect(statePayload.data.running[0]?.state).toBe("Bootstrapping");
 
     expect(refreshResponse.status).toBe(202);
     expect(refreshPayload.data.queued).toBe(true);
@@ -213,9 +209,9 @@ describe("@symphony/api app", () => {
 
       const hydration =
         await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
-          SymphonyCurrentFlowNode,
-          SymphonyCurrentFlowData,
-          SymphonyCurrentFlowPolicy
+          SymphonyIntelligentFlowNode,
+          SymphonyIntelligentFlowData,
+          SymphonyIntelligentFlowPolicy
         >("COL-777");
 
       const secondResponse = await app.request(
@@ -248,6 +244,7 @@ describe("@symphony/api app", () => {
       expect(firstPayload.data.observed).toBe(true);
       expect(firstPayload.data.disposition).toBe("observed");
       expect(firstPayload.data.recordedAt).toBeTruthy();
+      expect(routedDispatches).toHaveLength(2);
       expect(routedDispatches).toEqual([
         {
           workflowId: expect.any(String),
@@ -262,7 +259,7 @@ describe("@symphony/api app", () => {
           runMode: "implementation"
         }
       ]);
-      expect(hydration?.snapshot?.projection.currentNode).toBe("bootstrapping");
+      expect(hydration?.snapshot?.projection.currentNode).toBe("claimed");
       expect(hydration?.snapshot?.projection.data.trackerState).toBe("Bootstrapping");
 
       expect(secondResponse.status).toBe(200);
@@ -733,160 +730,6 @@ describe("@symphony/api app", () => {
       expect(missingTurnsPayload.error.code).toBe("NOT_FOUND");
     });
 
-    it("serves the internal runtime-tools finish route", async () => {
-      const response = await app.request("/api/v1/internal/runtime-tools/finish", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          runId: "run-123",
-          turnId: "turn-123",
-          issue: {
-            trackerIssueId: "issue-123",
-            identifier: "COL-123"
-          },
-          arguments: {
-            status: "partial",
-            summary: "Partial delivery."
-          }
-        })
-      });
-      const payload = await responseJson<{
-        data: {
-          success: boolean;
-          output: string;
-        };
-      }>(response);
-
-      expect(response.status).toBe(200);
-      expect(payload.data.success).toBe(true);
-      expect(payload.data.output).toContain('"ok":true');
-    });
-
-    it("serves the internal runtime-tools spike-result route", async () => {
-      const response = await app.request("/api/v1/internal/runtime-tools/spike-result", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          runId: "run-123",
-          turnId: "turn-123",
-          issue: {
-            trackerIssueId: "issue-123",
-            identifier: "COL-123"
-          },
-          arguments: {
-            summary: "Documented the spike recommendation.",
-            details: "- Findings\n- Recommendation",
-            state: "Paused"
-          }
-        })
-      });
-      const payload = await responseJson<{
-        data: {
-          success: boolean;
-          output: string;
-        };
-      }>(response);
-
-      expect(response.status).toBe(200);
-      expect(payload.data.success).toBe(true);
-      expect(payload.data.output).toContain('"ok":true');
-    });
-
-    it("serves the internal runtime-tools cancel route", async () => {
-      const response = await app.request("/api/v1/internal/runtime-tools/cancel", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          runId: "run-123",
-          turnId: "turn-123",
-          issue: {
-            trackerIssueId: "issue-123",
-            identifier: "COL-123"
-          },
-          arguments: {
-            reason: "Cancel this issue because the requirements changed."
-          }
-        })
-      });
-      const payload = await responseJson<{
-        data: {
-          success: boolean;
-          output: string;
-        };
-      }>(response);
-
-      expect(response.status).toBe(200);
-      expect(payload.data.success).toBe(true);
-      expect(payload.data.output).toContain('"ok":true');
-    });
-
-    it("serves the internal runtime-tools merge-result route", async () => {
-      const response = await app.request("/api/v1/internal/runtime-tools/merge-result", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          runId: "run-123",
-          turnId: "turn-123",
-          issue: {
-            trackerIssueId: "issue-123",
-            identifier: "COL-123"
-          },
-          arguments: {
-            status: "merged",
-            summary: "Merged the PR after syncing with main."
-          }
-        })
-      });
-      const payload = await responseJson<{
-        data: {
-          success: boolean;
-          output: string;
-        };
-      }>(response);
-
-      expect(response.status).toBe(200);
-      expect(payload.data.success).toBe(true);
-      expect(payload.data.output).toContain('"ok":true');
-    });
-
-    it("rejects legacy runtime-tools payloads that still send issue.state", async () => {
-      const response = await app.request("/api/v1/internal/runtime-tools/finish", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          runId: "run-123",
-          turnId: "turn-123",
-          issue: {
-            trackerIssueId: "issue-123",
-            identifier: "COL-123",
-            state: "In Progress"
-          },
-          arguments: {
-            status: "partial",
-            summary: "Partial delivery."
-          }
-        })
-      });
-      const payload = await responseJson<{
-        error: {
-          code: string;
-        };
-      }>(response);
-
-      expect(response.status).toBe(400);
-      expect(payload.error.code).toBe("VALIDATION_FAILED");
-    });
-
     it("serves runtime issue details", async () => {
       const runtimeIssueResponse = await app.request("/api/v1/COL-123");
       const runtimeIssuePayload = await responseJson<{
@@ -915,7 +758,6 @@ describe("@symphony/api app", () => {
           };
           operator: {
             githubPullRequestSearchUrl: string | null;
-            requeueCommand: string;
             pi: {
               defaultModel: string | null;
               selectedModel: string | null;
@@ -936,7 +778,6 @@ describe("@symphony/api app", () => {
       expect(runtimeIssuePayload.data.operator.githubPullRequestSearchUrl).toContain(
         "github.com/openai/symphony/pulls"
       );
-      expect(runtimeIssuePayload.data.operator.requeueCommand).toBe("/rework");
       expect(runtimeIssuePayload.data.operator.pi.defaultModel).toBe(
         "xiaomi/mimo-v2-pro"
       );
@@ -1089,7 +930,7 @@ describe("@symphony/api app", () => {
     expect(payload.data.entries).toEqual([]);
   });
 
-  it("fails closed on invalid params and ingests GitHub review events", async () => {
+  it("fails closed on invalid params", async () => {
     const harness = await createSymphonyRuntimeTestHarness({
       issue: {
         state: "In Review"
@@ -1098,36 +939,15 @@ describe("@symphony/api app", () => {
     harnesses.push(harness);
 
     const app = createSymphonyRuntimeApp(harness.services);
-    const rawBody = JSON.stringify(buildSymphonyGitHubPullRequestReviewPayload());
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
     const invalidResponse = await app.request("/api/v1/issues?limit=0");
-    const ingressResponse = await app.request("/api/v1/github/review-events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-github-delivery": "delivery-1",
-        "x-github-event": "pull_request_review",
-        "x-hub-signature-256": signature
-      },
-      body: rawBody
-    });
     const invalidPayload = await responseJson<{
       error: {
         code: string;
       };
     }>(invalidResponse);
-    const ingressPayload = await responseJson<{
-      data: {
-        accepted: boolean;
-      };
-    }>(ingressResponse);
 
     expect(invalidResponse.status).toBe(400);
     expect(invalidPayload.error.code).toBe("VALIDATION_FAILED");
-
-    expect(ingressResponse.status).toBe(202);
-    expect(ingressPayload.data.accepted).toBe(true);
   });
 
   it("fails closed on invalid agent analytics query params", async () => {
@@ -1150,184 +970,6 @@ describe("@symphony/api app", () => {
 
     expect(invalidItemsResponse.status).toBe(400);
     expect(invalidItemsPayload.error.code).toBe("VALIDATION_FAILED");
-  });
-
-  it("accepts raw GitHub issue_comment /rework webhooks", async () => {
-    const harness = await createSymphonyRuntimeTestHarness({
-      issue: {
-        state: "In Review"
-      }
-    });
-    harnesses.push(harness);
-
-    const app = createSymphonyRuntimeApp(harness.services);
-    const rawBody = JSON.stringify(buildSymphonyGitHubIssueCommentPayload());
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-    const ingressResponse = await app.request("/api/v1/github/review-events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-github-delivery": "delivery-issue-comment-1",
-        "x-github-event": "issue_comment",
-        "x-hub-signature-256": signature
-      },
-      body: rawBody
-    });
-    const ingressPayload = await responseJson<{
-      data: {
-        accepted: boolean;
-        event: string;
-      };
-    }>(ingressResponse);
-
-    expect(ingressResponse.status).toBe(202);
-    expect(ingressPayload.data.accepted).toBe(true);
-    expect(ingressPayload.data.event).toBe("issue_comment");
-  });
-
-  it(
-    "persists a structured rework handoff and routes requeued issues back into bootstrapping",
-    async () => {
-      const harness = await createSymphonyRuntimeAppServicesHarness();
-      harnesses.push(harness);
-
-      const tracker = harness.services.tracker as MemorySymphonyTracker;
-      tracker.setIssues([
-        buildSymphonyTrackerIssue({
-          identifier: "COL-123",
-          state: "In Review",
-          branchName: "symphony/COL-123"
-        })
-      ]);
-      const routedDispatches: Array<{
-        workflowId: string;
-        commandId: string;
-        issueIdentifier: string;
-        runMode: string;
-      }> = [];
-      harness.services.orchestrator.dispatchRoutedIssue = async (input) => {
-        routedDispatches.push({
-          workflowId: input.workflowId,
-          commandId: input.commandId,
-          issueIdentifier: input.trackerIssue.identifier,
-          runMode: input.runMode
-        });
-      };
-
-      const app = createSymphonyRuntimeApp(harness.services);
-      const rawBody = JSON.stringify(buildSymphonyGitHubPullRequestReviewPayload());
-      const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-      const ingressResponse = await app.request("/api/v1/github/review-events", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-github-delivery": "delivery-review-structured-handoff",
-          "x-github-event": "pull_request_review",
-          "x-hub-signature-256": signature
-        },
-        body: rawBody
-      });
-      const trackedIssue = await harness.services.tracker.fetchIssueByIdentifier(
-        harness.runtimePolicy.tracker,
-        "COL-123"
-      );
-      const workflowHydration =
-        await harness.services.routeWorkflows.loadHydrationStateByIssueIdentifier<
-          SymphonyCurrentFlowNode,
-          SymphonyCurrentFlowData,
-          SymphonyCurrentFlowPolicy
-        >("COL-123");
-      const issueTimeline = await harness.services.issueTimeline.list({
-        issueIdentifier: "COL-123"
-      });
-      const runtimeLogs = await harness.services.runtimeLogs.list({
-        issueIdentifier: "COL-123"
-      });
-
-      expect(ingressResponse.status).toBe(202);
-      expect(trackedIssue?.state).toBe("Bootstrapping");
-      expect(routedDispatches).toEqual([
-        {
-          workflowId: expect.any(String),
-          commandId: expect.any(String),
-          issueIdentifier: "COL-123",
-          runMode: "rework"
-        }
-      ]);
-      expect(workflowHydration?.snapshot?.projection.data.latestReworkHandoff).toEqual(
-        expect.objectContaining({
-          source: "github_review",
-          triggerKind: "changes_requested_review",
-          actorLogin: "reviewer",
-          pullRequestUrl: "https://github.com/openai/symphony/pull/123",
-          reviewContextUrl:
-            "https://github.com/openai/symphony/pull/123#pullrequestreview-999",
-          feedbackBody: null
-        })
-      );
-      expect(
-        issueTimeline?.entries.some(
-          (entry) => entry.message === "Stored rework handoff for the next run."
-        ) ?? false
-      ).toBe(false);
-      expect(
-        issueTimeline?.entries.some(
-          (entry) => entry.eventType === "github_review_ingress_processed"
-        ) ?? false
-      ).toBe(false);
-      expect(runtimeLogs.logs).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            issueIdentifier: "COL-123",
-            source: "github_review_ingress",
-            eventType: "github_review_ingress_processed",
-            message: "Processed GitHub review ingress event.",
-            payload: expect.objectContaining({
-              status: "requeued"
-            })
-          })
-        ])
-      );
-    },
-    runtimeHttpIntegrationTestTimeoutMs
-  );
-
-  it("accepts raw GitHub pull_request_review_comment webhooks", async () => {
-    const harness = await createSymphonyRuntimeTestHarness({
-      issue: {
-        state: "In Review"
-      }
-    });
-    harnesses.push(harness);
-
-    const app = createSymphonyRuntimeApp(harness.services);
-    const rawBody = JSON.stringify(
-      buildSymphonyGitHubPullRequestReviewCommentPayload()
-    );
-    const signature = signSymphonyGitHubWebhook(rawBody, "secret");
-
-    const ingressResponse = await app.request("/api/v1/github/review-events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-github-delivery": "delivery-pr-review-comment-1",
-        "x-github-event": "pull_request_review_comment",
-        "x-hub-signature-256": signature
-      },
-      body: rawBody
-    });
-    const ingressPayload = await responseJson<{
-      data: {
-        accepted: boolean;
-        event: string;
-      };
-    }>(ingressResponse);
-
-    expect(ingressResponse.status).toBe(202);
-    expect(ingressPayload.data.accepted).toBe(true);
-    expect(ingressPayload.data.event).toBe("pull_request_review_comment");
   });
 
   it("allows local dashboard origins to read the runtime api", async () => {

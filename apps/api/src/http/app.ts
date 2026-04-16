@@ -7,7 +7,6 @@ import { normalizeRuntimeError } from "../core/errors.js";
 import type { SymphonyRuntimeAppContextSchema } from "./context.js";
 import { createAgentAnalyticsRoutes } from "./routes/agent-analytics-routes.js";
 import { createForensicsRoutes } from "./routes/forensics-routes.js";
-import { createGitHubReviewEventsRoutes } from "./routes/github-review-events-routes.js";
 import { createRealtimeRoutes } from "./routes/realtime-routes.js";
 import { createRuntimeRoutes } from "./routes/runtime-routes.js";
 
@@ -75,7 +74,6 @@ export function createSymphonyRuntimeApplication(
 
   app.route("/api/v1", createForensicsRoutes(services));
   app.route("/api/v1", createAgentAnalyticsRoutes(services));
-  app.route("/api/v1", createGitHubReviewEventsRoutes(services));
   app.route("/api/v1", createRealtimeRoutes(services, nodeWebSocket.upgradeWebSocket));
   app.route("/api/v1", createRuntimeRoutes(services));
 

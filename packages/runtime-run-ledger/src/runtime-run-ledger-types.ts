@@ -27,7 +27,7 @@ export type SymphonyIssueRecord = {
   updatedAt: SymphonyIsoTimestamp;
 };
 
-export type SymphonyRunMode = "implementation" | "rework" | "approved_merge";
+export type SymphonyRunMode = "implementation";
 export type SymphonyRunStatus =
   | "dispatching"
   | "running"
@@ -45,9 +45,7 @@ export type SymphonyTurnStatus =
   | "stopped";
 export const symphonyRunOutcomeValues = [
   "completed",
-  "merged",
   "blocked",
-  "merge_blocked",
   "paused_max_turns",
   "startup_failed",
   "rate_limited",

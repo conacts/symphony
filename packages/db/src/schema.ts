@@ -31,11 +31,7 @@ const runStatusValues = [
 ] as const;
 
 const runOutcomeValues = symphonyRunOutcomeValues;
-const runModeValues = [
-  "implementation",
-  "rework",
-  "approved_merge"
-] as const;
+const runModeValues = ["implementation"] as const;
 
 const turnStatusValues = ["running", "completed", "failed", "stopped"] as const;
 const eventItemTypeValues = [
@@ -2053,23 +2049,203 @@ export const routeProjectionSnapshotsTable = sqliteTable(
   })
 );
 
-export const symphonyGitHubIngressTable = sqliteTable(
-  "symphony_github_ingress",
+export const routeWorkflowExecutionContractsTable = sqliteTable(
+  "route_workflow_execution_contracts",
   {
-    deliveryId: text("delivery_id").primaryKey(),
-    event: text("event").notNull(),
-    repository: text("repository").notNull(),
-    action: text("action"),
-    semanticKey: text("semantic_key"),
-    recordedAt: text("recorded_at").notNull()
+    workflowId: text("workflow_id").primaryKey(),
+    contractId: text("contract_id").notNull(),
+    summary: text("summary").notNull(),
+    objective: text("objective").notNull(),
+    doneDefinition: text("done_definition").notNull(),
+    requiredCapabilityIdsJson: text("required_capability_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    preferredCapabilityIdsJson: text("preferred_capability_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    forbiddenCapabilityIdsJson: text("forbidden_capability_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    requiredEvidenceIdsJson: text("required_evidence_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    allowedModelProfileIdsJson: text("allowed_model_profile_ids_json", {
+      mode: "json"
+    }).notNull().$type<unknown>(),
+    clarificationMode: text("clarification_mode").notNull(),
+    reviewStrictness: text("review_strictness").notNull(),
+    maxRetryCount: integer("max_retry_count").notNull(),
+    insertedAt: text("inserted_at").notNull(),
+    updatedAt: text("updated_at").notNull()
   },
   (table) => ({
-    semanticKeyIdx: index("symphony_github_ingress_semantic_key_idx").on(
-      table.semanticKey
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_workflow_execution_contracts_workflow_fk"
+    }).onDelete("cascade"),
+    contractIdCheck: check(
+      "route_workflow_execution_contracts_contract_id_check",
+      sql`length(trim(${table.contractId})) > 0`
     ),
-    recordedAtIdx: index("symphony_github_ingress_recorded_at_idx").on(
-      table.recordedAt
+    summaryCheck: check(
+      "route_workflow_execution_contracts_summary_check",
+      sql`length(trim(${table.summary})) > 0`
+    ),
+    objectiveCheck: check(
+      "route_workflow_execution_contracts_objective_check",
+      sql`length(trim(${table.objective})) > 0`
+    ),
+    doneDefinitionCheck: check(
+      "route_workflow_execution_contracts_done_definition_check",
+      sql`length(trim(${table.doneDefinition})) > 0`
+    ),
+    clarificationModeCheck: check(
+      "route_workflow_execution_contracts_clarification_mode_check",
+      sql`${table.clarificationMode} in (${sqlEnum(["required", "best_effort"] as const)})`
+    ),
+    reviewStrictnessCheck: check(
+      "route_workflow_execution_contracts_review_strictness_check",
+      sql`${table.reviewStrictness} in (${sqlEnum(["standard", "strict", "adversarial"] as const)})`
+    ),
+    maxRetryCountCheck: check(
+      "route_workflow_execution_contracts_max_retry_count_check",
+      sql`${table.maxRetryCount} >= 0`
+    ),
+    contractIdIdx: uniqueIndex(
+      "route_workflow_execution_contracts_contract_id_idx"
+    ).on(table.contractId),
+    updatedAtIdx: index(
+      "route_workflow_execution_contracts_updated_at_idx"
+    ).on(table.updatedAt)
+  })
+);
+
+export const routeWorkflowCapabilityPlannerDecisionsTable = sqliteTable(
+  "route_workflow_capability_planner_decisions",
+  {
+    decisionId: text("decision_id").primaryKey(),
+    workflowId: text("workflow_id").notNull(),
+    contractId: text("contract_id").notNull(),
+    contractUpdatedAt: text("contract_updated_at").notNull(),
+    policyId: text("policy_id").notNull(),
+    historyEventSequence: integer("history_event_sequence").notNull(),
+    lifecycleProjectionSequence: integer("lifecycle_projection_sequence").notNull(),
+    lifecycleCurrentNode: text("lifecycle_current_node"),
+    planKind: text("plan_kind").notNull(),
+    planJson: text("plan_json", { mode: "json" }).notNull().$type<unknown>(),
+    intelligentFlowRouterDecisionJson: text(
+      "intelligent_flow_router_decision_json",
+      { mode: "json" }
+    ).$type<unknown | null>(),
+    recordedAt: text("recorded_at").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_workflow_capability_planner_decisions_workflow_fk"
+    }).onDelete("cascade"),
+    decisionIdCheck: check(
+      "route_workflow_capability_planner_decisions_decision_id_check",
+      sql`length(trim(${table.decisionId})) > 0`
+    ),
+    contractIdCheck: check(
+      "route_workflow_capability_planner_decisions_contract_id_check",
+      sql`length(trim(${table.contractId})) > 0`
+    ),
+    contractUpdatedAtCheck: check(
+      "route_workflow_capability_planner_decisions_contract_updated_at_check",
+      sql`length(trim(${table.contractUpdatedAt})) > 0`
+    ),
+    policyIdCheck: check(
+      "route_workflow_capability_planner_decisions_policy_id_check",
+      sql`length(trim(${table.policyId})) > 0`
+    ),
+    historyEventSequenceCheck: check(
+      "route_workflow_capability_planner_decisions_history_event_sequence_check",
+      sql`${table.historyEventSequence} >= 0`
+    ),
+    lifecycleProjectionSequenceCheck: check(
+      "route_workflow_capability_planner_decisions_lifecycle_projection_sequence_check",
+      sql`${table.lifecycleProjectionSequence} >= 0`
+    ),
+    planKindCheck: check(
+      "route_workflow_capability_planner_decisions_plan_kind_check",
+      sql`${table.planKind} in (${sqlEnum([
+        "execute",
+        "awaiting_input",
+        "blocked",
+        "ready_for_completion"
+      ] as const)})`
+    ),
+    workflowBasisIdx: uniqueIndex(
+      "route_workflow_capability_planner_decisions_workflow_basis_idx"
+    ).on(
+      table.workflowId,
+      table.historyEventSequence,
+      table.contractUpdatedAt,
+      table.policyId
+    ),
+    workflowRecordedAtIdx: index(
+      "route_workflow_capability_planner_decisions_workflow_recorded_at_idx"
+    ).on(table.workflowId, table.recordedAt)
+  })
+);
+
+export const routeWorkflowCapabilityPlannerCommandsTable = sqliteTable(
+  "route_workflow_capability_planner_commands",
+  {
+    commandId: text("command_id").primaryKey(),
+    workflowId: text("workflow_id").notNull(),
+    decisionId: text("decision_id").notNull(),
+    contractId: text("contract_id").notNull(),
+    historyEventSequence: integer("history_event_sequence").notNull(),
+    dedupeKey: text("dedupe_key"),
+    kind: text("kind").notNull(),
+    commandJson: text("command_json", { mode: "json" }).notNull().$type<unknown>(),
+    emittedAt: text("emitted_at").notNull(),
+    insertedAt: text("inserted_at").notNull()
+  },
+  (table) => ({
+    workflowFk: foreignKey({
+      columns: [table.workflowId],
+      foreignColumns: [routeWorkflowsTable.workflowId],
+      name: "route_workflow_capability_planner_commands_workflow_fk"
+    }).onDelete("cascade"),
+    decisionFk: foreignKey({
+      columns: [table.decisionId],
+      foreignColumns: [routeWorkflowCapabilityPlannerDecisionsTable.decisionId],
+      name: "route_workflow_capability_planner_commands_decision_fk"
+    }).onDelete("cascade"),
+    commandIdCheck: check(
+      "route_workflow_capability_planner_commands_command_id_check",
+      sql`length(trim(${table.commandId})) > 0`
+    ),
+    contractIdCheck: check(
+      "route_workflow_capability_planner_commands_contract_id_check",
+      sql`length(trim(${table.contractId})) > 0`
+    ),
+    historyEventSequenceCheck: check(
+      "route_workflow_capability_planner_commands_history_event_sequence_check",
+      sql`${table.historyEventSequence} >= 0`
+    ),
+    kindCheck: check(
+      "route_workflow_capability_planner_commands_kind_check",
+      sql`${table.kind} in (${sqlEnum(["capability.execute"] as const)})`
+    ),
+    decisionIdIdx: uniqueIndex(
+      "route_workflow_capability_planner_commands_decision_id_idx"
+    ).on(table.decisionId),
+    workflowDedupeKeyIdx: uniqueIndex(
+      "route_workflow_capability_planner_commands_workflow_dedupe_key_idx"
     )
+      .on(table.workflowId, table.dedupeKey)
+      .where(sql`${table.dedupeKey} is not null`),
+    workflowEmittedAtIdx: index(
+      "route_workflow_capability_planner_commands_workflow_emitted_at_idx"
+    ).on(table.workflowId, table.emittedAt)
   })
 );
 
@@ -2184,6 +2360,8 @@ export const symphonySchema = {
   routeHistoryEventsTable,
   routeDecisionsTable,
   routeProjectionSnapshotsTable,
-  symphonyGitHubIngressTable,
+  routeWorkflowExecutionContractsTable,
+  routeWorkflowCapabilityPlannerDecisionsTable,
+  routeWorkflowCapabilityPlannerCommandsTable,
   symphonyMigrationStateTable
 };

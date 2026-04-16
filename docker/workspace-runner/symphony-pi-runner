@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly DEFAULT_SYMPHONY_PI_RUNNER_ROOT="/opt/symphony/pi-runner"
+readonly SYMPHONY_PI_RUNNER_ROOT="${SYMPHONY_PI_RUNNER_ROOT:-${DEFAULT_SYMPHONY_PI_RUNNER_ROOT}}"
+readonly SYMPHONY_PI_RUNNER_TSX_LOADER_PATH="${SYMPHONY_PI_RUNNER_ROOT}/node_modules/tsx/dist/loader.mjs"
+readonly SYMPHONY_PI_RUNNER_ENTRYPOINT_PATH="${SYMPHONY_PI_RUNNER_ROOT}/src/pi/runner-entrypoint.ts"
+
+if [[ ! -f "${SYMPHONY_PI_RUNNER_TSX_LOADER_PATH}" ]]; then
+  printf 'Symphony Pi runner packaging is invalid: missing packaged asset at %s\n' "${SYMPHONY_PI_RUNNER_TSX_LOADER_PATH}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${SYMPHONY_PI_RUNNER_ENTRYPOINT_PATH}" ]]; then
+  printf 'Symphony Pi runner packaging is invalid: missing packaged asset at %s\n' "${SYMPHONY_PI_RUNNER_ENTRYPOINT_PATH}" >&2
+  exit 1
+fi
+
+exec node --import "${SYMPHONY_PI_RUNNER_TSX_LOADER_PATH}" "${SYMPHONY_PI_RUNNER_ENTRYPOINT_PATH}" "$@"

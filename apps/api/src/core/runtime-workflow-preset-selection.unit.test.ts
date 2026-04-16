@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { resolveRuntimeWorkflowPresetSelection } from "./runtime-workflow-preset-selection.js";
+import {
+  createDefaultRuntimeWorkflowPresetSelection,
+  resolveRuntimeWorkflowPresetSelection
+} from "./runtime-workflow-preset-selection.js";
 
 describe("runtime workflow preset selection", () => {
+  it("uses intelligent-flow as the registry default", () => {
+    expect(createDefaultRuntimeWorkflowPresetSelection()).toEqual({
+      presetId: "intelligent-flow",
+      source: "registry_default",
+      repositoryKey: null,
+      manifestPath: null
+    });
+  });
+
   it("fails fast when no runtime manifest is selected", () => {
     expect(() =>
       resolveRuntimeWorkflowPresetSelection({
@@ -54,57 +66,6 @@ describe("runtime workflow preset selection", () => {
     ).toThrow(/does not define workflow configuration/i);
   });
 
-  it("uses the preset declared by the runtime manifest", () => {
-    expect(
-      resolveRuntimeWorkflowPresetSelection({
-        runtimeManifest: {
-          repoRoot: "/tmp/source-repo",
-          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
-          manifest: {
-            schemaVersion: 1,
-            repositoryKey: "openai/symphony",
-            linear: {
-              teamKey: "SYM"
-            },
-            workspace: {
-              packageManager: "pnpm",
-              workingDirectory: "."
-            },
-            services: {},
-            workflow: {
-              defaultRouterPreset: "current-flow"
-            },
-            pi: null,
-            env: {
-              host: {
-                required: [],
-                optional: []
-              },
-              inject: {}
-            },
-            lifecycle: {
-              bootstrap: [],
-              migrate: [],
-              verify: [
-                {
-                  name: "verify",
-                  run: "pnpm test"
-                }
-              ],
-              seed: [],
-              cleanup: []
-            }
-          }
-        }
-      })
-    ).toEqual({
-      presetId: "current-flow",
-      source: "runtime_manifest",
-      repositoryKey: "openai/symphony",
-      manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
-    });
-  });
-
   it("prefers an explicit bootstrap preset override over the runtime manifest", () => {
     expect(
       resolveRuntimeWorkflowPresetSelection({
@@ -123,7 +84,7 @@ describe("runtime workflow preset selection", () => {
             },
             services: {},
             workflow: {
-              defaultRouterPreset: "current-flow"
+              defaultRouterPreset: "intelligent-flow"
             },
             pi: null,
             env: {
@@ -147,10 +108,10 @@ describe("runtime workflow preset selection", () => {
             }
           }
         },
-        overridePresetId: "auto-merge"
+        overridePresetId: "intelligent-flow"
       })
     ).toEqual({
-      presetId: "auto-merge",
+      presetId: "intelligent-flow",
       source: "bootstrap_override",
       repositoryKey: "openai/symphony",
       manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
@@ -221,7 +182,7 @@ describe("runtime workflow preset selection", () => {
             },
             services: {},
             workflow: {
-              defaultRouterPreset: "current-flow"
+              defaultRouterPreset: "intelligent-flow"
             },
             pi: null,
             env: {
@@ -250,54 +211,4 @@ describe("runtime workflow preset selection", () => {
     ).toThrow(/bootstrap requested an invalid workflow preset/i);
   });
 
-  it("accepts alternate built-in workflow presets from the runtime manifest", () => {
-    expect(
-      resolveRuntimeWorkflowPresetSelection({
-        runtimeManifest: {
-          repoRoot: "/tmp/source-repo",
-          manifestPath: "/tmp/source-repo/.symphony/runtime.ts",
-          manifest: {
-            schemaVersion: 1,
-            repositoryKey: "openai/symphony",
-            linear: {
-              teamKey: "SYM"
-            },
-            workspace: {
-              packageManager: "pnpm",
-              workingDirectory: "."
-            },
-            services: {},
-            workflow: {
-              defaultRouterPreset: "auto-merge"
-            },
-            pi: null,
-            env: {
-              host: {
-                required: [],
-                optional: []
-              },
-              inject: {}
-            },
-            lifecycle: {
-              bootstrap: [],
-              migrate: [],
-              verify: [
-                {
-                  name: "verify",
-                  run: "pnpm test"
-                }
-              ],
-              seed: [],
-              cleanup: []
-            }
-          }
-        }
-      })
-    ).toEqual({
-      presetId: "auto-merge",
-      source: "runtime_manifest",
-      repositoryKey: "openai/symphony",
-      manifestPath: "/tmp/source-repo/.symphony/runtime.ts"
-    });
-  });
 });

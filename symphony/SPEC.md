@@ -218,10 +218,6 @@ It validates the repo contract in redacted form:
 - `Todo`
 - `Bootstrapping`
 - `In Progress`
-- `Rework`
-- `Approved`
-
-`Approved` is active only for merge execution.
 
 ### 8.2 Non-Dispatch States
 
@@ -245,19 +241,17 @@ repo lifecycle was allowed to proceed normally.
 Terminal states are hard stops. Once an issue reaches a terminal state, Symphony does not create a
 fresh workspace for that issue again.
 
-### 8.4 Run Modes And Explicit Completion
+### 8.4 Run Modes And Terminal Results
 
-Symphony derives run mode from the current issue state:
+Symphony currently prioritizes capability-managed intelligent-flow execution.
 
-- `Approved` uses the merge-only `approved_merge` mode
-- `Rework` uses the `rework` mode
-- other active work uses the default implementation mode
+- active implementation work runs in the implementation module
+- review feedback may enqueue another implementation attempt through GitHub review ingress
+- the router owns the next-state decision after each module completes
 
-Implementation and rework runs must cross the explicit delivery boundary through
-`pnpm exec symphony tool finish ...`.
-
-Approved merge runs must cross the explicit merge boundary through
-`pnpm exec symphony tool merge-result ...`.
+Runs must end with a structured terminal result that tells the router whether the module completed,
+blocked, failed, or needs clarification. Legacy merge-era and slash-command completion flows are
+not part of the active implementation-first path.
 
 The accepted workflow details live in:
 

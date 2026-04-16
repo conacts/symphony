@@ -32,16 +32,27 @@ export function buildFailureCommentBody(
   outcome: string,
   options: SymphonyFailureCommentOptions = {}
 ): string {
+  const actionDirective = buildFailureActionDirective(outcome);
+
   return [
     failureCommentTitle(issue, outcome, reason, options.expectedTrackerState),
     "",
-    `Summary: ${failureCommentSummary(outcome, reason)}`,
+    `State: \`${issue.state}\``,
+    `What changed: ${failureCommentWhatChanged(outcome, reason)}`,
     failureCommentDetailBlock(
       failureCommentDetails(issue, reason, outcome, options)
     ),
     failureCommentWorkspacePolicyLine(options.workspaceCleanupMode),
+    actionDirective.retryPolicy === null
+      ? null
+      : `Retry policy: ${actionDirective.retryPolicy}`,
     "",
-    ...failureCommentFollowUpLines(issue, outcome, options.expectedTrackerState)
+    `Next step: ${actionDirective.nextStep}`,
+    buildFailureRequeueLine({
+      issue,
+      requeueToState: actionDirective.requeueToState,
+      expectedTrackerState: options.expectedTrackerState
+    })
   ]
     .filter((line): line is string => typeof line === "string" && line !== "")
     .join("\n");
@@ -118,7 +129,11 @@ function failureCommentTitle(
   return "Symphony agent run failed.";
 }
 
-function failureCommentSummary(outcome: string, reason: string): string {
+function failureCommentWhatChanged(outcome: string, reason: string): string {
+  if (outcome === "startup_failed") {
+    return "Pi stopped before the run became active because startup failed.";
+  }
+
   if (outcome === "rate_limited" || rateLimitReason(reason)) {
     return "Pi hit a rate limit and ended the current run.";
   }
@@ -220,17 +235,29 @@ function failureCommentWorkspacePolicyLine(
   return null;
 }
 
-function failureCommentFollowUpLines(
-  issue: SymphonyTrackerIssue,
-  outcome: string,
-  expectedTrackerState: string | null | undefined
-): string[] {
+type FailureActionDirective = {
+  retryPolicy: string | null;
+  nextStep: string;
+  requeueToState: "Todo" | null;
+};
+
+function buildFailureActionDirective(
+  outcome: string
+): FailureActionDirective {
   if (outcome === "startup_failed") {
-    return startupFailureFollowUpLines(issue, expectedTrackerState);
+    return {
+      retryPolicy: "Symphony did not retry automatically.",
+      nextStep: "Fix the startup problem.",
+      requeueToState: "Todo"
+    };
   }
 
   if (outcome === "blocked_repo") {
-    return blockedFollowUpLines(issue, expectedTrackerState);
+    return {
+      retryPolicy: "Symphony did not retry automatically.",
+      nextStep: "Resolve the repo or workspace blocker.",
+      requeueToState: "Todo"
+    };
   }
 
   if (
@@ -239,107 +266,106 @@ function failureCommentFollowUpLines(
     outcome === "blocked_merge_stalled" ||
     outcome === "blocked_merge_failure"
   ) {
-    return blockedMergeFollowUpLines(issue, expectedTrackerState);
+    return buildBlockedMergeActionDirective(outcome);
   }
 
-  return pausedFailureFollowUpLines(issue, outcome, expectedTrackerState);
+  return buildPausedFailureActionDirective(outcome);
 }
 
-function startupFailureFollowUpLines(
-  issue: SymphonyTrackerIssue,
-  expectedTrackerState: string | null | undefined
-): string[] {
-  return routedTrackerStateFollowUpLines({
-    issue,
-    expectedTrackerState,
-    firstLine: "Symphony did not retry automatically.",
-    rerunInstruction:
-      "After fixing the startup problem, move it back to `Todo` to request another run.",
-    manualCleanupInstruction:
-      "Manual state cleanup may be required before the ticket is requeued.",
-    fallbackInstruction:
-      "After fixing the startup problem, move the issue back to `Todo` to request another run."
-  });
+function buildPausedFailureActionDirective(
+  outcome: string
+): FailureActionDirective {
+  switch (outcome) {
+    case "paused_max_turns":
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep:
+          "Review the preserved workspace and decide what remaining work should resume in the next run.",
+        requeueToState: "Todo"
+      };
+    case "paused_stalled":
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep:
+          "Inspect the preserved workspace and last visible activity to determine why the run stalled.",
+        requeueToState: "Todo"
+      };
+    case "paused_provider_transient":
+      return {
+        retryPolicy: "Automatic retries were exhausted.",
+        nextStep:
+          "Resolve the provider problem that exhausted the retry budget.",
+        requeueToState: "Todo"
+      };
+    case "rate_limited":
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep:
+          "Wait for provider capacity to recover or adjust the account limits.",
+        requeueToState: "Todo"
+      };
+    case "paused_failure":
+    default:
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep:
+          "Resolve the runtime or orchestration problem that failed the active run.",
+        requeueToState: "Todo"
+      };
+  }
 }
 
-function blockedFollowUpLines(
-  issue: SymphonyTrackerIssue,
-  expectedTrackerState: string | null | undefined
-): string[] {
-  return routedTrackerStateFollowUpLines({
-    issue,
-    expectedTrackerState,
-    firstLine: "Symphony did not retry automatically.",
-    rerunInstruction:
-      "After resolving the repo or workspace blocker, move it back to `Todo` to request another run.",
-    manualCleanupInstruction:
-      "Manual state cleanup may be required before the ticket is requeued.",
-    fallbackInstruction:
-      "After resolving the repo or workspace blocker, move the issue back to `Todo` to request another run."
-  });
+function buildBlockedMergeActionDirective(
+  outcome: string
+): FailureActionDirective {
+  switch (outcome) {
+    case "blocked_merge_max_turns":
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep:
+          "Review the preserved workspace and merge state to decide what remaining work should resume in the next run.",
+        requeueToState: "Todo"
+      };
+    case "blocked_merge_stalled":
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep:
+          "Inspect the preserved workspace and merge state to determine why the merge run stalled.",
+        requeueToState: "Todo"
+      };
+    case "blocked_merge_failure":
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep: "Resolve the merge problem that failed the active run.",
+        requeueToState: "Todo"
+      };
+    case "blocked_merge":
+    default:
+      return {
+        retryPolicy: "Symphony did not retry automatically.",
+        nextStep: "Resolve the merge problem.",
+        requeueToState: "Todo"
+      };
+  }
 }
 
-function blockedMergeFollowUpLines(
-  issue: SymphonyTrackerIssue,
-  expectedTrackerState: string | null | undefined
-): string[] {
-  return routedTrackerStateFollowUpLines({
-    issue,
-    expectedTrackerState,
-    firstLine: "Symphony did not retry automatically.",
-    rerunInstruction:
-      "After resolving the merge problem, move it back to `Approved` to request another merge run.",
-    manualCleanupInstruction:
-      "Manual state cleanup may be required before the merge is retried.",
-    fallbackInstruction:
-      "After resolving the merge problem, move the issue back to `Approved` to request another merge run."
-  });
-}
-
-function pausedFailureFollowUpLines(
-  issue: SymphonyTrackerIssue,
-  outcome: string,
-  expectedTrackerState: string | null | undefined
-): string[] {
-  return routedTrackerStateFollowUpLines({
-    issue,
-    expectedTrackerState,
-    firstLine:
-      outcome === "paused_provider_transient"
-        ? "Automatic retries were exhausted."
-        : "Symphony did not retry automatically.",
-    rerunInstruction:
-      "After resolving the orchestration or provider problem, move it back to `Todo` to request another run.",
-    manualCleanupInstruction:
-      "Manual state cleanup may be required before the ticket is requeued.",
-    fallbackInstruction:
-      "After resolving the orchestration or provider problem, move the issue back to `Todo` to request another run."
-  });
-}
-
-function routedTrackerStateFollowUpLines(input: {
+function buildFailureRequeueLine(input: {
   issue: SymphonyTrackerIssue;
+  requeueToState: "Todo" | null;
   expectedTrackerState: string | null | undefined;
-  firstLine: string;
-  rerunInstruction: string;
-  manualCleanupInstruction: string;
-  fallbackInstruction: string;
-}): string[] {
-  if (!hasExpectedTrackerState(input.expectedTrackerState)) {
-    return [input.firstLine, input.fallbackInstruction];
+}): string | null {
+  if (input.requeueToState === null) {
+    return null;
   }
 
-  if (issueMatchesExpectedTrackerState(input.issue, input.expectedTrackerState)) {
-    return [
-      input.firstLine,
-      `The issue is currently in \`${input.issue.state}\`. ${input.rerunInstruction}`
-    ];
+  if (
+    hasExpectedTrackerState(input.expectedTrackerState) &&
+    !issueMatchesExpectedTrackerState(input.issue, input.expectedTrackerState)
+  ) {
+    return `The issue is currently in \`${input.issue.state}\`. Manual state cleanup may be required before the ticket is requeued.`;
   }
 
-  return [
-    input.firstLine,
-    `The issue is currently in \`${input.issue.state}\`. ${input.manualCleanupInstruction}`
-  ];
+  return `The issue is currently in \`${input.issue.state}\`. After completing the next step, move it to \`${input.requeueToState}\` to requeue.`;
 }
 
 function trackerStateMismatchDetail(
