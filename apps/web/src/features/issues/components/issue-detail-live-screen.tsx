@@ -9,7 +9,6 @@ import { IssueDetailView } from "@/features/issues/components/issue-detail-view"
 import { IssueRequeuePanel } from "@/features/issues/components/issue-requeue-panel";
 import { useIssueDetail } from "@/features/issues/hooks/use-issue-detail";
 import { useIssueWorkflowObservability } from "@/features/issues/hooks/use-issue-workflow-observability";
-import { useRuntimeLogs } from "@/features/runtime/hooks/use-runtime-logs";
 import { ControlPlanePage } from "@/features/shared/components/control-plane-page";
 import { useControlPlaneModel } from "@/features/shared/components/control-plane-model-context";
 import { buildRuntimeSummaryConnectionState } from "@/features/overview/model/overview-view-model";
@@ -29,12 +28,6 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
     websocketUrl: model.websocketUrl,
     issueIdentifier: input.issueIdentifier
   });
-  const runtimeLogsState = useRuntimeLogs({
-    runtimeBaseUrl: model.runtimeBaseUrl,
-    websocketUrl: model.websocketUrl,
-    issueIdentifier: input.issueIdentifier,
-    limit: 12
-  });
   const workflowObservabilityState = useIssueWorkflowObservability({
     runtimeBaseUrl: model.runtimeBaseUrl,
     websocketUrl: model.websocketUrl,
@@ -43,12 +36,10 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
   const connectionStatus =
     issueDetailState.status === "connected" ||
     runtimeIssueState.status === "connected" ||
-    runtimeLogsState.status === "connected" ||
     workflowObservabilityState.status === "connected"
       ? "connected"
       : issueDetailState.status === "degraded" &&
           runtimeIssueState.status === "degraded" &&
-          runtimeLogsState.status === "degraded" &&
           workflowObservabilityState.status === "degraded"
         ? "degraded"
         : "connecting";
@@ -58,13 +49,11 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
         status: connectionStatus,
         error:
           workflowObservabilityState.error ??
-          runtimeLogsState.error ??
           issueDetailState.error ??
           runtimeIssueState.error,
         hasSnapshot:
           issueDetailState.resource !== null ||
           runtimeIssueState.resource !== null ||
-          runtimeLogsState.resource !== null ||
           workflowObservabilityState.resource !== null
       }),
     [
@@ -73,8 +62,6 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
       issueDetailState.resource,
       runtimeIssueState.error,
       runtimeIssueState.resource,
-      runtimeLogsState.error,
-      runtimeLogsState.resource,
       workflowObservabilityState.error,
       workflowObservabilityState.resource
     ]
@@ -82,7 +69,6 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
   const handleCapabilityUpdated = async () => {
     await Promise.all([
       runtimeIssueState.refresh(),
-      runtimeLogsState.refresh(),
       issueDetailState.refresh(),
       workflowObservabilityState.refresh()
     ]);
@@ -105,14 +91,10 @@ export function IssueDetailLiveScreen(input: { issueIdentifier: string }) {
         />
         <IssueDetailView
           connection={connection}
-          issueIdentifier={input.issueIdentifier}
           issueDetailError={issueDetailState.error}
           issueDetail={issueDetailState.resource}
           issueDetailLoading={issueDetailState.loading}
           runtimeIssue={runtimeIssueState.resource}
-          runtimeLogs={runtimeLogsState.resource}
-          runtimeLogsError={runtimeLogsState.error}
-          runtimeLogsLoading={runtimeLogsState.loading}
           workflowObservability={workflowObservabilityState.resource}
           workflowObservabilityError={workflowObservabilityState.error}
           workflowObservabilityLoading={workflowObservabilityState.loading}

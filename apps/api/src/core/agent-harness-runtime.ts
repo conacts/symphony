@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type {
   AgentRuntime,
+  SymphonyAgentRuntimeCompletion,
   SymphonyAgentRuntimeConfig,
   SymphonyWorkerSessionContract
 } from "@symphony/orchestrator";
@@ -25,7 +26,8 @@ import type { SymphonyLogger } from "@symphony/logger";
 import {
   HarnessSessionError,
   resolveHarnessModelRuntimePolicy,
-  type HarnessCompletionCandidate
+  type HarnessCompletionCandidate,
+  type HarnessTurnResult
 } from "@symphony/agent-harnesses";
 import { resolveRuntimeRepositoryKey } from "./runtime-repository-key.js";
 import { resolveIssueRepository } from "./runtime-repository-routing.js";
@@ -263,6 +265,8 @@ async function executeRun(input: {
   let recordedCanonicalSessionStart = false;
   let workerSessionId: string | null = null;
   let latestCompletionCandidate: HarnessCompletionCandidate | null = null;
+  let pendingTerminalResultRepairReason: string | null = null;
+  let terminalResultRepairConsumed = false;
   let activeTurnProjection: RuntimeTurnProjection | null = null;
   const capabilityManagedRun = await input.isCapabilityManagedRun({
     issueIdentifier: input.issue.identifier,
@@ -436,8 +440,10 @@ async function executeRun(input: {
               turnNumber,
               maxTurns: input.runtimePolicy.agent.maxTurns,
               runMode: input.runMode,
-              completionContract: "module_result"
+              completionContract: "module_result",
+              terminalResultRepairReason: pendingTerminalResultRepairReason
             });
+      pendingTerminalResultRepairReason = null;
 
       const persistedTurnStartedAt = new Date().toISOString();
       persistedTurnId = input.runId
@@ -595,15 +601,6 @@ async function executeRun(input: {
               })
             : null;
 
-        if (input.runId) {
-          await recordRunRepoEndSnapshot({
-            runStore: input.runStore,
-            runId: input.runId,
-            launchTarget: input.launchTarget,
-            timeoutMs: input.runtimePolicy.hooks.timeoutMs
-          });
-        }
-
         if (failedTurnClassification) {
           await recordRuntimeLifecycleLog({
             runtimeLogs: input.runtimeLogs,
@@ -616,6 +613,44 @@ async function executeRun(input: {
               terminalResultKind: turnResult.kind,
               ...failedTurnClassification.payload
             }
+          });
+        }
+
+        const terminalResultRepairReason = shouldRequestTerminalResultRepair({
+          capabilityManagedRun,
+          terminalResultRepairConsumed,
+          turnNumber,
+          maxTurns: input.runtimePolicy.agent.maxTurns,
+          completion: failedTurnClassification?.completion ?? null,
+          turnResult: turnResult.kind === "failed" ? turnResult : null
+        });
+        if (terminalResultRepairReason) {
+          terminalResultRepairConsumed = true;
+          pendingTerminalResultRepairReason = terminalResultRepairReason;
+          await recordRuntimeLifecycleLog({
+            runtimeLogs: input.runtimeLogs,
+            level: "warn",
+            eventType: "runtime_terminal_result_repair_requested",
+            message:
+              "Capability-managed terminal result repair turn requested after an invalid terminal result.",
+            issueIdentifier: input.issue.identifier,
+            runId: input.runId,
+            payload: {
+              turnNumber,
+              maxTurns: input.runtimePolicy.agent.maxTurns,
+              failureClass: turnResult.kind === "failed" ? turnResult.failureClass : null,
+              reason: terminalResultRepairReason
+            }
+          });
+          continue;
+        }
+
+        if (input.runId) {
+          await recordRunRepoEndSnapshot({
+            runStore: input.runStore,
+            runId: input.runId,
+            launchTarget: input.launchTarget,
+            timeoutMs: input.runtimePolicy.hooks.timeoutMs
           });
         }
 
@@ -922,3 +957,33 @@ function describeLaunchTarget(target: SymphonyRuntimeLaunchTarget): JsonObject {
   };
 }
 export { isTransientProviderError };
+
+function shouldRequestTerminalResultRepair(input: {
+  capabilityManagedRun: boolean;
+  terminalResultRepairConsumed: boolean;
+  turnNumber: number;
+  maxTurns: number;
+  completion: SymphonyAgentRuntimeCompletion | null;
+  turnResult: Extract<HarnessTurnResult, { kind: "failed" }> | null;
+}): string | null {
+  if (!input.capabilityManagedRun || input.terminalResultRepairConsumed) {
+    return null;
+  }
+
+  if (!input.turnResult || input.turnNumber >= input.maxTurns) {
+    return null;
+  }
+
+  if (input.completion?.kind !== "terminal_result_failure") {
+    return null;
+  }
+
+  if (
+    input.turnResult.failureClass !== "terminal_result_missing" &&
+    input.turnResult.failureClass !== "terminal_result_invalid"
+  ) {
+    return null;
+  }
+
+  return input.completion.reason;
+}

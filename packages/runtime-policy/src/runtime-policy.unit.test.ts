@@ -32,6 +32,7 @@ describe("resolveRuntimePolicy", () => {
       authMode: "subscription"
     });
     expect(config.pi.turnTimeoutMs).toBe(3_600_000);
+    expect(config.pi.readTimeoutMs).toBe(30_000);
     expect(config.pi.stallTimeoutMs).toBe(300_000);
     expect(config.pi.toolTimeoutMs).toBe(900_000);
   });

@@ -53,7 +53,7 @@ export function buildSymphonyRuntimePolicy(
       ...defaultPiProfileDefaults.provider
     },
     turnTimeoutMs: 3_600_000,
-    readTimeoutMs: 5_000,
+    readTimeoutMs: 30_000,
     stallTimeoutMs: 300_000,
     ...remainingPiOverrides,
     toolTimeoutMs: overriddenPiToolTimeoutMs ?? null
@@ -115,7 +115,7 @@ export function buildSymphonyRuntimePolicy(
       }),
       provider: null,
       turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
+      readTimeoutMs: 30_000,
       stallTimeoutMs: 300_000,
       ...overrides.agentRuntime
     },

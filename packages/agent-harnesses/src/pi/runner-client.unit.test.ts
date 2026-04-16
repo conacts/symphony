@@ -133,6 +133,31 @@ function createRuntimePolicy(): SymphonyAgentRuntimeConfig {
   };
 }
 
+function createCompletedTerminalResultMessage(): string {
+  return [
+    "```json",
+    JSON.stringify(
+      {
+        schemaVersion: "1",
+        moduleId: "implement.spec",
+        outcome: "completed",
+        summary: "Implemented the change.",
+        evidence: {
+          filesChanged: ["src/example.ts"],
+          verification: [],
+          notes: null
+        },
+        requestedState: "done",
+        nextInputPrompt: null,
+        blockers: []
+      },
+      null,
+      2
+    ),
+    "```"
+  ].join("\n");
+}
+
 describe("pi runner client", () => {
   it("builds a docker spawn spec rooted at the workspace root", () => {
     const spec = buildPiRunnerSpawnSpec({
@@ -224,6 +249,7 @@ describe("pi runner client", () => {
   });
 
   it("runs a turn and emits canonical thread events from SDK runner events", async () => {
+    const completedTerminalResultMessage = createCompletedTerminalResultMessage();
     const awaitEvent = vi
       .fn()
       .mockResolvedValueOnce({
@@ -261,7 +287,7 @@ describe("pi runner client", () => {
         recordedAt: "2026-04-14T18:01:02.000Z",
         runId: "pi-sdk-turn-1",
         messageId: "assistant-1",
-        text: "Implemented the change."
+        text: completedTerminalResultMessage
       })
       .mockResolvedValueOnce({
         schemaVersion: "1",
@@ -335,7 +361,7 @@ describe("pi runner client", () => {
           kind: "completed",
           stopReason: "end_turn",
           providerStopReason: "stop",
-          finalAssistantMessage: "Implemented the change.",
+          finalAssistantMessage: completedTerminalResultMessage,
           usage: {
             inputTokens: 11,
             cachedInputTokens: 2,
@@ -437,7 +463,7 @@ describe("pi runner client", () => {
         item: {
           id: "assistant-1",
           type: "agent_message",
-          text: "Implemented the change."
+          text: completedTerminalResultMessage
         }
       },
       {
@@ -531,7 +557,7 @@ describe("pi runner client", () => {
         item: {
           id: "assistant-1",
           type: "agent_message",
-          text: "Implemented the change."
+          text: completedTerminalResultMessage
         }
       },
       {
@@ -644,6 +670,7 @@ describe("pi runner client", () => {
   });
 
   it("synthesizes a completed assistant item when the terminal result is the only assistant payload", async () => {
+    const completedTerminalResultMessage = createCompletedTerminalResultMessage();
     const awaitEvent = vi
       .fn()
       .mockResolvedValueOnce({
@@ -677,7 +704,7 @@ describe("pi runner client", () => {
           kind: "completed",
           stopReason: "end_turn",
           providerStopReason: "stop",
-          finalAssistantMessage: "Implemented the change.",
+          finalAssistantMessage: completedTerminalResultMessage,
           usage: {
             inputTokens: 11,
             cachedInputTokens: 2,
@@ -760,7 +787,7 @@ describe("pi runner client", () => {
         item: {
           id: "pi-sdk-turn-1:assistant",
           type: "agent_message",
-          text: "Implemented the change."
+          text: completedTerminalResultMessage
         }
       },
       {
@@ -769,6 +796,166 @@ describe("pi runner client", () => {
           input_tokens: 11,
           cached_input_tokens: 2,
           output_tokens: 7
+        }
+      }
+    ]);
+  });
+
+  it("classifies malformed completed terminal payloads as terminal_result_invalid failures", async () => {
+    const invalidTerminalMessage = [
+      "I need your direction before I continue.",
+      "```json",
+      JSON.stringify(
+        {
+          schemaVersion: "2026-04-01",
+          moduleId: "implement.spec",
+          outcome: "awaiting_input",
+          summary: "Need direction on the UI layout.",
+          evidence: [
+            "apps/web/src/features/issues/issue.tsx"
+          ],
+          requestedState: "In Progress",
+          nextInputPrompt: "Should I simplify the layout?",
+          blockers: []
+        },
+        null,
+        2
+      ),
+      "```"
+    ].join("\n");
+    const awaitEvent = vi
+      .fn()
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "session_started",
+        sequence: 1,
+        recordedAt: "2026-04-14T18:00:00.000Z",
+        runId: "sdk-bootstrap-SYM-42-run",
+        sessionId: "sdk-bootstrap-SYM-42-session",
+        threadId: null,
+        modelId: "xiaomi/mimo-v2-pro",
+        cwd: "/workspace/packages/agent-harnesses"
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "prompt_started",
+        sequence: 2,
+        recordedAt: "2026-04-14T18:01:00.000Z",
+        runId: "pi-sdk-turn-1",
+        promptTitle: "Implement spec",
+        promptText: "Apply the requested change."
+      })
+      .mockResolvedValueOnce({
+        schemaVersion: "1",
+        eventType: "terminal_result",
+        sequence: 3,
+        recordedAt: "2026-04-14T18:01:04.000Z",
+        runId: "pi-sdk-turn-1",
+        result: {
+          schemaVersion: "1",
+          kind: "completed",
+          stopReason: "end_turn",
+          providerStopReason: "stop",
+          finalAssistantMessage: invalidTerminalMessage,
+          usage: {
+            inputTokens: 11,
+            cachedInputTokens: 2,
+            outputTokens: 7,
+            totalTokens: 20
+          },
+          lastActivityAt: "2026-04-14T18:01:03.000Z",
+          lastActivityType: "assistant_text_delta"
+        }
+      });
+
+    startMock.mockResolvedValue({
+      process: {
+        processId: "1234",
+        sendCommand: vi.fn(),
+        awaitEvent,
+        close: vi.fn()
+      },
+      hostLaunchPath: packageRoot,
+      runtimeWorkspacePath: "/workspace/packages/agent-harnesses",
+      runtimeWorkspaceRoot: "/workspace"
+    });
+
+    const session = await PiRunnerClient.startSession({
+      launchTarget: {
+        kind: "container",
+        hostLaunchPath: packageRoot,
+        hostWorkspacePath: repoRoot,
+        runtimeWorkspacePath: "/workspace/packages/agent-harnesses",
+        containerId: "container-1",
+        containerName: "symphony-col-123",
+        shell: "sh",
+        user: "1000:1000"
+      },
+      env: {},
+      hostCommandEnvSource,
+      runtimePolicy: createRuntimePolicy(),
+      issue: createIssue(),
+      logger: {
+        debug() {},
+        warn() {},
+        error() {}
+      }
+    });
+
+    const updates: Array<Record<string, unknown>> = [];
+    const result = await session.client.runTurn(session, {
+      prompt: "Apply the requested change.",
+      title: "Implement spec",
+      onMessage(update) {
+        updates.push(update.event);
+      },
+      turnTimeoutMs: 30_000
+    });
+
+    expect(result).toEqual({
+      kind: "failed",
+      threadId: "sdk-bootstrap-SYM-42-session",
+      turnId: "pi-sdk-turn-1",
+      usage: {
+        input_tokens: 11,
+        cached_input_tokens: 2,
+        output_tokens: 7
+      },
+      failureClass: "terminal_result_invalid",
+      reason:
+        "Capability-managed run attempted a terminal module result, but the final assistant message was not exactly one fenced `json` block.",
+      detail: expect.objectContaining({
+        kind: "terminal_result",
+        result: expect.objectContaining({
+          finalAssistantMessage: invalidTerminalMessage,
+          moduleResult: null,
+          stopReason: "end_turn",
+          providerStopReason: "stop"
+        }),
+        timeoutTrigger: null
+      })
+    });
+    expect(updates).toEqual([
+      {
+        type: "thread.started",
+        thread_id: "sdk-bootstrap-SYM-42-session"
+      },
+      {
+        type: "turn.started"
+      },
+      {
+        type: "item.completed",
+        item: {
+          id: "pi-sdk-turn-1:assistant",
+          type: "agent_message",
+          text: invalidTerminalMessage
+        }
+      },
+      {
+        type: "turn.failed",
+        error: {
+          message:
+            "Capability-managed run attempted a terminal module result, but the final assistant message was not exactly one fenced `json` block."
         }
       }
     ]);
@@ -1121,6 +1308,7 @@ describe("pi runner client", () => {
   });
 
   it("emits command progress updates for tool heartbeats", async () => {
+    const completedTerminalResultMessage = createCompletedTerminalResultMessage();
     const awaitEvent = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1210,7 +1398,7 @@ describe("pi runner client", () => {
           kind: "completed",
           stopReason: "end_turn",
           providerStopReason: "stop",
-          finalAssistantMessage: "Implemented the change.",
+          finalAssistantMessage: completedTerminalResultMessage,
           usage: {
             inputTokens: 11,
             cachedInputTokens: 2,

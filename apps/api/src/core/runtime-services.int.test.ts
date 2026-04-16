@@ -642,6 +642,7 @@ describe("runtime services", () => {
         expect(bootstrap.runtimePolicy.agent.harness).toBe("pi");
         expect(bootstrap.runtimePolicy.agentRuntime.command).toBe("pi");
         expect(bootstrap.runtimePolicy.agentRuntime.readTimeoutMs).toBe(120_000);
+        expect(bootstrap.runtimePolicy.pi.readTimeoutMs).toBe(30_000);
         expect(bootstrap.runtimePolicy.pi.profile).toBe("mimo-v2-pro");
         expect(bootstrap.runtimePolicy.pi.defaultModel).toBe(
           "xiaomi/mimo-v2-pro"

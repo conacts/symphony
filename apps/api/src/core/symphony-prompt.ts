@@ -9,12 +9,23 @@ export function buildSymphonyContinuationPrompt(input: {
   maxTurns: number;
   runMode: SymphonyRunMode;
   completionContract?: SymphonyPromptCompletionContract;
+  terminalResultRepairReason?: string | null;
 }): string {
   const completionContract = input.completionContract ?? "module_result";
+  const terminalResultRepairReason =
+    input.terminalResultRepairReason?.trim() ?? null;
   const stopRule =
     completionContract === "module_result"
       ? "- Only stop when you can emit a valid terminal module result with `outcome: \"completed\"`, `outcome: \"awaiting_input\"`, or `outcome: \"blocked\"`, or when the runtime itself fails hard."
       : "- Do not stop for partial progress, a likely fix, or a request for human follow-up.";
+
+  if (terminalResultRepairReason) {
+    return buildSymphonyTerminalResultRepairPrompt({
+      turnNumber: input.turnNumber,
+      maxTurns: input.maxTurns,
+      reason: terminalResultRepairReason
+    });
+  }
 
   return `
 Continuation guidance:
@@ -39,5 +50,57 @@ ${buildSymphonyContinuationCompletionGuidance(input.runMode, completionContract)
 - Before ending the turn, inspect \`git status\`.
 - If the working tree still contains relevant uncommitted changes after implementation or validation, continue in the same turn: review the diff, finish any remaining work, and create the issue-scoped commit before reporting completion.
 - Do not end the turn with a summary while the branch is still dirty and the issue remains active.
+`.trim();
+}
+
+function buildSymphonyTerminalResultRepairPrompt(input: {
+  turnNumber: number;
+  maxTurns: number;
+  reason: string;
+}): string {
+  return `
+Terminal result repair:
+
+- The previous PI turn completed, but the terminal module result was invalid.
+- This is repair turn #${input.turnNumber} of ${input.maxTurns} for the current agent run.
+- Validation error: ${input.reason}
+- Do not perform more repository work, tool calls, explanations, or summaries in this repair turn.
+- Emit exactly one final fenced \`json\` block and nothing before or after it.
+- Use \`schemaVersion: "1"\`.
+- Use \`moduleId: "implement.spec"\`.
+- Use \`outcome: "completed"\` with \`requestedState: "done"\` only if the implementation work is already complete.
+- Use \`outcome: "awaiting_input"\` with \`requestedState: "awaiting_input"\` and a non-empty \`nextInputPrompt\` only when explicit user input is required.
+- Use \`outcome: "blocked"\` with \`requestedState: "blocked"\` and non-empty \`blockers\` only for a true external blocker.
+- \`evidence\` must be an object with this exact shape:
+\`\`\`json
+{
+  "filesChanged": ["path/to/file.ts"],
+  "verification": [
+    {
+      "command": "pnpm test",
+      "status": "passed",
+      "details": null
+    }
+  ],
+  "notes": null
+}
+\`\`\`
+- Example completed terminal result:
+\`\`\`json
+{
+  "schemaVersion": "1",
+  "moduleId": "implement.spec",
+  "outcome": "completed",
+  "summary": "Implemented the requested issue behavior.",
+  "evidence": {
+    "filesChanged": ["apps/api/src/example.ts"],
+    "verification": [],
+    "notes": null
+  },
+  "requestedState": "done",
+  "nextInputPrompt": null,
+  "blockers": []
+}
+\`\`\`
 `.trim();
 }

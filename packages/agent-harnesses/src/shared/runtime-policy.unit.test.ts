@@ -78,7 +78,7 @@ function createRuntimePolicy(
         wireApi: "responses"
       },
       turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
+      readTimeoutMs: 30_000,
       stallTimeoutMs: 300_000,
       ...agentRuntime
     },
@@ -113,7 +113,7 @@ function createRuntimePolicy(
         wireApi: "responses"
       },
       turnTimeoutMs: 3_600_000,
-      readTimeoutMs: 5_000,
+      readTimeoutMs: 30_000,
       stallTimeoutMs: 300_000,
       toolTimeoutMs: 900_000,
       ...pi
@@ -168,7 +168,7 @@ describe("harness runtime policy helpers", () => {
         },
         provider: null,
         turnTimeoutMs: 3_600_000,
-        readTimeoutMs: 5_000,
+        readTimeoutMs: 30_000,
         stallTimeoutMs: 300_000,
         toolTimeoutMs: 900_000
       }

@@ -1,17 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowUpRightIcon } from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger
-} from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type {
-  SymphonyRuntimeLogsResult,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeWorkflowObservabilityResult
 } from "@symphony/contracts";
@@ -24,12 +14,9 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { buildIssueTimelineHref } from "@/core/control-plane-routes";
 import {
   formatCount,
-  formatEventTypeLabel,
   formatLabel,
-  formatSourceLabel,
   formatStatusLabel,
   formatTimestamp
 } from "@/core/display-formatters";
@@ -43,14 +30,10 @@ import { buildIssueDetailViewModel } from "@/features/issues/model/issue-view-mo
 
 export function IssueDetailView(input: {
   connection: RuntimeSummaryConnectionState;
-  issueIdentifier: string;
   issueDetailError: string | null;
   issueDetail: SymphonyForensicsIssueDetailResult | null;
   issueDetailLoading: boolean;
   runtimeIssue: SymphonyRuntimeIssueResult | null;
-  runtimeLogs: SymphonyRuntimeLogsResult | null;
-  runtimeLogsError: string | null;
-  runtimeLogsLoading: boolean;
   workflowObservability: SymphonyRuntimeWorkflowObservabilityResult | null;
   workflowObservabilityError: string | null;
   workflowObservabilityLoading: boolean;
@@ -58,21 +41,11 @@ export function IssueDetailView(input: {
   const viewModel = input.issueDetail
     ? buildIssueDetailViewModel(input.issueDetail)
     : null;
-  const runtimeLifecycleRepositoryKey =
-    input.workflowObservability?.workflow.repositoryKey ??
-    input.issueDetail?.repositoryKey ??
-    null;
   const shouldShowSkeleton =
     viewModel === null &&
     input.workflowObservability === null &&
     input.runtimeIssue === null &&
-    input.runtimeLogs === null &&
     (input.issueDetailLoading || input.workflowObservabilityLoading);
-  const shouldShowRuntimeLifecycle =
-    input.runtimeLogs !== null ||
-    input.runtimeLogsLoading ||
-    input.runtimeIssue !== null ||
-    input.workflowObservability !== null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -83,29 +56,11 @@ export function IssueDetailView(input: {
         </Alert>
       ) : null}
 
-      {input.runtimeLogsError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Runtime lifecycle degraded</AlertTitle>
-          <AlertDescription>{input.runtimeLogsError}</AlertDescription>
-        </Alert>
-      ) : null}
-
       {input.issueDetailError ? (
         <Alert variant="destructive">
           <AlertTitle>Run forensics degraded</AlertTitle>
           <AlertDescription>{input.issueDetailError}</AlertDescription>
         </Alert>
-      ) : null}
-
-      {shouldShowRuntimeLifecycle ? (
-        <IssueRuntimeLifecycleCard
-          issueIdentifier={input.issueIdentifier}
-          repositoryKey={runtimeLifecycleRepositoryKey}
-          runtimeIssue={input.runtimeIssue}
-          runtimeLogs={input.runtimeLogs}
-          runtimeLogsLoading={input.runtimeLogsLoading}
-          workflowObservability={input.workflowObservability}
-        />
       ) : null}
 
       {input.workflowObservability ? (
@@ -167,127 +122,6 @@ export function IssueDetailView(input: {
         )
       )}
     </div>
-  );
-}
-
-function IssueRuntimeLifecycleCard(input: {
-  issueIdentifier: string;
-  repositoryKey: string | null;
-  runtimeIssue: SymphonyRuntimeIssueResult | null;
-  runtimeLogs: SymphonyRuntimeLogsResult | null;
-  runtimeLogsLoading: boolean;
-  workflowObservability: SymphonyRuntimeWorkflowObservabilityResult | null;
-}) {
-  const timelineHref = buildIssueTimelineHref(
-    input.issueIdentifier,
-    input.repositoryKey ? { repo: input.repositoryKey } : undefined
-  );
-  const lifecycle = buildIssueRuntimeLifecycleSummary({
-    runtimeIssue: input.runtimeIssue,
-    runtimeLogs: input.runtimeLogs,
-    workflowObservability: input.workflowObservability
-  });
-
-  return (
-    <Card>
-      <CardHeader className="gap-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <CardTitle>Runtime lifecycle</CardTitle>
-            <CardDescription>
-              High-signal issue-scoped runtime events, plus the current router and
-              execution status.
-            </CardDescription>
-          </div>
-          <Button asChild variant="outline" size="sm">
-            <a href={timelineHref}>
-              Full timeline
-              <ArrowUpRightIcon data-icon="inline-end" />
-            </a>
-          </Button>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <LifecycleSummaryBlock
-            label="Current step"
-            value={lifecycle.currentStep.value}
-            detail={lifecycle.currentStep.detail}
-          />
-          <LifecycleSummaryBlock
-            label="Waiting on"
-            value={lifecycle.waitingOn.value}
-            detail={lifecycle.waitingOn.detail}
-          />
-          <LifecycleSummaryBlock
-            label="Router"
-            value={lifecycle.router.value}
-            detail={lifecycle.router.detail}
-          />
-          <LifecycleSummaryBlock
-            label="Latest runtime event"
-            value={lifecycle.latestEvent.value}
-            detail={lifecycle.latestEvent.detail}
-          />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {input.runtimeLogsLoading && lifecycle.logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Loading issue-scoped runtime events.
-          </p>
-        ) : lifecycle.logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No issue-scoped runtime events have been captured yet.
-          </p>
-        ) : (
-          <Accordion
-            type="multiple"
-            defaultValue={lifecycle.logs.slice(0, 2).map((entry) => entry.entryId)}
-            className="space-y-3"
-          >
-            {lifecycle.logs.map((entry) => (
-              <AccordionItem
-                key={entry.entryId}
-                value={entry.entryId}
-                className="rounded-xl border border-border/70 px-4"
-              >
-                <AccordionTrigger className="py-4 hover:no-underline">
-                  <div className="flex min-w-0 flex-1 flex-col gap-3 pr-4 text-left">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={runtimeLogBadgeVariant(entry.level)}>
-                        {entry.level}
-                      </Badge>
-                      <Badge variant="secondary">
-                        {formatSourceLabel(entry.source)}
-                      </Badge>
-                      <Badge variant="outline">
-                        {formatEventTypeLabel(entry.eventType)}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTimestamp(entry.recordedAt)}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {entry.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {buildRuntimeLogScopeLabel(entry)}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-4">
-                  <pre className="overflow-x-auto rounded-xl border border-border/70 bg-muted/20 p-3 text-xs leading-5 text-foreground whitespace-pre-wrap break-words">
-                    {formatRuntimeLogPayload(entry.payload)}
-                  </pre>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -434,269 +268,6 @@ function DetailField(input: {
   );
 }
 
-function LifecycleSummaryBlock(input: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-        {input.label}
-      </p>
-      <p className="mt-2 text-sm font-semibold text-foreground">{input.value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{input.detail}</p>
-    </div>
-  );
-}
-
-function buildIssueRuntimeLifecycleSummary(input: {
-  runtimeIssue: SymphonyRuntimeIssueResult | null;
-  runtimeLogs: SymphonyRuntimeLogsResult | null;
-  workflowObservability: SymphonyRuntimeWorkflowObservabilityResult | null;
-}) {
-  const logs = [...(input.runtimeLogs?.logs ?? [])]
-    .sort(
-      (left, right) =>
-        Date.parse(right.recordedAt) - Date.parse(left.recordedAt)
-    )
-    .slice(0, 8);
-  const latestLog = logs[0] ?? null;
-  const currentModule = input.workflowObservability?.currentModule ?? null;
-  const routerDecision = input.workflowObservability?.routerDecision ?? null;
-  const capability =
-    input.workflowObservability?.capability ??
-    input.runtimeIssue?.operator.capability ??
-    null;
-  const pendingClarification =
-    input.workflowObservability?.pendingClarification ??
-    input.runtimeIssue?.operator.pendingClarification ??
-    null;
-  const currentStepValue = currentModule
-    ? currentModule.module.summary
-    : capability
-      ? formatStatusLabel(capability.planKind)
-      : pendingClarification
-        ? buildPendingClarificationCurrentStepLabel(pendingClarification)
-      : input.runtimeIssue?.running
-        ? "Runtime execution active"
-        : "No active execution";
-  const currentStepDetail = currentModule
-    ? `${formatStatusLabel(currentModule.state)} · ${currentModule.summary}`
-    : capability
-      ? capability.summary
-      : pendingClarification
-        ? buildPendingClarificationCurrentStepDetail(pendingClarification)
-      : input.runtimeIssue?.running?.lastMessage ??
-        "No module selection or live runtime state is currently attached to this issue.";
-  const waitingOn = resolveIssueLifecycleWaitingState({
-    capability,
-    currentModule,
-    pendingClarification,
-    runtimeIssue: input.runtimeIssue,
-    workflowObservability: input.workflowObservability
-  });
-  const routerValue = routerDecision
-    ? formatStatusLabel(routerDecision.selectionMode)
-    : currentModule?.decision?.selectionMode
-      ? formatStatusLabel(currentModule.decision.selectionMode)
-      : "No router decision";
-  const routerDetail = routerDecision
-    ? routerDecision.selectionSummary
-    : currentModule?.decision?.selectionSummary ??
-      "The router has not recorded a module-selection rationale yet.";
-  const latestEventValue = latestLog
-    ? formatEventTypeLabel(latestLog.eventType)
-    : "No runtime events";
-  const latestEventDetail = latestLog
-    ? `${formatSourceLabel(latestLog.source)} · ${latestLog.message}`
-    : "No issue-scoped runtime events have been captured yet.";
-
-  return {
-    currentStep: {
-      value: currentStepValue,
-      detail: currentStepDetail
-    },
-    waitingOn,
-    router: {
-      value: routerValue,
-      detail: routerDetail
-    },
-    latestEvent: {
-      value: latestEventValue,
-      detail: latestEventDetail
-    },
-    logs
-  };
-}
-
-function resolveIssueLifecycleWaitingState(input: {
-  capability:
-    | SymphonyRuntimeWorkflowObservabilityResult["capability"]
-    | SymphonyRuntimeIssueResult["operator"]["capability"]
-    | null;
-  pendingClarification:
-    | SymphonyRuntimeWorkflowObservabilityResult["pendingClarification"]
-    | SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
-    | null;
-  currentModule: SymphonyRuntimeWorkflowObservabilityResult["currentModule"];
-  runtimeIssue: SymphonyRuntimeIssueResult | null;
-  workflowObservability: SymphonyRuntimeWorkflowObservabilityResult | null;
-}) {
-  if (input.pendingClarification?.kind === "contract_intake") {
-    return {
-      value: "Ticket clarification",
-      detail: `Execution has not started yet. ${input.pendingClarification.nextAction}`
-    };
-  }
-
-  if (input.pendingClarification?.kind === "capability") {
-    return {
-      value: "Clarification",
-      detail: input.pendingClarification.summary
-    };
-  }
-
-  if (input.capability?.planKind === "awaiting_input") {
-    return {
-      value: "Clarification",
-      detail:
-        input.capability.pendingClarification?.summary ??
-        "Waiting for an operator clarification answer."
-    };
-  }
-
-  if (input.capability?.planKind === "blocked") {
-    return {
-      value: "Operator intervention",
-      detail: input.capability.summary
-    };
-  }
-
-  if (input.capability?.planKind === "ready_for_completion") {
-    return {
-      value: "Manual completion",
-      detail:
-        input.capability.summary ??
-        "Waiting for operator review and final completion handling."
-    };
-  }
-
-  if (input.currentModule?.state === "selected") {
-    return {
-      value: "Module start",
-      detail: "Waiting for the selected module run to begin."
-    };
-  }
-
-  if (input.currentModule?.state === "started") {
-    return {
-      value: "Agent activity",
-      detail:
-        input.runtimeIssue?.running?.lastMessage ??
-        "Waiting for the active module to produce more runtime activity."
-    };
-  }
-
-  if (input.currentModule?.state === "clarification_requested") {
-    return {
-      value: "Clarification",
-      detail: input.currentModule.summary
-    };
-  }
-
-  if (input.currentModule?.state === "blocked") {
-    return {
-      value: "Blocked",
-      detail: input.currentModule.summary
-    };
-  }
-
-  if (input.workflowObservability?.snapshot?.terminal) {
-    return {
-      value: "Terminal",
-      detail: "The workflow snapshot is terminal and is not waiting on more router work."
-    };
-  }
-
-  return {
-    value: "Router progression",
-    detail: "Waiting for the next router transition or runtime event."
-  };
-}
-
-function buildPendingClarificationCurrentStepLabel(
-  pendingClarification: NonNullable<
-    SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
-  >
-): string {
-  if (pendingClarification.kind === "contract_intake") {
-    return "Ticket clarification";
-  }
-
-  return "Capability clarification";
-}
-
-function buildPendingClarificationCurrentStepDetail(
-  pendingClarification: NonNullable<
-    SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
-  >
-): string {
-  if (pendingClarification.kind === "contract_intake") {
-    return `Execution has not started yet. ${pendingClarification.summary}`;
-  }
-
-  return pendingClarification.summary;
-}
-
-function runtimeLogBadgeVariant(
-  level: SymphonyRuntimeLogsResult["logs"][number]["level"]
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (level) {
-    case "error":
-      return "destructive";
-    case "warn":
-      return "secondary";
-    default:
-      return "outline";
-  }
-}
-
-function buildRuntimeLogScopeLabel(
-  entry: SymphonyRuntimeLogsResult["logs"][number]
-): string {
-  if (entry.issueIdentifier && entry.runId) {
-    return `${entry.issueIdentifier} · Run ${entry.runId}`;
-  }
-
-  if (entry.issueIdentifier) {
-    return entry.issueIdentifier;
-  }
-
-  if (entry.runId) {
-    return `Run ${entry.runId}`;
-  }
-
-  return "Issue-scoped lifecycle event";
-}
-
-function formatRuntimeLogPayload(
-  payload: SymphonyRuntimeLogsResult["logs"][number]["payload"]
-): string {
-  if (payload === null) {
-    return "No structured payload.";
-  }
-
-  if (typeof payload === "string") {
-    return payload;
-  }
-
-  try {
-    return JSON.stringify(payload, null, 2);
-  } catch {
-    return String(payload);
-  }
-}
 
 function buildAttemptsSummary(issue: SymphonyRuntimeIssueResult): string {
   if (issue.retry) {

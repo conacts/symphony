@@ -26,10 +26,13 @@ export function buildSymphonyContinuationCompletionGuidance(
   return [
     "- End the run by emitting exactly one final fenced `json` block and nothing after it.",
     "- The terminal result object must include `schemaVersion`, `moduleId`, `outcome`, `summary`, `evidence`, `requestedState`, `nextInputPrompt`, and `blockers`.",
+    '- `schemaVersion` must be the string `"1"`.',
     "- Use `moduleId: \"implement.spec\"` for this phase of intelligent-flow.",
     "- Use `outcome: \"completed\"` with `requestedState: \"done\"` when the implementation work is finished.",
     "- Use `outcome: \"awaiting_input\"` with `requestedState: \"awaiting_input\"` and a non-empty `nextInputPrompt` when explicit user input is required.",
-    "- Use `outcome: \"blocked\"` with `requestedState: \"blocked\"` and non-empty `blockers` when an external blocker stops progress."
+    "- Use `outcome: \"blocked\"` with `requestedState: \"blocked\"` and non-empty `blockers` when an external blocker stops progress.",
+    "- `evidence` must be an object with `filesChanged`, `verification`, and `notes`; do not emit `evidence` as a string array.",
+    "- Each `verification` entry must be an object with `command`, `status`, and `details`."
   ];
 }
 

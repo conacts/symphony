@@ -149,15 +149,44 @@ export async function finalizeTerminalResult(input: {
   onMessage: (update: HarnessRuntimeUpdate) => Promise<void> | void;
 }): Promise<HarnessTurnResult> {
   const usage = toHarnessUsage(input.resultEvent.result.usage);
-  const terminalTurnMetadata = buildTerminalTurnMetadata(input.resultEvent.result);
+  const terminalResultParse =
+    parseSymphonyImplementationModuleResultMessage({
+      messageText: input.resultEvent.result.finalAssistantMessage
+    });
+  const terminalTurnMetadata = buildTerminalTurnMetadata(
+    input.resultEvent.result,
+    terminalResultParse
+  );
 
   switch (input.resultEvent.result.kind) {
-    case "completed":
+    case "completed": {
       await emitCompletedAssistantItems(
         input.onMessage,
         input.threadState,
         input.resultEvent
       );
+      if (terminalResultParse.kind !== "parsed") {
+        await emitTurnFailed(
+          input.onMessage,
+          terminalResultParse.reason,
+          input.resultEvent
+        );
+        return {
+          kind: "failed",
+          threadId: input.session.threadId,
+          turnId: input.turnId,
+          usage: usage ?? null,
+          reason: terminalResultParse.reason,
+          failureClass: classifyCompletedTerminalResultFailure(
+            input.resultEvent.result.finalAssistantMessage,
+            terminalResultParse.reason
+          ),
+          detail: buildFailedTurnDetail({
+            result: terminalTurnMetadata,
+            timeoutTriggerEvent: input.timeoutTriggerEvent
+          })
+        };
+      }
       if (usage) {
         await input.onMessage({
           event: {
@@ -173,6 +202,7 @@ export async function finalizeTerminalResult(input: {
         turnId: input.turnId,
         usage: usage ?? null
       };
+    }
     case "awaiting_input":
       await emitTurnFailed(
         input.onMessage,
@@ -306,12 +336,11 @@ function buildFailedTurnDetail(input: {
 }
 
 function buildTerminalTurnMetadata(
-  result: Extract<PiRunnerEvent, { eventType: "terminal_result" }>["result"]
-): HarnessTerminalTurnMetadata {
-  const parsed = parseSymphonyImplementationModuleResultMessage({
+  result: Extract<PiRunnerEvent, { eventType: "terminal_result" }>["result"],
+  parsed = parseSymphonyImplementationModuleResultMessage({
     messageText: result.finalAssistantMessage
-  });
-
+  })
+): HarnessTerminalTurnMetadata {
   return {
     finalAssistantMessage: result.finalAssistantMessage,
     moduleResult: parsed.kind === "parsed" ? parsed.result : null,
@@ -353,4 +382,24 @@ function buildCompletionCandidate(
         moduleResult: parsed.result
       }
     : null;
+}
+
+function classifyCompletedTerminalResultFailure(
+  finalAssistantMessage: string | null,
+  reason: string
+): "terminal_result_missing" | "terminal_result_invalid" {
+  if (!finalAssistantMessage?.trim()) {
+    return "terminal_result_missing";
+  }
+
+  if (
+    reason.includes("without a final terminal module result JSON block") ||
+    reason.includes(
+      "without a final assistant message containing a terminal module result"
+    )
+  ) {
+    return "terminal_result_missing";
+  }
+
+  return "terminal_result_invalid";
 }

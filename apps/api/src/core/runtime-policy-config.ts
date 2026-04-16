@@ -273,7 +273,7 @@ function readPiPolicy(input: {
     ),
     readTimeoutMs: readPositiveInteger(
       environmentSource.SYMPHONY_PI_READ_TIMEOUT_MS,
-      5_000
+      30_000
     ),
     stallTimeoutMs: readPositiveInteger(
       environmentSource.SYMPHONY_PI_STALL_TIMEOUT_MS,

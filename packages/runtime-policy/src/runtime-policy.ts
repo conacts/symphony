@@ -418,7 +418,7 @@ function normalizePiConfig(value: unknown): SymphonyPiRuntimePolicy {
     ),
     readTimeoutMs: normalizePositiveInteger(
       pi.readTimeoutMs,
-      5_000,
+      30_000,
       "pi.readTimeoutMs"
     ),
     stallTimeoutMs: normalizeNonNegativeInteger(

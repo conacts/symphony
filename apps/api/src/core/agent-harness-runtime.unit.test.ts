@@ -397,6 +397,167 @@ describe("agent harness runtime", () => {
     expect(fakeHarness.controller.runTurnCalls).toHaveLength(1);
   });
 
+  it("requests one repair turn for malformed capability-managed terminal results before pausing", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      state: "In Progress"
+    });
+    const tracker = createMemorySymphonyTracker([issue]);
+    const runtimePolicy = buildSymphonyRuntimePolicy();
+    const runtimeLogs = {
+      record: vi.fn(async () => {})
+    };
+    const workspace = buildPreparedWorkspace(issue.identifier);
+    let resolveCompletion: ((completion: SymphonyAgentRuntimeCompletion) => void) | null =
+      null;
+    const completionPromise = new Promise<SymphonyAgentRuntimeCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    const invalidTerminalMessage = [
+      "I need your direction before I continue.",
+      "```json",
+      JSON.stringify(
+        {
+          schemaVersion: "2026-04-01",
+          moduleId: "implement.spec",
+          outcome: "awaiting_input",
+          summary: "Need direction on the UI layout.",
+          evidence: ["apps/web/src/features/issues/view.tsx"],
+          requestedState: "In Progress",
+          nextInputPrompt: "Should I simplify the layout?",
+          blockers: []
+        },
+        null,
+        2
+      ),
+      "```"
+    ].join("\n");
+    const invalidTerminalReason =
+      "Capability-managed run attempted a terminal module result, but the final assistant message was not exactly one fenced `json` block.";
+
+    const fakeHarness = createTranscriptDrivenFakeHarnessStartSession({
+      transcript: createTranscriptDrivenFakeHarnessBuilder()
+        .update(({ controller }) =>
+          controller.runTurnCalls.length === 1
+            ? buildHarnessAgentMessageCompletedUpdate({
+                text: invalidTerminalMessage,
+                completionCandidate: null
+              })
+            : buildHarnessAgentMessageCompletedUpdate({
+                text: buildImplementationModuleResultMessage({
+                  summary:
+                    "Implemented the requested issue behavior after repairing the terminal result."
+                })
+              })
+        )
+        .resolve(({ controller }) =>
+          controller.runTurnCalls.length === 1
+            ? buildHarnessFailedTurnResult({
+                reason: invalidTerminalReason,
+                failureClass: "terminal_result_invalid",
+                detail: {
+                  kind: "terminal_result",
+                  result: {
+                    finalAssistantMessage: invalidTerminalMessage,
+                    moduleResult: null,
+                    stopReason: "end_turn",
+                    providerStopReason: "stop",
+                    lastActivityAt: "2026-04-16T16:09:45.844Z",
+                    lastActivityType: "assistant_text_delta"
+                  },
+                  timeoutTrigger: null
+                }
+              })
+            : buildHarnessCompletedTurnResult()
+        )
+    });
+    startSessionMock.mockImplementation(fakeHarness.startSession);
+
+    const runtime = await import("./agent-harness-runtime.js").then((module) =>
+      module.createSymphonyAgentRuntime({
+        promptContract: {
+          repoRoot: "/tmp/repo",
+          promptPath: "/tmp/repo/prompt.md",
+          template: "Implement the issue.",
+          variables: []
+        },
+        githubRepository: "openai/symphony",
+        tracker,
+        runStore: {} as never,
+        loadWorkflowLifecycleView: async () => null,
+        observeActiveWorkflowIssueState: async () => true,
+        isCapabilityManagedRun: async () => true,
+        agentAnalytics: {
+          recordEvent: vi.fn(async () => {}),
+          recordCommandResourceProfile: vi.fn(async () => {})
+        } as never,
+        runtimeLogs: runtimeLogs as never,
+        hostCommandEnvSource: {},
+        logger: createSilentSymphonyLogger("@symphony/api.test"),
+        callbacks: {
+          onUpdate: vi.fn(async () => {}),
+          onComplete: vi.fn(async (_issueId, completion) => {
+            resolveCompletion?.(completion);
+          })
+        }
+      })
+    );
+
+    await runtime.startRun({
+      issue,
+      runId: null,
+      attempt: 1,
+      runMode: "implementation",
+      runtimePolicy,
+      workspace
+    });
+
+    await expect(completionPromise).resolves.toEqual(
+      expect.objectContaining({
+        kind: "delivered",
+        moduleResult: expect.objectContaining({
+          moduleId: "implement.spec",
+          requestedState: "done"
+        })
+      })
+    );
+    expect(fakeHarness.controller.runTurnCalls).toHaveLength(2);
+    expect(fakeHarness.controller.runTurnCalls[1]?.prompt).toContain(
+      "Terminal result repair:"
+    );
+    expect(fakeHarness.controller.runTurnCalls[1]?.prompt).toContain(
+      invalidTerminalReason
+    );
+    expect(fakeHarness.controller.runTurnCalls[1]?.prompt).toContain(
+      "Do not perform more repository work, tool calls, explanations, or summaries"
+    );
+    expect(runtimeLogs.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "runtime_terminal_result_invalid",
+        issueIdentifier: issue.identifier
+      })
+    );
+    expect(runtimeLogs.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "runtime_terminal_result_repair_requested",
+        issueIdentifier: issue.identifier,
+        payload: expect.objectContaining({
+          failureClass: "terminal_result_invalid",
+          reason: invalidTerminalReason
+        })
+      })
+    );
+    expect(runtimeLogs.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "runtime_run_completed",
+        issueIdentifier: issue.identifier,
+        payload: expect.objectContaining({
+          outcome: "completed",
+          completionKind: "delivered"
+        })
+      })
+    );
+  });
+
   it("maps explicit awaiting_input turn results into runtime completion without throwing", async () => {
     const issue = buildSymphonyTrackerIssue({
       state: "In Progress"
