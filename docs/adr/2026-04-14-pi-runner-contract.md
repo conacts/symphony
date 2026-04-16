@@ -1,4 +1,4 @@
-# ADR: Pi SDK Runner Contract
+# ADR: Pi Runner Contract
 
 Date: 2026-04-14
 
@@ -47,7 +47,7 @@ Symphony will converge on a Pi SDK-backed runtime runner contract with the follo
 
 The contract is defined in:
 
-- [`packages/agent-harnesses/src/pi/sdk-runner-contract.ts`](../../packages/agent-harnesses/src/pi/sdk-runner-contract.ts)
+- [`packages/agent-harnesses/src/pi/runner-contract.ts`](../../packages/agent-harnesses/src/pi/runner-contract.ts)
 
 That contract introduces:
 
@@ -63,7 +63,7 @@ Positive:
 - the transport rewrite now has one explicit target
 - timeout and failure semantics are frozen before behavior changes spread
 - runtime completion no longer needs to be inferred from transport silence
-- the future SDK runner can remain thin while Symphony keeps its existing control-plane authority
+- the future runner surface can remain thin while Symphony keeps its existing control-plane authority
 - E2E runtime mocking becomes simpler because the bridge contract is typed and versioned
 
 Negative:
@@ -81,4 +81,4 @@ It freezes the target that later slices must implement.
 The practical implication is:
 
 - no more investment in expanding the old Pi RPC contract
-- future runtime work should align to the SDK runner contract first
+- future runtime work should align to the Pi runner contract first

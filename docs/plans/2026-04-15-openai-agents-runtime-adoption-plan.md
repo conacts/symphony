@@ -14,7 +14,7 @@ Related documents:
 
 - [`docs/plans/2026-04-15-package-boundary-division-plan.md`](./2026-04-15-package-boundary-division-plan.md)
 - [`docs/plans/2026-04-14-pi-sdk-runtime-migration-plan.md`](./2026-04-14-pi-sdk-runtime-migration-plan.md)
-- [`docs/adr/2026-04-14-pi-sdk-runner-contract.md`](../adr/2026-04-14-pi-sdk-runner-contract.md)
+- [`docs/adr/2026-04-14-pi-runner-contract.md`](../adr/2026-04-14-pi-runner-contract.md)
 
 Research references:
 
@@ -202,8 +202,8 @@ Those should coordinate runtime behavior, not define every detail of it.
 
 The Pi harness currently has major concentration in:
 
-- `packages/agent-harnesses/src/pi/sdk-runner-client.ts`
-- `packages/agent-harnesses/src/pi/sdk-runner-entrypoint.ts`
+- `packages/agent-harnesses/src/pi/runner-client.ts`
+- `packages/agent-harnesses/src/pi/runner-entrypoint.ts`
 
 That makes it hard to reason about:
 
@@ -591,7 +591,7 @@ The refactor is only successful if that operator observability stays first-class
 
 This adoption plan is successful when:
 
-- Symphony has a thin public Pi runner surface
+- Symphony has a thin public Pi runner surface at `packages/agent-harnesses/src/pi/runner.ts`
 - runtime internals live in named internal modules instead of large mixed files
 - Docker workspace sessions are explicit first-class runtime objects
 - terminal completion, timeouts, and tool outcomes are represented by typed runtime concepts
@@ -605,5 +605,11 @@ After the package-boundary prep work, the first real adoption slice should be:
 1. introduce a public `runner.ts` for Pi
 2. create `internal/run-loop.ts`, `turn-preparation.ts`, and `turn-resolution.ts`
 3. move existing logic into those modules without changing product behavior
+
+Status note:
+
+- the public `runner.ts` surface now exists
+- the public client/entrypoint/process/contract files now use `runner-*` names instead of `sdk-runner-*`
+- the Docker workspace image now ships the stable wrapper executable `symphony-pi-runner`
 
 That gives the repository the OpenAI-style shape early, before deeper runtime behavior changes start.

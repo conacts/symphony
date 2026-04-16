@@ -431,7 +431,7 @@ Responsibilities:
 
 Candidate file:
 
-- `packages/agent-harnesses/src/pi/sdk-runner-contract.ts`
+- `packages/agent-harnesses/src/pi/runner-contract.ts`
 
 ### 2. Pi SDK container launcher
 
@@ -450,7 +450,7 @@ Responsibilities:
 
 Candidate file:
 
-- `packages/agent-harnesses/src/pi/sdk-runner-process.ts`
+- `packages/agent-harnesses/src/pi/runner-process.ts`
 
 ### 3. Pi SDK runtime client
 
@@ -467,7 +467,7 @@ Responsibilities:
 
 Candidate file:
 
-- `packages/agent-harnesses/src/pi/sdk-runner-client.ts`
+- `packages/agent-harnesses/src/pi/runner-client.ts`
 
 ### 4. In-container bridge entrypoint
 
@@ -486,9 +486,11 @@ Responsibilities:
 
 Candidate file:
 
-- `packages/agent-harnesses/src/pi/sdk-runner-entrypoint.ts`
+- `packages/agent-harnesses/src/pi/runner-entrypoint.ts`
 
-This may later be bundled or copied into the container runtime image, but the first implementation can remain simple.
+This is now packaged into the Docker workspace image behind the stable wrapper
+`/usr/local/bin/symphony-pi-runner`, with runner assets rooted under
+`/opt/symphony/pi-runner`.
 
 ### 5. Completion classifier
 

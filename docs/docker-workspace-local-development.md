@@ -43,6 +43,11 @@ Docker preflight now validates both the stable executable and the packaged Pi
 SDK runner assets behind it, so broken image packaging fails before dispatch
 instead of during the first live run.
 
+When Symphony preserves a volume-backed workspace after `Failed`, `Paused`, or
+another non-terminal stop, reruns now refresh a clean preserved repo from the
+mounted source tree before lifecycle runs again. Dirty preserved repos are left
+alone so operator-visible workspace state is not overwritten implicitly.
+
 To prove the real bootstrap path locally after rebuilding the image:
 
 ```bash
@@ -52,6 +57,14 @@ SYMPHONY_LIVE_DOCKER_VERIFY=1 pnpm --filter @symphony/agent-harnesses test -- sr
 That test starts a real `symphony/workspace-runner:local` container, launches
 the harness through `symphony-pi-runner`, and expects a real `session_started`
 event from the Pi SDK bridge.
+
+If you want to validate the real issue flow instead of only the harness test,
+move a real ticket to `Todo` and confirm it advances through `Bootstrapping`
+into `In Progress`. That proves:
+
+- the workspace image contains `symphony-pi-runner`
+- the packaged runner root exists at `/opt/symphony/pi-runner`
+- reruns can reuse preserved workspaces without pinning to stale source state
 
 You only need `SYMPHONY_DOCKER_WORKSPACE_IMAGE` when overriding the default image.
 

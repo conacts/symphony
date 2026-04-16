@@ -52,6 +52,10 @@ The container must be recreated when any of these change:
 
 If reuse cannot be justified deterministically, fail closed and recreate instead of guessing.
 
+If the preserved workspace repo is clean, rerun preparation may refresh it from the mounted source
+repo before lifecycle begins. If the preserved repo is dirty, Symphony preserves it as-is and
+refuses implicit overwrite.
+
 ## Env And Auth
 
 The backend injects runtime inputs through process env and mounted auth material.
@@ -70,6 +74,10 @@ The prepared execution target is a container.
 
 Pi launches through `docker exec` against the prepared workspace path inside the container. The
 runtime does not preserve a parallel host-path execution story.
+
+The execution surface inside the image is the stable wrapper executable
+`/usr/local/bin/symphony-pi-runner`, backed by packaged runner assets under
+`/opt/symphony/pi-runner`.
 
 ## Cleanup
 

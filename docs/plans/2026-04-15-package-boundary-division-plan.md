@@ -13,7 +13,7 @@ Audience:
 Related documents:
 
 - [`docs/plans/2026-04-14-pi-sdk-runtime-migration-plan.md`](./2026-04-14-pi-sdk-runtime-migration-plan.md)
-- [`docs/adr/2026-04-14-pi-sdk-runner-contract.md`](../adr/2026-04-14-pi-sdk-runner-contract.md)
+- [`docs/adr/2026-04-14-pi-runner-contract.md`](../adr/2026-04-14-pi-runner-contract.md)
 - [`docs/architecture/2026-04-14-intelligent-flow-golden-truth.md`](../architecture/2026-04-14-intelligent-flow-golden-truth.md)
 - [`TODO.md`](../../TODO.md)
 
@@ -153,7 +153,7 @@ Target split:
 
 `runtime-services.ts` should remain as the entrypoint that wires those pieces together.
 
-### 3. `packages/agent-harnesses/src/pi/sdk-runner-client.ts`
+### 3. `packages/agent-harnesses/src/pi/runner-client.ts`
 
 This file mixes:
 
@@ -173,7 +173,7 @@ Target split:
 - `client/terminal-result-translator.ts`
 - `client/transport-failure-mapper.ts`
 
-### 4. `packages/agent-harnesses/src/pi/sdk-runner-entrypoint.ts`
+### 4. `packages/agent-harnesses/src/pi/runner-entrypoint.ts`
 
 This file mixes:
 
@@ -539,8 +539,8 @@ This is the recommended order.
 Focus:
 
 - `apps/api/src/core/agent-harness-runtime.ts`
-- `packages/agent-harnesses/src/pi/sdk-runner-client.ts`
-- `packages/agent-harnesses/src/pi/sdk-runner-entrypoint.ts`
+- `packages/agent-harnesses/src/pi/runner-client.ts`
+- `packages/agent-harnesses/src/pi/runner-entrypoint.ts`
 
 Completion bar:
 
@@ -624,7 +624,12 @@ This package-division effort is successful when:
 Before implementing the larger runtime adoption work, complete these three structural slices first:
 
 1. split `agent-harness-runtime.ts`
-2. split `sdk-runner-client.ts` and `sdk-runner-entrypoint.ts`
+2. split `runner-client.ts` and `runner-entrypoint.ts`
+
+Status note:
+
+- the public Pi runner surface now uses `runner.ts`, `runner-client.ts`, `runner-entrypoint.ts`, `runner-process.ts`, and `runner-contract.ts`
+- the next docs should talk about the stable runner surface, not the historical `sdk-runner-*` filenames
 3. split `runtime-services.ts`
 
 That is the smallest set of preparatory work that materially lowers the risk of the next refactor.
