@@ -19,6 +19,12 @@ import {
 } from "@symphony/tracker";
 import { createExternalRunDispatchAuthority } from "./runtime-dispatch-authority-stub.js";
 import {
+  createSymphonyCapabilityContractIntake
+} from "../core/symphony-capability-contract-intake.js";
+import {
+  createSymphonyCapabilityDispatchAuthorityService
+} from "../core/symphony-capability-dispatch-authority.js";
+import {
   createRuntimeRouteLifecycleService,
   type SymphonyRuntimeRouteLifecycleService
 } from "../core/runtime-route-lifecycle-service.js";
@@ -50,7 +56,10 @@ export type RouteLifecycleGoldenPathHarness = {
 
 export async function createRouteLifecycleGoldenPathHarness(input: {
   state: string;
+  title?: string;
+  description?: string | null;
   presetId?: SymphonyRuntimeRouterPresetId;
+  dispatchAuthorityMode?: "external" | "capability";
   createIntelligentFlowCapabilityPreset?: typeof createSymphonyCapabilityPreset;
 }): Promise<RouteLifecycleGoldenPathHarness> {
   const root = await mkdtemp(path.join(tmpdir(), "symphony-golden-path-"));
@@ -64,7 +73,9 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
   });
   const runtimePolicy = buildSymphonyRuntimePolicy();
   const issue = buildSymphonyTrackerIssue({
-    state: input.state
+    state: input.state,
+    title: input.title,
+    description: input.description
   });
   const tracker = createMemorySymphonyTracker([issue]);
   const repositoryKey = "openai/symphony";
@@ -86,12 +97,25 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
     routeWorkflows,
     trackerConfig: runtimePolicy.tracker
   });
+  const contractIntake = createSymphonyCapabilityContractIntake({
+    routeWorkflows
+  });
   const capabilityOperator = createSymphonyCapabilityOperatorService({
     routeWorkflowStore,
     routeWorkflows,
     sessionLoader,
     capabilityPlanning
   });
+  const capabilityDispatchAuthority =
+    input.dispatchAuthorityMode === "capability"
+      ? createSymphonyCapabilityDispatchAuthorityService({
+          sessionLoader,
+          routeWorkflows,
+          tracker,
+          contractIntake,
+          capabilityPlanning
+        })
+      : createExternalRunDispatchAuthority();
   const service = await createRuntimeRouteLifecycleService({
     routeWorkflows,
     tracker,
@@ -101,7 +125,7 @@ export async function createRouteLifecycleGoldenPathHarness(input: {
       ...createDefaultRuntimeWorkflowPresetSelection(),
       presetId: input.presetId ?? "intelligent-flow"
     },
-    capabilityDispatchAuthority: createExternalRunDispatchAuthority(),
+    capabilityDispatchAuthority,
     routeWorkflowStore,
     capabilityPlanning,
     now: () => new Date("2026-04-13T10:00:00.000Z")

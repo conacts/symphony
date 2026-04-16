@@ -621,6 +621,9 @@ export const symphonyRuntimeWorkflowObservabilityResultSchema = z.strictObject({
   workflow: symphonyRuntimeWorkflowDescriptorSchema,
   trackerState: nullableNonEmptyStringSchema,
   capability: z.lazy(() => symphonyRuntimeIssueCapabilityStateSchema).nullable(),
+  pendingClarification: z
+    .lazy(() => symphonyRuntimeIssuePendingClarificationSchema)
+    .nullable(),
   snapshot: symphonyRuntimeWorkflowSnapshotSchema.nullable(),
   replay: symphonyRuntimeWorkflowReplaySummarySchema,
   routerDecision: symphonyRuntimeWorkflowRouterDecisionSummarySchema.nullable(),
@@ -651,7 +654,7 @@ export const symphonyRuntimeIssueOperatorSchema = z.strictObject({
     defaultModel: nullableNonEmptyStringSchema,
     selectedModel: nullableNonEmptyStringSchema,
     availableModels: z.array(nonEmptyStringSchema),
-    modelOverrideLabelPrefix: nonEmptyStringSchema,
+        modelOverrideLabelPrefix: nonEmptyStringSchema,
         selectionHelpText: nonEmptyStringSchema
       })
 });
@@ -662,14 +665,31 @@ const symphonyRuntimeIssueClarificationQuestionSchema = z.strictObject({
   context: nullableNonEmptyStringSchema
 });
 
-const symphonyRuntimeIssuePendingClarificationSchema = z.strictObject({
-  requestId: nonEmptyStringSchema,
-  raisedByCapabilityId: nullableNonEmptyStringSchema,
-  workEpoch: z.number().int().positive(),
-  summary: nonEmptyStringSchema,
-  questions: z.array(symphonyRuntimeIssueClarificationQuestionSchema).min(1),
-  answerPath: nonEmptyStringSchema
-});
+const symphonyRuntimeIssuePendingClarificationSchema = z.discriminatedUnion(
+  "kind",
+  [
+    z.strictObject({
+      kind: z.literal("contract_intake"),
+      requestId: nonEmptyStringSchema,
+      raisedByCapabilityId: z.null(),
+      workEpoch: z.null(),
+      summary: nonEmptyStringSchema,
+      nextAction: nonEmptyStringSchema,
+      questions: z.array(symphonyRuntimeIssueClarificationQuestionSchema).min(1),
+      answerPath: z.null()
+    }),
+    z.strictObject({
+      kind: z.literal("capability"),
+      requestId: nonEmptyStringSchema,
+      raisedByCapabilityId: nonEmptyStringSchema,
+      workEpoch: z.number().int().positive(),
+      summary: nonEmptyStringSchema,
+      nextAction: nonEmptyStringSchema,
+      questions: z.array(symphonyRuntimeIssueClarificationQuestionSchema).min(1),
+      answerPath: nonEmptyStringSchema
+    })
+  ]
+);
 
 const symphonyRuntimeIssueCapabilityCompletionSchema = z.strictObject({
   workEpoch: z.number().int().positive(),
@@ -719,6 +739,7 @@ export const symphonyRuntimeIssueResultSchema = z.strictObject({
   lastError: nullableNonEmptyStringSchema,
   tracked: symphonyRuntimeTrackedIssueSchema,
   operator: symphonyRuntimeIssueOperatorSchema.extend({
+    pendingClarification: symphonyRuntimeIssuePendingClarificationSchema.nullable(),
     capability: symphonyRuntimeIssueCapabilityStateSchema.nullable()
   })
 });

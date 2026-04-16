@@ -292,6 +292,7 @@ describe("symphony runtime contracts", () => {
             selectionHelpText:
               "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
           },
+          pendingClarification: null,
           capability: null
         }
       }
@@ -337,6 +338,7 @@ describe("symphony runtime contracts", () => {
           updatedAt: "2026-04-13T19:30:00.000Z"
         },
         trackerState: "In Progress",
+        pendingClarification: null,
         capability: {
           workflowId: "workflow-420",
           contractId: "contract-420",
@@ -627,6 +629,7 @@ describe("symphony runtime contracts", () => {
             selectionHelpText:
               "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
           },
+          pendingClarification: null,
           capability: null
         }
       }

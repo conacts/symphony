@@ -279,12 +279,12 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       await c.req.json()
     );
     const recordedAt = new Date().toISOString();
-    const capability = await services.capabilityOperator.inspectByIssueIdentifier({
+    const operatorState = await services.capabilityOperator.inspectByIssueIdentifier({
       issueIdentifier: path.issueIdentifier,
       recordedAt
     });
 
-    if (!capability) {
+    if (!operatorState || operatorState.pendingClarification === null) {
       c.get("logger").warn("Capability operator state not found for issue", {
         issueIdentifier: path.issueIdentifier
       });
@@ -292,16 +292,16 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     }
 
     if (
-      capability.planKind !== "awaiting_input" ||
-      capability.pendingClarification === null
+      operatorState.pendingClarification.kind !== "capability" ||
+      operatorState.capability?.planKind !== "awaiting_input"
     ) {
       throw createHttpError(
         "VALIDATION_FAILED",
-        "Issue is not waiting on a clarification answer."
+        "Issue is waiting on ticket clarification before execution starts. Update the ticket body and move it back to Todo to requeue."
       );
     }
 
-    if (payload.requestId !== capability.pendingClarification.requestId) {
+    if (payload.requestId !== operatorState.pendingClarification.requestId) {
       throw createHttpError(
         "VALIDATION_FAILED",
         `Clarification request ${payload.requestId} is no longer current for ${path.issueIdentifier}.`
@@ -309,7 +309,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     }
 
     const requiredQuestionIds = new Set(
-      capability.pendingClarification.questions.map((question) => question.id)
+      operatorState.pendingClarification.questions.map((question) => question.id)
     );
     for (const questionId of requiredQuestionIds) {
       if (!(questionId in payload.answers)) {
@@ -331,7 +331,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
 
     const result =
       await services.capabilityOperator.answerPendingClarificationByWorkflowId({
-        workflowId: capability.workflowId,
+        workflowId: operatorState.capability.workflowId,
         recordedAt,
         requestId: payload.requestId,
         answers: payload.answers
@@ -372,7 +372,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
     const piSelectionPolicy = resolveHarnessModelRuntimePolicy(
       services.runtimePolicy
     );
-    const capability = await services.capabilityOperator.inspectByIssueIdentifier({
+    const operatorInspection = await services.capabilityOperator.inspectByIssueIdentifier({
       issueIdentifier: path.issueIdentifier,
       recordedAt
     });
@@ -383,7 +383,7 @@ export function createRuntimeRoutes(services: SymphonyRuntimeAppServices) {
       trackedIssue,
       workflowLifecycle?.trackerState ?? null,
       piSelectionPolicy,
-      capability
+      operatorInspection
     );
 
     if (!result) {

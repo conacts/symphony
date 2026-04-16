@@ -17,6 +17,7 @@ import type {
   SymphonyRuntimeMachineLoadSnapshot,
   SymphonyRuntimeClarificationAnswerResult,
   SymphonyRuntimeIssueCapabilityState,
+  SymphonyRuntimeIssuePendingClarification,
   SymphonyRuntimeConfigResult,
   SymphonyRuntimeLogsResult,
   SymphonyRuntimeRefreshResult,
@@ -89,11 +90,16 @@ export type SymphonyRuntimeWorkflowReadPort = {
   }): Promise<SymphonyRuntimeWorkflowLifecycleView | null>;
 };
 
+export type SymphonyRuntimeCapabilityOperatorInspection = {
+  capability: SymphonyRuntimeIssueCapabilityState | null;
+  pendingClarification: SymphonyRuntimeIssuePendingClarification | null;
+};
+
 export type SymphonyRuntimeCapabilityOperatorPort = {
   inspectByIssueIdentifier(input: {
     issueIdentifier: string;
     recordedAt: string;
-  }): Promise<SymphonyRuntimeIssueCapabilityState | null>;
+  }): Promise<SymphonyRuntimeCapabilityOperatorInspection | null>;
   answerPendingClarificationByWorkflowId(input: {
     workflowId: string;
     recordedAt: string;

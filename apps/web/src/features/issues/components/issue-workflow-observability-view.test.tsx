@@ -305,4 +305,41 @@ describe("issue workflow observability view", () => {
     expect(html).toContain("Per-run logs will appear once a module attempt starts.");
     expect(html).toContain("No workflow events have been recorded for this issue yet.");
   });
+
+  it("surfaces pre-execution clarification without inventing an active module", () => {
+    const html = renderToStaticMarkup(
+      <IssueWorkflowObservabilityView
+        runtimeIssue={null}
+        workflow={buildSymphonyRuntimeWorkflowObservabilityResult({
+          trackerState: "Paused",
+          capability: null,
+          pendingClarification: {
+            kind: "contract_intake",
+            requestId: "clarify_contract_19",
+            raisedByCapabilityId: null,
+            workEpoch: null,
+            summary:
+              "Ticket needs more detail before Symphony can derive a valid execution contract.",
+            nextAction:
+              'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+            answerPath: null,
+            questions: [
+              {
+                id: "done_definition",
+                prompt: "What concrete outcome should count as done for this ticket?",
+                context: null
+              }
+            ]
+          },
+          currentModule: null,
+          recentModuleRuns: [],
+          routerDecision: null
+        })}
+      />
+    );
+
+    expect(html).toContain("Ticket clarification");
+    expect(html).toContain("Execution has not started yet.");
+    expect(html).toContain("What concrete outcome should count as done for this ticket?");
+  });
 });

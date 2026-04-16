@@ -147,21 +147,43 @@ describe("runtime serializers", () => {
       "In Progress",
       buildSymphonyRuntimePolicy().pi,
       {
-        workflowId: "workflow-157",
-        contractId: "contract-157",
-        policyId: "default",
-        planKind: "awaiting_input",
-        summary: "Need clarification before continuing implement.spec.",
-        decidedAt: "2026-04-13T18:00:00.000Z",
-        capabilityId: "implement.spec",
-        modelProfileId: null,
-        workEpoch: 1,
-        completion: null,
+        capability: {
+          workflowId: "workflow-157",
+          contractId: "contract-157",
+          policyId: "default",
+          planKind: "awaiting_input",
+          summary: "Need clarification before continuing implement.spec.",
+          decidedAt: "2026-04-13T18:00:00.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: null,
+          workEpoch: 1,
+          completion: null,
+          pendingClarification: {
+            kind: "capability",
+            requestId: "clarify_157",
+            raisedByCapabilityId: "implement.spec",
+            workEpoch: 1,
+            summary: "Need clarification before continuing implement.spec.",
+            nextAction:
+              "Answer the clarification questions to resume the current execution.",
+            answerPath: "/api/v1/COL-157/clarification-answer",
+            questions: [
+              {
+                id: "question_1",
+                prompt: "What behavior should this capability prove?",
+                context: null
+              }
+            ]
+          }
+        },
         pendingClarification: {
+          kind: "capability",
           requestId: "clarify_157",
           raisedByCapabilityId: "implement.spec",
           workEpoch: 1,
           summary: "Need clarification before continuing implement.spec.",
+          nextAction:
+            "Answer the clarification questions to resume the current execution.",
           answerPath: "/api/v1/COL-157/clarification-answer",
           questions: [
             {
@@ -178,6 +200,12 @@ describe("runtime serializers", () => {
       expect.objectContaining({
         planKind: "awaiting_input",
         capabilityId: "implement.spec"
+      })
+    );
+    expect(serialized?.operator.pendingClarification).toEqual(
+      expect.objectContaining({
+        kind: "capability",
+        requestId: "clarify_157"
       })
     );
   });

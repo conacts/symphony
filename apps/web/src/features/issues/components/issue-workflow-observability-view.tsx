@@ -1,5 +1,6 @@
 import React from "react";
 import type {
+  SymphonyRuntimeIssuePendingClarification,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeWorkflowObservabilityResult
 } from "@symphony/contracts";
@@ -52,6 +53,10 @@ export function IssueWorkflowObservabilityView(input: {
   const currentShell = input.workflow.snapshot?.currentNode ?? null;
   const currentModule = input.workflow.currentModule;
   const routerDecision = input.workflow.routerDecision;
+  const pendingClarification =
+    input.workflow.pendingClarification ??
+    input.runtimeIssue?.operator.pendingClarification ??
+    null;
   const recentRuns = input.workflow.recentModuleRuns;
   const decisionsById = new Map(
     input.workflow.decisions.map((decision) => [decision.decisionId, decision] as const)
@@ -64,6 +69,7 @@ export function IssueWorkflowObservabilityView(input: {
   const waitState = buildWorkflowWaitState({
     currentModule,
     capability: input.workflow.capability ?? input.runtimeIssue?.operator.capability ?? null,
+    pendingClarification,
     runtimeIssue: input.runtimeIssue,
     terminal: input.workflow.snapshot?.terminal ?? false
   });
@@ -110,11 +116,19 @@ export function IssueWorkflowObservabilityView(input: {
           />
           <SummaryCard
             label="Current module"
-            value={currentModule ? currentModule.module.summary : "n/a"}
+            value={
+              currentModule
+                ? currentModule.module.summary
+                : pendingClarification
+                  ? buildPendingClarificationCurrentModuleLabel(pendingClarification)
+                  : "n/a"
+            }
             detail={
               currentModule
                 ? `${formatStatusLabel(currentModule.state)} · ${formatTimestamp(currentModule.selectedAt)}`
-                : "No module is currently selected."
+                : pendingClarification
+                  ? buildPendingClarificationCurrentModuleDetail(pendingClarification)
+                  : "No module is currently selected."
             }
           />
           <SummaryCard
@@ -1012,9 +1026,27 @@ function buildHistoryEventDetail(event: WorkflowHistoryEntry): string {
 function buildWorkflowWaitState(input: {
   currentModule: WorkflowModuleObservation | null;
   capability: SymphonyRuntimeIssueResult["operator"]["capability"] | null;
+  pendingClarification:
+    | SymphonyRuntimeWorkflowObservabilityResult["pendingClarification"]
+    | SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
+    | null;
   runtimeIssue: SymphonyRuntimeIssueResult | null;
   terminal: boolean;
 }) {
+  if (input.pendingClarification?.kind === "contract_intake") {
+    return {
+      value: "Ticket clarification",
+      detail: `Execution has not started yet. ${input.pendingClarification.nextAction}`
+    };
+  }
+
+  if (input.pendingClarification?.kind === "capability") {
+    return {
+      value: "Clarification",
+      detail: input.pendingClarification.summary
+    };
+  }
+
   if (input.capability?.planKind === "awaiting_input") {
     return {
       value: "Clarification",
@@ -1079,6 +1111,26 @@ function buildWorkflowWaitState(input: {
     value: "Router progression",
     detail: "Waiting for the next router transition or runtime event."
   };
+}
+
+function buildPendingClarificationCurrentModuleLabel(
+  pendingClarification: SymphonyRuntimeIssuePendingClarification
+): string {
+  if (pendingClarification.kind === "contract_intake") {
+    return "Ticket clarification";
+  }
+
+  return "Capability clarification";
+}
+
+function buildPendingClarificationCurrentModuleDetail(
+  pendingClarification: SymphonyRuntimeIssuePendingClarification
+): string {
+  if (pendingClarification.kind === "contract_intake") {
+    return "Execution has not started yet.";
+  }
+
+  return pendingClarification.summary;
 }
 
 function buildWorkflowLatestActivity(input: {

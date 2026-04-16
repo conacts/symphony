@@ -20,7 +20,13 @@ describe("buildFailureCommentBody", () => {
       }
     );
 
+    expect(comment).toContain("State: `Failed`");
+    expect(comment).toContain(
+      "What changed: Pi stopped before the run became active because startup failed."
+    );
     expect(comment).toContain("Workspace policy: preserve.");
+    expect(comment).toContain("Retry policy: Symphony did not retry automatically.");
+    expect(comment).toContain("Next step: Fix the startup problem.");
     expect(comment).toContain("The issue is currently in `Failed`.");
   });
 
@@ -48,10 +54,17 @@ describe("buildFailureCommentBody", () => {
       }
     );
 
+    expect(comment).toContain("State: `In Progress`");
+    expect(comment).toContain(
+      "What changed: Pi stopped because the runtime failed during an active run."
+    );
     expect(comment).toContain("Symphony agent stopped after a runtime failure.");
     expect(comment).not.toContain("Symphony agent paused after a runtime failure.");
     expect(comment).toContain(
       "Tracker state mismatch: expected `Paused`, actual `In Progress`."
+    );
+    expect(comment).toContain(
+      "Next step: Resolve the runtime or orchestration problem that failed the active run."
     );
     expect(comment).toContain(
       "The issue is currently in `In Progress`. Manual state cleanup may be required before the ticket is requeued."
@@ -71,6 +84,9 @@ describe("buildFailureCommentBody", () => {
 
     expect(comment).toContain("Symphony agent stopped after hitting a Pi rate limit.");
     expect(comment).not.toContain("Symphony agent paused after hitting a Pi rate limit.");
+    expect(comment).toContain(
+      "Next step: Wait for provider capacity to recover or adjust the account limits."
+    );
   });
 
   it("formats blocked implementation comments with blocker guidance", () => {
@@ -86,10 +102,15 @@ describe("buildFailureCommentBody", () => {
       }
     );
 
+    expect(comment).toContain("State: `Blocked`");
+    expect(comment).toContain(
+      "What changed: Pi stopped because active work hit a repo-side or task-side blocker that needs human intervention."
+    );
     expect(comment).toContain("Symphony agent reported a repo or workspace blocker.");
     expect(comment).toContain("Workspace policy: preserve.");
+    expect(comment).toContain("Next step: Resolve the repo or workspace blocker.");
     expect(comment).toContain("The issue is currently in `Blocked`.");
-    expect(comment).toContain("move it back to `Todo`");
+    expect(comment).toContain("move it to `Todo` to requeue");
   });
 
   it("formats blocked merge comments with Todo requeue guidance", () => {
@@ -106,6 +127,31 @@ describe("buildFailureCommentBody", () => {
     );
 
     expect(comment).toContain("Symphony merge automation reported a merge blocker.");
-    expect(comment).toContain("move it back to `Todo`");
+    expect(comment).toContain("Next step: Resolve the merge problem.");
+    expect(comment).toContain("move it to `Todo` to requeue");
+  });
+
+  it("surfaces exhausted retry guidance for transient provider pauses", () => {
+    const comment = buildFailureCommentBody(
+      buildSymphonyTrackerIssue({
+        state: "Paused"
+      }),
+      "provider returned transient 5xx responses",
+      "paused_provider_transient",
+      {
+        expectedTrackerState: "Paused",
+        workspaceCleanupMode: "preserve"
+      }
+    );
+
+    expect(comment).toContain(
+      "Retry policy: Automatic retries were exhausted."
+    );
+    expect(comment).toContain(
+      "Next step: Resolve the provider problem that exhausted the retry budget."
+    );
+    expect(comment).toContain(
+      "The issue is currently in `Paused`. After completing the next step, move it to `Todo` to requeue."
+    );
   });
 });

@@ -261,8 +261,8 @@ describe("capability progression golden paths", () => {
       issueIdentifier: harness.issue.identifier,
       recordedAt: "2026-04-13T10:30:31.000Z"
     });
-    expect(pending).toEqual(
-      expect.objectContaining({
+    expect(pending).toEqual({
+      capability: expect.objectContaining({
         workflowId,
         planKind: "awaiting_input",
         capabilityId: "implement.spec",
@@ -273,10 +273,20 @@ describe("capability progression golden paths", () => {
           raisedByCapabilityId: "implement.spec",
           workEpoch: 1
         })
+      }),
+      pendingClarification: expect.objectContaining({
+        answerPath: `/api/v1/${harness.issue.identifier}/clarification-answer`,
+        requestId: expect.any(String),
+        raisedByCapabilityId: "implement.spec",
+        workEpoch: 1
       })
-    );
+    });
 
-    if (!pending || pending.pendingClarification === null) {
+    if (
+      !pending ||
+      pending.capability === null ||
+      pending.pendingClarification === null
+    ) {
       throw new TypeError("Expected a pending clarification after awaiting_input.");
     }
     const [question] = pending.pendingClarification.questions;
@@ -285,7 +295,7 @@ describe("capability progression golden paths", () => {
     }
 
     const answered = await harness.capabilityOperator.answerPendingClarificationByWorkflowId({
-      workflowId: pending.workflowId,
+      workflowId: pending.capability.workflowId,
       recordedAt: "2026-04-13T10:30:32.000Z",
       requestId: pending.pendingClarification.requestId,
       answers: {
@@ -348,7 +358,11 @@ describe("capability progression golden paths", () => {
       issueIdentifier: harness.issue.identifier,
       recordedAt: "2026-04-13T10:40:31.000Z"
     });
-    if (!pending || pending.pendingClarification === null) {
+    if (
+      !pending ||
+      pending.capability === null ||
+      pending.pendingClarification === null
+    ) {
       throw new TypeError("Expected a pending clarification before resuming.");
     }
     const [question] = pending.pendingClarification.questions;
@@ -357,7 +371,7 @@ describe("capability progression golden paths", () => {
     }
 
     await harness.capabilityOperator.answerPendingClarificationByWorkflowId({
-      workflowId: pending.workflowId,
+      workflowId: pending.capability.workflowId,
       recordedAt: "2026-04-13T10:40:32.000Z",
       requestId: pending.pendingClarification.requestId,
       answers: {

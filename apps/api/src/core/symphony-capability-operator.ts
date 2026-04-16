@@ -1,10 +1,12 @@
 import type { RouteWorkflowStore } from "@symphony/db";
 import type {
   SymphonyRuntimeClarificationAnswerResult,
-  SymphonyRuntimeIssueCapabilityState
+  SymphonyRuntimeIssueCapabilityState,
+  SymphonyRuntimeIssuePendingClarification
 } from "@symphony/contracts";
 import {
   createSymphonyWorkflowClarificationAnsweredSignal,
+  projectWorkflowCapabilityProjection,
   type SymphonyCapabilityPresetPolicyId,
   type SymphonyCapabilityEvidenceId,
   type SymphonyCapabilityId,
@@ -14,6 +16,7 @@ import type { SymphonyRouteWorkflowPort } from "./runtime-route-workflows.js";
 import type {
   SymphonyRuntimeWorkflowSessionLoader
 } from "./runtime-workflow-session-loader.js";
+import type { SymphonyRuntimeCapabilityOperatorInspection } from "./runtime-app-types.js";
 import type {
   SymphonyCapabilityPlanningResult,
   SymphonyCapabilityPlanningService
@@ -24,7 +27,7 @@ export type SymphonyCapabilityOperatorService = {
     issueIdentifier: string;
     recordedAt: string;
     policyId?: SymphonyCapabilityPresetPolicyId;
-  }): Promise<SymphonyRuntimeIssueCapabilityState | null>;
+  }): Promise<SymphonyRuntimeCapabilityOperatorInspection | null>;
   answerPendingClarificationByWorkflowId(input: {
     workflowId: string;
     recordedAt: string;
@@ -62,6 +65,20 @@ export function createSymphonyCapabilityOperatorService(input: {
         return null;
       }
 
+      const history = await input.routeWorkflowStore.listHistory(workflowId);
+      const projection = projectWorkflowCapabilityProjection({
+        workflowId,
+        history: history.map((event) => event.event)
+      });
+      const preExecutionClarification =
+        serializePreExecutionPendingClarification(projection.pendingClarification);
+      if (preExecutionClarification !== null) {
+        return {
+          capability: null,
+          pendingClarification: preExecutionClarification
+        };
+      }
+
       const contract =
         await input.routeWorkflowStore.getExecutionContract<
           SymphonyCapabilityId,
@@ -78,11 +95,15 @@ export function createSymphonyCapabilityOperatorService(input: {
         policyId
       });
 
-      return serializeCapabilityState({
+      const capability = serializeCapabilityState({
         issueIdentifier: contract.issueIdentifier,
         policyId,
         planning
       });
+      return {
+        capability,
+        pendingClarification: capability.pendingClarification
+      };
     },
 
     async answerPendingClarificationByWorkflowId(answerInput) {
@@ -187,10 +208,10 @@ function serializeCapabilityState(input: {
         capabilityId: input.planning.plan.clarification.raisedByCapabilityId,
         modelProfileId: null,
         workEpoch: input.planning.plan.clarification.workEpoch,
-        pendingClarification: {
-          ...input.planning.plan.clarification,
-          answerPath: buildClarificationAnswerPath(input.issueIdentifier)
-        },
+        pendingClarification: serializeCapabilityPendingClarification({
+          issueIdentifier: input.issueIdentifier,
+          clarification: input.planning.plan.clarification
+        }),
         completion: null
       };
     case "blocked":
@@ -219,6 +240,84 @@ function serializeCapabilityState(input: {
         }
       };
   }
+}
+
+function serializePreExecutionPendingClarification(
+  clarification: {
+    requestId: string;
+    raisedByCapabilityId: string | null;
+    workEpoch: number;
+    summary: string;
+    questions: ReadonlyArray<{
+      id: string;
+      prompt: string;
+      context: string | null;
+    }>;
+  } | null
+): Extract<SymphonyRuntimeIssuePendingClarification, { kind: "contract_intake" }> | null {
+  if (
+    clarification === null ||
+    clarification.raisedByCapabilityId !== null
+  ) {
+    return null;
+  }
+
+  return {
+    kind: "contract_intake",
+    requestId: clarification.requestId,
+    raisedByCapabilityId: null,
+    workEpoch: null,
+    summary: clarification.summary,
+    nextAction: buildContractIntakeClarificationNextAction(clarification.questions),
+    questions: [...clarification.questions],
+    answerPath: null
+  };
+}
+
+function serializeCapabilityPendingClarification(input: {
+  issueIdentifier: string;
+  clarification: {
+    requestId: string;
+    raisedByCapabilityId: string | null;
+    workEpoch: number;
+    summary: string;
+    questions: ReadonlyArray<{
+      id: string;
+      prompt: string;
+      context: string | null;
+    }>;
+  };
+}): Extract<SymphonyRuntimeIssuePendingClarification, { kind: "capability" }> {
+  if (input.clarification.raisedByCapabilityId === null) {
+    throw new TypeError(
+      "Capability clarification serialization requires a raisedByCapabilityId."
+    );
+  }
+
+  return {
+    kind: "capability",
+    requestId: input.clarification.requestId,
+    raisedByCapabilityId: input.clarification.raisedByCapabilityId,
+    workEpoch: input.clarification.workEpoch,
+    summary: input.clarification.summary,
+    nextAction:
+      "Answer the clarification questions to resume the current execution.",
+    questions: [...input.clarification.questions],
+    answerPath: buildClarificationAnswerPath(input.issueIdentifier)
+  };
+}
+
+function buildContractIntakeClarificationNextAction(
+  questions: ReadonlyArray<{
+    prompt: string;
+  }>
+): string {
+  if (questions.length === 0) {
+    return "Update the ticket body with the missing implementation detail, then move the issue back to Todo to requeue.";
+  }
+
+  const prompts = questions.map((question) => `"${question.prompt}"`).join(" ");
+  return `Update the ticket body to answer the missing question${questions.length === 1 ? "" : "s"}: ${prompts} Then move the issue back to Todo to requeue.`;
 }
 
 function buildClarificationAnswerPath(issueIdentifier: string): string {

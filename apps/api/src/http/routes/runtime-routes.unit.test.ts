@@ -197,21 +197,14 @@ describe("runtime routes", () => {
     const inspectByIssueIdentifier = vi
       .fn<SymphonyRuntimeAppServices["capabilityOperator"]["inspectByIssueIdentifier"]>()
       .mockResolvedValue({
-        workflowId: "workflow-123",
-        contractId: "contract-123",
-        policyId: "default",
-        planKind: "awaiting_input",
-        summary: "Need clarification before continuing implement.spec.",
-        decidedAt: "2026-04-13T18:00:00.000Z",
-        capabilityId: "implement.spec",
-        modelProfileId: null,
-        workEpoch: 1,
-        completion: null,
         pendingClarification: {
+          kind: "capability",
           requestId: "clarify_123",
           raisedByCapabilityId: "implement.spec",
           workEpoch: 1,
           summary: "Need clarification before continuing implement.spec.",
+          nextAction:
+            "Answer the clarification questions to resume the current execution.",
           answerPath: "/api/v1/COL-123/clarification-answer",
           questions: [
             {
@@ -220,6 +213,35 @@ describe("runtime routes", () => {
               context: null
             }
           ]
+        },
+        capability: {
+          workflowId: "workflow-123",
+          contractId: "contract-123",
+          policyId: "default",
+          planKind: "awaiting_input",
+          summary: "Need clarification before continuing implement.spec.",
+          decidedAt: "2026-04-13T18:00:00.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: null,
+          workEpoch: 1,
+          completion: null,
+          pendingClarification: {
+            kind: "capability",
+            requestId: "clarify_123",
+            raisedByCapabilityId: "implement.spec",
+            workEpoch: 1,
+            summary: "Need clarification before continuing implement.spec.",
+            nextAction:
+              "Answer the clarification questions to resume the current execution.",
+            answerPath: "/api/v1/COL-123/clarification-answer",
+            questions: [
+              {
+                id: "question_1",
+                prompt: "What behavior should this capability prove?",
+                context: null
+              }
+            ]
+          }
         }
       });
     const app = createRuntimeRoutesTestApp({
@@ -234,6 +256,10 @@ describe("runtime routes", () => {
     const payload = (await response.json()) as {
       data: {
         operator: {
+          pendingClarification: {
+            requestId: string;
+            kind: string;
+          } | null;
           capability: {
             planKind: string;
             pendingClarification: {
@@ -245,11 +271,74 @@ describe("runtime routes", () => {
     };
 
     expect(response.status).toBe(200);
+    expect(payload.data.operator.pendingClarification?.requestId).toBe("clarify_123");
+    expect(payload.data.operator.pendingClarification?.kind).toBe("capability");
     expect(payload.data.operator.capability?.planKind).toBe("awaiting_input");
     expect(payload.data.operator.capability?.pendingClarification?.requestId).toBe(
       "clarify_123"
     );
     expect(inspectByIssueIdentifier).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes pre-execution clarification in runtime issue details without fabricating capability execution state", async () => {
+    const issue = buildSymphonyTrackerIssue({
+      identifier: "SYM-19",
+      state: "Paused"
+    });
+    const inspectByIssueIdentifier = vi
+      .fn<SymphonyRuntimeAppServices["capabilityOperator"]["inspectByIssueIdentifier"]>()
+      .mockResolvedValue({
+        capability: null,
+        pendingClarification: {
+          kind: "contract_intake",
+          requestId: "clarify_contract_19",
+          raisedByCapabilityId: null,
+          workEpoch: null,
+          summary:
+            "Ticket needs more detail before Symphony can derive a valid execution contract.",
+          nextAction:
+            'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+          answerPath: null,
+          questions: [
+            {
+              id: "done_definition",
+              prompt: "What concrete outcome should count as done for this ticket?",
+              context: null
+            }
+          ]
+        }
+      });
+    const app = createRuntimeRoutesTestApp({
+      tracker: createMemorySymphonyTracker([issue]),
+      capabilityOperator: {
+        inspectByIssueIdentifier,
+        answerPendingClarificationByWorkflowId: vi.fn()
+      }
+    });
+
+    const response = await app.request("/api/v1/SYM-19");
+    const payload = (await response.json()) as {
+      data: {
+        operator: {
+          pendingClarification: {
+            kind: string;
+            requestId: string;
+            answerPath: string | null;
+          } | null;
+          capability: null;
+        };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.operator.pendingClarification).toEqual(
+      expect.objectContaining({
+        kind: "contract_intake",
+        requestId: "clarify_contract_19",
+        answerPath: null
+      })
+    );
+    expect(payload.data.operator.capability).toBeNull();
   });
 
   it("records clarification answers through the runtime operator route", async () => {
@@ -280,21 +369,14 @@ describe("runtime routes", () => {
     const app = createRuntimeRoutesTestApp({
       capabilityOperator: {
         inspectByIssueIdentifier: vi.fn().mockResolvedValue({
-          workflowId: "workflow-123",
-          contractId: "contract-123",
-          policyId: "default",
-          planKind: "awaiting_input",
-          summary: "Need clarification before continuing implement.spec.",
-          decidedAt: "2026-04-13T18:09:00.000Z",
-          capabilityId: "implement.spec",
-          modelProfileId: null,
-          workEpoch: 1,
-          completion: null,
           pendingClarification: {
+            kind: "capability",
             requestId: "clarify_123",
             raisedByCapabilityId: "implement.spec",
             workEpoch: 1,
             summary: "Need clarification before continuing implement.spec.",
+            nextAction:
+              "Answer the clarification questions to resume the current execution.",
             answerPath: "/api/v1/COL-123/clarification-answer",
             questions: [
               {
@@ -303,6 +385,35 @@ describe("runtime routes", () => {
                 context: null
               }
             ]
+          },
+          capability: {
+            workflowId: "workflow-123",
+            contractId: "contract-123",
+            policyId: "default",
+            planKind: "awaiting_input",
+            summary: "Need clarification before continuing implement.spec.",
+            decidedAt: "2026-04-13T18:09:00.000Z",
+            capabilityId: "implement.spec",
+            modelProfileId: null,
+            workEpoch: 1,
+            completion: null,
+            pendingClarification: {
+              kind: "capability",
+              requestId: "clarify_123",
+              raisedByCapabilityId: "implement.spec",
+              workEpoch: 1,
+              summary: "Need clarification before continuing implement.spec.",
+              nextAction:
+                "Answer the clarification questions to resume the current execution.",
+              answerPath: "/api/v1/COL-123/clarification-answer",
+              questions: [
+                {
+                  id: "question_1",
+                  prompt: "What behavior should this capability prove?",
+                  context: null
+                }
+              ]
+            }
           }
         }),
         answerPendingClarificationByWorkflowId
@@ -658,6 +769,7 @@ function buildWorkflowObservabilityFixture(): SymphonyRuntimeWorkflowObservabili
       pendingClarification: null,
       completion: null
     },
+    pendingClarification: null,
     snapshot: {
       eventSequence: 4,
       currentNode: "active",

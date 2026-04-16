@@ -468,10 +468,16 @@ function buildIssueRuntimeLifecycleSummary(input: {
     input.workflowObservability?.capability ??
     input.runtimeIssue?.operator.capability ??
     null;
+  const pendingClarification =
+    input.workflowObservability?.pendingClarification ??
+    input.runtimeIssue?.operator.pendingClarification ??
+    null;
   const currentStepValue = currentModule
     ? currentModule.module.summary
     : capability
       ? formatStatusLabel(capability.planKind)
+      : pendingClarification
+        ? buildPendingClarificationCurrentStepLabel(pendingClarification)
       : input.runtimeIssue?.running
         ? "Runtime execution active"
         : "No active execution";
@@ -479,11 +485,14 @@ function buildIssueRuntimeLifecycleSummary(input: {
     ? `${formatStatusLabel(currentModule.state)} · ${currentModule.summary}`
     : capability
       ? capability.summary
+      : pendingClarification
+        ? buildPendingClarificationCurrentStepDetail(pendingClarification)
       : input.runtimeIssue?.running?.lastMessage ??
         "No module selection or live runtime state is currently attached to this issue.";
   const waitingOn = resolveIssueLifecycleWaitingState({
     capability,
     currentModule,
+    pendingClarification,
     runtimeIssue: input.runtimeIssue,
     workflowObservability: input.workflowObservability
   });
@@ -526,10 +535,28 @@ function resolveIssueLifecycleWaitingState(input: {
     | SymphonyRuntimeWorkflowObservabilityResult["capability"]
     | SymphonyRuntimeIssueResult["operator"]["capability"]
     | null;
+  pendingClarification:
+    | SymphonyRuntimeWorkflowObservabilityResult["pendingClarification"]
+    | SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
+    | null;
   currentModule: SymphonyRuntimeWorkflowObservabilityResult["currentModule"];
   runtimeIssue: SymphonyRuntimeIssueResult | null;
   workflowObservability: SymphonyRuntimeWorkflowObservabilityResult | null;
 }) {
+  if (input.pendingClarification?.kind === "contract_intake") {
+    return {
+      value: "Ticket clarification",
+      detail: `Execution has not started yet. ${input.pendingClarification.nextAction}`
+    };
+  }
+
+  if (input.pendingClarification?.kind === "capability") {
+    return {
+      value: "Clarification",
+      detail: input.pendingClarification.summary
+    };
+  }
+
   if (input.capability?.planKind === "awaiting_input") {
     return {
       value: "Clarification",
@@ -596,6 +623,30 @@ function resolveIssueLifecycleWaitingState(input: {
     value: "Router progression",
     detail: "Waiting for the next router transition or runtime event."
   };
+}
+
+function buildPendingClarificationCurrentStepLabel(
+  pendingClarification: NonNullable<
+    SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
+  >
+): string {
+  if (pendingClarification.kind === "contract_intake") {
+    return "Ticket clarification";
+  }
+
+  return "Capability clarification";
+}
+
+function buildPendingClarificationCurrentStepDetail(
+  pendingClarification: NonNullable<
+    SymphonyRuntimeIssueResult["operator"]["pendingClarification"]
+  >
+): string {
+  if (pendingClarification.kind === "contract_intake") {
+    return `Execution has not started yet. ${pendingClarification.summary}`;
+  }
+
+  return pendingClarification.summary;
 }
 
 function runtimeLogBadgeVariant(

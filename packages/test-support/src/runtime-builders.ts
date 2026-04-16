@@ -377,6 +377,7 @@ export function buildSymphonyRuntimeIssueResult(
       selectionHelpText:
         "Pi selection is label-driven. Use model:<preset> for repo-defined tiers or model:<model> for a direct model override."
     },
+    pendingClarification: null,
     capability: null
   };
 

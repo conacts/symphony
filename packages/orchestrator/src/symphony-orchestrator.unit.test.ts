@@ -2328,6 +2328,11 @@ describe("symphony orchestrator", () => {
         "Symphony did not retry automatically."
       )
     });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining("Next step: Review the preserved workspace and decide what remaining work should resume in the next run.")
+    });
   });
 
   it("preserves the workspace after max-turn pauses", async () => {
@@ -2580,6 +2585,11 @@ describe("symphony orchestrator", () => {
     expect(tracker.listOperations()).toContainEqual({
       kind: "comment",
       issueId: "issue-123",
+      body: expect.stringContaining("State: `Failed`")
+    });
+    expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
       body: expect.stringContaining("The issue is currently in `Failed`.")
     });
   });
@@ -2787,6 +2797,13 @@ describe("symphony orchestrator", () => {
       body: expect.stringContaining("Latest rate limits: pi; primary: 90/100 remaining, reset 95s")
     });
     expect(tracker.listOperations()).toContainEqual({
+      kind: "comment",
+      issueId: "issue-123",
+      body: expect.stringContaining(
+        "Next step: Wait for provider capacity to recover or adjust the account limits."
+      )
+    });
+    expect(tracker.listOperations()).toContainEqual({
       kind: "update_state",
       issueId: "issue-123",
       stateName: "Paused"
@@ -2919,12 +2936,20 @@ describe("symphony orchestrator", () => {
           {
             kind: "comment",
             issueId: harness.issue.id,
-            body: expect.stringContaining("Symphony agent reported a repo or workspace blocker.")
-          },
+            body: expect.stringContaining(
+              "Symphony agent reported a repo or workspace blocker."
+            )
+          }
+        ])
+      );
+      expect(harness.tracker.listOperations()).toEqual(
+        expect.arrayContaining([
           {
             kind: "comment",
             issueId: harness.issue.id,
-            body: expect.stringContaining("move it back to `Todo`")
+            body: expect.stringContaining(
+              "After completing the next step, move it to `Todo` to requeue."
+            )
           }
         ])
       );

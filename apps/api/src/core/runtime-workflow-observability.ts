@@ -16,6 +16,7 @@ import {
   readSymphonyIntelligentFlowRouterDecision
 } from "@symphony/router";
 import type {
+  SymphonyRuntimeCapabilityOperatorInspection,
   SymphonyRuntimeCapabilityOperatorPort,
   SymphonyRuntimeWorkflowReadPort
 } from "./runtime-app-types.js";
@@ -115,7 +116,7 @@ async function buildObservabilityResult(input: {
 
     return [serializeSignal(event)];
   });
-  const [trackerState, capability] =
+  const [trackerState, operatorState] =
     liveWorkflow && liveWorkflow.workflowId === input.workflow.workflowId
       ? await Promise.all([
           snapshot
@@ -132,8 +133,10 @@ async function buildObservabilityResult(input: {
         ])
       : await Promise.all([
           Promise.resolve<string | null>(null),
-          Promise.resolve<SymphonyRuntimeIssueCapabilityState | null>(null)
+          Promise.resolve<SymphonyRuntimeCapabilityOperatorInspection | null>(null)
         ]);
+  const capability = operatorState?.capability ?? null;
+  const pendingClarification = operatorState?.pendingClarification ?? null;
   const routerDecision = buildRouterDecisionSummary(decisions);
   const recentModuleRuns = buildRecentModuleRuns({
     decisions,
@@ -162,6 +165,7 @@ async function buildObservabilityResult(input: {
     },
     trackerState,
     capability,
+    pendingClarification,
     snapshot: snapshot
       ? {
           eventSequence: snapshot.eventSequence,
@@ -314,6 +318,7 @@ function buildCurrentModuleSummary(input: {
     input.capability.capabilityId !== null &&
     input.capability.workEpoch !== null
   ) {
+    const routerDecision = input.routerDecision;
     return {
       executionId: null,
       module: serializeModule(input.capability.capabilityId),
@@ -330,15 +335,14 @@ function buildCurrentModuleSummary(input: {
       failureKind: null,
       evidenceProduced: [],
       decision:
-        input.routerDecision?.selectedModule.moduleId ===
-        input.capability.capabilityId
+        routerDecision?.selectedModule.moduleId === input.capability.capabilityId
           ? {
-              decisionId: input.routerDecision.decisionId,
-              recordedAt: input.routerDecision.recordedAt,
-              reasonCode: input.routerDecision.reasonCode,
-              selectionMode: input.routerDecision.selectionMode,
-              selectionSummary: input.routerDecision.selectionSummary,
-              selectionRationale: input.routerDecision.selectionRationale
+              decisionId: routerDecision.decisionId,
+              recordedAt: routerDecision.recordedAt,
+              reasonCode: routerDecision.reasonCode,
+              selectionMode: routerDecision.selectionMode,
+              selectionSummary: routerDecision.selectionSummary,
+              selectionRationale: routerDecision.selectionRationale
             }
           : null
     };

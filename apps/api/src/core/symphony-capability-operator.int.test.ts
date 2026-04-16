@@ -38,17 +38,18 @@ describe("Symphony capability operator service", () => {
     });
     const operator = await createOperatorService();
 
-    const capability = await operator.inspectByIssueIdentifier({
+    const inspection = await operator.inspectByIssueIdentifier({
       issueIdentifier: harness.issueIdentifier,
       recordedAt: "2026-04-13T19:00:01.000Z"
     });
 
-    expect(capability).toEqual(
-      expect.objectContaining({
+    expect(inspection).toEqual({
+      capability: expect.objectContaining({
         planKind: "awaiting_input",
         capabilityId: "implement.spec",
         workEpoch: 1,
         pendingClarification: expect.objectContaining({
+          kind: "capability",
           requestId: expect.stringContaining("clarify_"),
           answerPath: `/api/v1/${harness.issueIdentifier}/clarification-answer`,
           questions: [
@@ -57,8 +58,12 @@ describe("Symphony capability operator service", () => {
             })
           ]
         })
+      }),
+      pendingClarification: expect.objectContaining({
+        kind: "capability",
+        requestId: expect.stringContaining("clarify_")
       })
-    );
+    });
   });
 
   it("records clarification answers and returns the replanned capability state", async () => {
@@ -79,12 +84,16 @@ describe("Symphony capability operator service", () => {
       recordedAt: "2026-04-13T19:10:01.000Z"
     });
 
-    if (!pending || pending.pendingClarification === null) {
+    if (
+      !pending ||
+      pending.capability === null ||
+      pending.pendingClarification === null
+    ) {
       throw new TypeError("Expected a pending clarification.");
     }
 
     const answered = await operator.answerPendingClarificationByWorkflowId({
-      workflowId: pending.workflowId,
+      workflowId: pending.capability.workflowId,
       recordedAt: "2026-04-13T19:10:02.000Z",
       requestId: pending.pendingClarification.requestId,
       answers: {

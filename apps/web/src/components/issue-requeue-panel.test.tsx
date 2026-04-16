@@ -42,39 +42,32 @@ describe("issue requeue panel", () => {
     expect(html).toContain("404");
   });
 
-  it("renders pending capability clarification prompts", () => {
+  it("renders pre-execution clarification without capability answer controls", () => {
     const html = renderToStaticMarkup(
       <IssueRequeuePanel
         error={null}
         issueDetail={buildSymphonyForensicsIssueDetailResult()}
         issue={buildSymphonyRuntimeIssueResult({
           operator: {
-            capability: {
-              workflowId: "workflow-167",
-              contractId: "contract-167",
-              policyId: "default",
-              planKind: "awaiting_input",
-              summary: "Need a repository-scope clarification before continuing.",
-              decidedAt: "2026-04-13T18:00:00.000Z",
-              capabilityId: "implement.spec",
-              modelProfileId: null,
-              workEpoch: 1,
-              completion: null,
-              pendingClarification: {
-                requestId: "clarification-167",
-                raisedByCapabilityId: "implement.spec",
-                workEpoch: 1,
-                summary: "Need a repository-scope clarification before continuing.",
-                answerPath: "/api/v1/COL-167/clarification-answer",
-                questions: [
-                  {
-                    id: "repo_scope",
-                    prompt: "Should this change stay backend-only?",
-                    context: "The current contract is ambiguous."
-                  }
-                ]
-              }
-            }
+            pendingClarification: {
+              kind: "contract_intake",
+              requestId: "clarification-167",
+              raisedByCapabilityId: null,
+              workEpoch: null,
+              summary:
+                "Need a repository-scope clarification before Symphony can start execution.",
+              nextAction:
+                'Update the ticket body to answer the missing question: "Should this change stay backend-only?" Then move the issue back to Todo to requeue.',
+              answerPath: null,
+              questions: [
+                {
+                  id: "repo_scope",
+                  prompt: "Should this change stay backend-only?",
+                  context: "The current contract is ambiguous."
+                }
+              ]
+            },
+            capability: null
           }
         })}
         issueIdentifier="COL-167"
@@ -82,9 +75,11 @@ describe("issue requeue panel", () => {
       />
     );
 
-    expect(html).toContain("Capability Router");
-    expect(html).toContain("Awaiting Input");
+    expect(html).toContain("Ticket clarification");
+    expect(html).toContain("Ticket Clarification");
+    expect(html).toContain("Execution has not started yet");
     expect(html).toContain("Should this change stay backend-only?");
-    expect(html).toContain("Submit Clarification");
+    expect(html).toContain("move the issue back to Todo to requeue");
+    expect(html).not.toContain("Submit Clarification");
   });
 });

@@ -259,4 +259,82 @@ describe("issue detail view", () => {
     expect(html).toContain("Timeout classified while waiting for more agent activity.");
     expect(html).not.toContain("Issue detail unavailable");
   });
+
+  it("renders pre-execution clarification as a first-class waiting state", () => {
+    const html = renderToStaticMarkup(
+      <IssueDetailView
+        connection={buildSymphonyDashboardConnectionState()}
+        issueIdentifier="SYM-19"
+        issueDetailError={null}
+        issueDetail={null}
+        issueDetailLoading={false}
+        runtimeIssue={buildSymphonyRuntimeIssueResult({
+          status: "tracked",
+          running: null,
+          retry: null,
+          tracked: {
+            title: "Clarify intake before execution starts",
+            state: "Paused",
+            branchName: null,
+            url: "https://linear.app/symphony/issue/SYM-19/clarify-intake-before-execution-starts",
+            projectName: "Dogfooding",
+            teamKey: "SYM"
+          },
+          operator: {
+            pendingClarification: {
+              kind: "contract_intake",
+              requestId: "clarify_contract_19",
+              raisedByCapabilityId: null,
+              workEpoch: null,
+              summary:
+                "Ticket needs more detail before Symphony can derive a valid execution contract.",
+              nextAction:
+                'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+              answerPath: null,
+              questions: [
+                {
+                  id: "done_definition",
+                  prompt: "What concrete outcome should count as done for this ticket?",
+                  context: null
+                }
+              ]
+            },
+            capability: null
+          }
+        })}
+        runtimeLogs={null}
+        runtimeLogsError={null}
+        runtimeLogsLoading={false}
+        workflowObservability={buildSymphonyRuntimeWorkflowObservabilityResult({
+          trackerState: "Paused",
+          capability: null,
+          pendingClarification: {
+            kind: "contract_intake",
+            requestId: "clarify_contract_19",
+            raisedByCapabilityId: null,
+            workEpoch: null,
+            summary:
+              "Ticket needs more detail before Symphony can derive a valid execution contract.",
+            nextAction:
+              'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+            answerPath: null,
+            questions: [
+              {
+                id: "done_definition",
+                prompt: "What concrete outcome should count as done for this ticket?",
+                context: null
+              }
+            ]
+          },
+          currentModule: null
+        })}
+        workflowObservabilityError={null}
+        workflowObservabilityLoading={false}
+      />
+    );
+
+    expect(html).toContain("Ticket clarification");
+    expect(html).toContain("Execution has not started yet.");
+    expect(html).toContain("What concrete outcome should count as done for this ticket?");
+  });
 });

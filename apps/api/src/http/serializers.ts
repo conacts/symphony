@@ -7,8 +7,8 @@ import {
   issueBranchName,
   type SymphonyTrackerIssue
 } from "@symphony/tracker";
+import type { SymphonyRuntimeCapabilityOperatorInspection } from "../core/runtime-app-types.js";
 import type {
-  SymphonyRuntimeIssueCapabilityState,
   SymphonyRuntimeIssueResult,
   SymphonyRuntimeLaunchTarget,
   SymphonyRuntimeStateResult
@@ -111,7 +111,7 @@ export function serializeRuntimeIssue(
   trackedIssue: SymphonyTrackerIssue | null,
   workflowTrackerState: string | null,
   piSelectionPolicy: RuntimeIssuePiSelectionPolicy,
-  capability: SymphonyRuntimeIssueCapabilityState | null = null
+  operatorInspection: SymphonyRuntimeCapabilityOperatorInspection | null = null
 ): SymphonyRuntimeIssueResult | null {
   const running = snapshot.running.find(
     (entry) => entry.issue.identifier === issueIdentifier
@@ -211,7 +211,8 @@ export function serializeRuntimeIssue(
         selectionHelpText:
           `Pi selection is label-driven. Use ${piModelLabelPrefix}<preset> for repo-defined tiers or ${piModelLabelPrefix}<model> for a direct model override.`
       },
-      capability
+      pendingClarification: operatorInspection?.pendingClarification ?? null,
+      capability: operatorInspection?.capability ?? null
     }
   };
 }

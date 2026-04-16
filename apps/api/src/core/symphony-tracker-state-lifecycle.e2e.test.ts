@@ -261,6 +261,160 @@ describe("tracker state lifecycle golden paths", () => {
     });
   });
 
+  it("requeues weak intake tickets from awaiting_input after the ticket is strengthened and starts implementation", async () => {
+    harness = await createRouteLifecycleGoldenPathHarness({
+      state: "Todo",
+      title: "Render workflow progress in the issue detail view",
+      description: "",
+      presetId: "intelligent-flow",
+      dispatchAuthorityMode: "capability"
+    });
+
+    const initial = await claimTodoWork(harness, "2026-04-15T09:35:00.000Z");
+    const workflowId = await loadRequiredWorkflowId(harness);
+
+    expect(initial.dispatchRequests).toEqual([]);
+    expect(initial.observation).toEqual({
+      issueIdentifier: harness.issue.identifier,
+      observedTrackerState: "Todo",
+      workflowTrackerState: "Paused",
+      observed: true,
+      disposition: "observed"
+    });
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Paused");
+    expect(
+      await harness.service.loadWorkflowLifecycleView({
+        issueIdentifier: harness.issue.identifier
+      })
+    ).toEqual(
+      expect.objectContaining({
+        workflowId,
+        trackerState: "Paused"
+      })
+    );
+    expect(
+      await harness.routeWorkflowStore.getExecutionContract(workflowId)
+    ).toBeNull();
+    expect(
+      await harness.routeWorkflows.loadHydrationStateByIssueIdentifier<
+        SymphonyIntelligentFlowNode,
+        SymphonyIntelligentFlowData,
+        SymphonyIntelligentFlowPolicy
+      >(harness.issue.identifier)
+    ).toEqual(
+      expect.objectContaining({
+        snapshot: expect.objectContaining({
+          projection: expect.objectContaining({
+            currentNode: "awaiting_input",
+            data: expect.objectContaining({
+              trackerState: "Paused"
+            })
+          })
+        })
+      })
+    );
+
+    const pausedIssue =
+      harness.tracker.getIssue(harness.issue.id) ??
+      (() => {
+        throw new TypeError(
+          `Expected paused issue state for ${harness.issue.identifier}.`
+        );
+      })();
+
+    harness.tracker.setIssues([
+      {
+        ...pausedIssue,
+        description: buildStrongTicketDescription()
+      }
+    ]);
+    await harness.tracker.updateIssueState(harness.issue.id, "Todo");
+
+    const reopened = await claimTodoWork(harness, "2026-04-15T09:35:20.000Z");
+    const contract = await harness.routeWorkflowStore.getExecutionContract(workflowId);
+    const commands =
+      await harness.routeWorkflowStore.listCapabilityPlannerCommands(workflowId);
+
+    expect(reopened.dispatchRequests).toEqual([
+      {
+        workflowId,
+        issueState: "Bootstrapping",
+        runMode: "implementation"
+      }
+    ]);
+    expect(reopened.observation).toEqual({
+      issueIdentifier: harness.issue.identifier,
+      observedTrackerState: "Todo",
+      workflowTrackerState: "Bootstrapping",
+      observed: true,
+      disposition: "observed"
+    });
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("Bootstrapping");
+    expect(contract).toEqual(
+      expect.objectContaining({
+        workflowId,
+        objective:
+          "Render the latest workflow progress directly in the issue detail view.",
+        doneDefinition: [
+          "- The issue detail view shows the latest router step.",
+          "- The issue detail view shows the most recent execution narrative."
+        ].join("\n")
+      })
+    );
+    expect(commands.map((command) => command.command.payload.capabilityId)).toEqual([
+      "implement.spec"
+    ]);
+
+    await expectRouteWorkflowAuthorityProof<
+      SymphonyIntelligentFlowNode,
+      SymphonyIntelligentFlowData,
+      SymphonyIntelligentFlowPolicy
+    >({
+      routeWorkflows: harness.routeWorkflows,
+      issueIdentifier: harness.issue.identifier,
+      currentNode: "claimed",
+      reasonCode: "awaiting_input_requeued_from_todo",
+      signalType: "tracker.state_observed",
+      assertData(data) {
+        expect(data.trackerState).toBe("Bootstrapping");
+      }
+    });
+
+    const activated = await activateImplementationRun(
+      harness,
+      "2026-04-15T09:35:25.000Z"
+    );
+
+    expect(activated.state).toBe("In Progress");
+    expect(harness.tracker.getIssue(harness.issue.id)?.state).toBe("In Progress");
+    expect(
+      await harness.service.loadWorkflowLifecycleView({
+        issueIdentifier: harness.issue.identifier,
+        runId: "run-1"
+      })
+    ).toEqual(
+      expect.objectContaining({
+        workflowId,
+        trackerState: "In Progress"
+      })
+    );
+
+    await expectRouteWorkflowAuthorityProof<
+      SymphonyIntelligentFlowNode,
+      SymphonyIntelligentFlowData,
+      SymphonyIntelligentFlowPolicy
+    >({
+      routeWorkflows: harness.routeWorkflows,
+      issueIdentifier: harness.issue.identifier,
+      currentNode: "active",
+      reasonCode: "active_run_started",
+      signalType: "runtime.run_started",
+      assertData(data) {
+        expect(data.trackerState).toBe("In Progress");
+      }
+    });
+  });
+
   it("requeues blocked work back through Bootstrapping when it is moved to Todo", async () => {
     harness = await createRouteLifecycleGoldenPathHarness({
       state: "Todo",
@@ -426,4 +580,15 @@ async function reopenWorkflowFromTodo(input: {
       expect(data.trackerState).toBe("Bootstrapping");
     }
   });
+}
+
+function buildStrongTicketDescription(): string {
+  return [
+    "## Objective",
+    "Render the latest workflow progress directly in the issue detail view.",
+    "",
+    "## Done Definition",
+    "- The issue detail view shows the latest router step.",
+    "- The issue detail view shows the most recent execution narrative."
+  ].join("\n");
 }

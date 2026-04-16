@@ -176,24 +176,28 @@ export function prepareSymphonyIntelligentFlowPlanning(
     workflowId: input.contract.workflowId,
     history: input.history
   });
+  const effectiveProjection = createPlanningProjection({
+    lifecycleState: normalizedLifecycleState,
+    projection
+  });
 
-  if (projection.pendingClarification !== null) {
+  if (effectiveProjection.pendingClarification !== null) {
     return {
       kind: "terminal",
       plan: {
         kind: "awaiting_input",
-        clarification: projection.pendingClarification
+        clarification: effectiveProjection.pendingClarification
       },
       routerDecision: null
     };
   }
 
-  if (projection.blockedReason !== null) {
+  if (effectiveProjection.blockedReason !== null) {
     return {
       kind: "terminal",
       plan: {
         kind: "blocked",
-        reason: projection.blockedReason
+        reason: effectiveProjection.blockedReason
       },
       routerDecision: null
     };
@@ -201,7 +205,7 @@ export function prepareSymphonyIntelligentFlowPlanning(
 
   const completionGate = evaluateWorkflowCompletionGate({
     resolvedPolicy,
-    projection
+    projection: effectiveProjection
   });
   if (completionGate.result === "ready_for_completion") {
     return {
@@ -224,10 +228,10 @@ export function prepareSymphonyIntelligentFlowPlanning(
       candidateSet: buildSymphonyIntelligentFlowAdmissibilitySnapshot({
         lifecycleState: normalizedLifecycleState,
         resolvedPolicy,
-        projection,
+        projection: effectiveProjection,
         moduleRegistry
       }),
-      projection,
+      projection: effectiveProjection,
       resolvedPolicy
     }
   };
@@ -418,6 +422,80 @@ function normalizePlanningLifecycleState(
   // The shell selects executable work while still in `claimed`, before the external
   // run emits `run_started`. Treat that pre-run state as execution-ready.
   return lifecycleState === "claimed" ? "active" : lifecycleState;
+}
+
+function createPlanningProjection(input: {
+  lifecycleState: SymphonyIntelligentFlowLifecycleState;
+  projection: SymphonyIntelligentFlowCapabilityProjection;
+}): SymphonyIntelligentFlowCapabilityProjection {
+  if (!shouldIgnoreRouterClarificationDuringPlanning(input)) {
+    return input.projection;
+  }
+
+  return {
+    ...input.projection,
+    pendingClarification: null,
+    phase: derivePlanningProjectionPhase({
+      blockedReason: input.projection.blockedReason,
+      latestAttempts: input.projection.latestAttempts
+    })
+  };
+}
+
+function shouldIgnoreRouterClarificationDuringPlanning(input: {
+  lifecycleState: SymphonyIntelligentFlowLifecycleState;
+  projection: SymphonyIntelligentFlowCapabilityProjection;
+}): boolean {
+  if (input.lifecycleState !== "active") {
+    return false;
+  }
+
+  return input.projection.pendingClarification?.raisedByCapabilityId === null;
+}
+
+function derivePlanningProjectionPhase(input: {
+  blockedReason: string | null;
+  latestAttempts: SymphonyIntelligentFlowCapabilityProjection["latestAttempts"];
+}): WorkflowCapabilityPhase {
+  if (input.blockedReason !== null) {
+    return "blocked";
+  }
+
+  const latestAttempt = input.latestAttempts[0] ?? null;
+  if (!latestAttempt) {
+    return "queued";
+  }
+
+  if (latestAttempt.status === "changes_requested") {
+    return "implementing";
+  }
+
+  if (latestAttempt.capabilityId === "implement.spec") {
+    switch (latestAttempt.status) {
+      case "completed":
+        return "verifying";
+      case "started":
+      case "planned":
+      case "clarification_requested":
+      case "failed":
+        return "implementing";
+      case "blocked":
+        return "blocked";
+      default:
+        return "implementing";
+    }
+  }
+
+  switch (latestAttempt.status) {
+    case "completed":
+    case "started":
+    case "planned":
+    case "failed":
+    case "clarification_requested":
+      return "verifying";
+    case "blocked":
+      return "blocked";
+  }
 }
 
 function resolveSelectedAdmissibleCapabilityCandidate(input: {

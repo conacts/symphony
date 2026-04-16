@@ -347,6 +347,7 @@ export function buildSymphonyRuntimeIssueResult(
       selectionHelpText:
         "Model selection is currently label-driven. Add a Symphony issue label to override the default model for future runs."
     },
+    pendingClarification: null,
     capability: null
   };
 
@@ -402,6 +403,10 @@ export function buildSymphonyRuntimeIssueResult(
               ...defaultOperator.pi,
               ...overrides.operator.pi
             },
+            pendingClarification:
+              overrides.operator.pendingClarification === undefined
+                ? defaultOperator.pendingClarification
+                : overrides.operator.pendingClarification,
             capability:
               overrides.operator.capability === undefined
                 ? defaultOperator.capability
@@ -450,6 +455,7 @@ export function buildSymphonyRuntimeWorkflowObservabilityResult(
       pendingClarification: null,
       completion: null
     },
+    pendingClarification: null,
     snapshot: {
       eventSequence: 6,
       currentNode: "implementation",

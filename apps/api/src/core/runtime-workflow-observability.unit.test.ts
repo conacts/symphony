@@ -39,17 +39,20 @@ describe("runtime workflow observability", () => {
     };
     const capabilityOperator: SymphonyRuntimeCapabilityOperatorPort = {
       inspectByIssueIdentifier: vi.fn().mockResolvedValue({
-        workflowId: workflow.workflowId,
-        contractId: "contract-1",
-        policyId: "default",
-        planKind: "execute",
-        summary: "Next capability execution is implement.spec.",
-        decidedAt: "2026-04-13T19:00:03.000Z",
-        capabilityId: "implement.spec",
-        modelProfileId: "builder_fast",
-        workEpoch: 2,
-        pendingClarification: null,
-        completion: null
+        capability: {
+          workflowId: workflow.workflowId,
+          contractId: "contract-1",
+          policyId: "default",
+          planKind: "execute",
+          summary: "Next capability execution is implement.spec.",
+          decidedAt: "2026-04-13T19:00:03.000Z",
+          capabilityId: "implement.spec",
+          modelProfileId: "builder_fast",
+          workEpoch: 2,
+          pendingClarification: null,
+          completion: null
+        },
+        pendingClarification: null
       }),
       answerPendingClarificationByWorkflowId: vi.fn()
     };
@@ -69,6 +72,7 @@ describe("runtime workflow observability", () => {
     expect(result?.workflow.workflowId).toBe(workflow.workflowId);
     expect(result?.trackerState).toBe("In Progress");
     expect(result?.capability?.planKind).toBe("execute");
+    expect(result?.pendingClarification).toBeNull();
     expect(result?.snapshot?.pendingCommandCount).toBe(1);
     expect(result?.replay.recordedDecisionCount).toBe(1);
     expect(result?.routerDecision).toBeNull();
@@ -117,17 +121,20 @@ describe("runtime workflow observability", () => {
     };
     const capabilityOperator: SymphonyRuntimeCapabilityOperatorPort = {
       inspectByIssueIdentifier: vi.fn().mockResolvedValue({
-        workflowId: workflow.workflowId,
-        contractId: "contract-1",
-        policyId: "default",
-        planKind: "execute",
-        summary: "Next capability execution is critic.code_review.",
-        decidedAt: "2026-04-13T19:00:05.000Z",
-        capabilityId: "critic.code_review",
-        modelProfileId: "critic_strict",
-        workEpoch: 1,
-        pendingClarification: null,
-        completion: null
+        capability: {
+          workflowId: workflow.workflowId,
+          contractId: "contract-1",
+          policyId: "default",
+          planKind: "execute",
+          summary: "Next capability execution is critic.code_review.",
+          decidedAt: "2026-04-13T19:00:05.000Z",
+          capabilityId: "critic.code_review",
+          modelProfileId: "critic_strict",
+          workEpoch: 1,
+          pendingClarification: null,
+          completion: null
+        },
+        pendingClarification: null
       }),
       answerPendingClarificationByWorkflowId: vi.fn()
     };
@@ -240,6 +247,73 @@ describe("runtime workflow observability", () => {
         }
       }
     ]);
+  });
+
+  it("surfaces pre-execution clarification as first-class observability state", async () => {
+    const workflow = buildWorkflowRecord({
+      routerPresetId: "intelligent-flow",
+      routerName: "symphony-intelligent-flow"
+    });
+    const routeWorkflowStore = createRouteWorkflowStoreStub({
+      getWorkflowForIssue: vi.fn().mockResolvedValue(workflow),
+      getWorkflowForScopedIssue: vi.fn().mockResolvedValue(null),
+      getWorkflow: vi.fn().mockResolvedValue(null),
+      listHistory: vi.fn().mockResolvedValue(buildHistory()),
+      listDecisions: vi.fn().mockResolvedValue([]),
+      getLatestSnapshot: vi.fn().mockResolvedValue(buildSnapshot({
+        currentNode: "awaiting_input"
+      }))
+    });
+    const workflowRead: SymphonyRuntimeWorkflowReadPort = {
+      loadWorkflowLifecycleView: vi.fn().mockResolvedValue({
+        workflowId: workflow.workflowId,
+        trackerState: "Paused"
+      })
+    };
+    const capabilityOperator: SymphonyRuntimeCapabilityOperatorPort = {
+      inspectByIssueIdentifier: vi.fn().mockResolvedValue({
+        capability: null,
+        pendingClarification: {
+          kind: "contract_intake",
+          requestId: "clarify_contract_1",
+          raisedByCapabilityId: null,
+          workEpoch: null,
+          summary:
+            "Ticket needs more detail before Symphony can derive a valid execution contract.",
+          nextAction:
+            'Update the ticket body to answer the missing question: "What concrete outcome should count as done for this ticket?" Then move the issue back to Todo to requeue.',
+          questions: [
+            {
+              id: "done_definition",
+              prompt: "What concrete outcome should count as done for this ticket?",
+              context: null
+            }
+          ],
+          answerPath: null
+        }
+      }),
+      answerPendingClarificationByWorkflowId: vi.fn()
+    };
+    const service = createRuntimeWorkflowObservabilityService({
+      routeWorkflowStore,
+      workflowRead,
+      capabilityOperator
+    });
+
+    const result = await service.loadByIssueIdentifier({
+      issueIdentifier: workflow.issueIdentifier,
+      recordedAt: "2026-04-15T12:00:00.000Z"
+    });
+
+    expect(result?.capability).toBeNull();
+    expect(result?.pendingClarification).toEqual(
+      expect.objectContaining({
+        kind: "contract_intake",
+        requestId: "clarify_contract_1",
+        answerPath: null
+      })
+    );
+    expect(result?.currentModule).toBeNull();
   });
 
   it("does not read live-only state for a non-current workflow id", async () => {
@@ -762,7 +836,9 @@ function buildCapabilityAttemptHistory(): RouteHistoryEventRecord[] {
   ];
 }
 
-function buildSnapshot(): RouteProjectionSnapshotRecord {
+function buildSnapshot(
+  overrides: Partial<RouteProjectionSnapshotRecord> = {}
+): RouteProjectionSnapshotRecord {
   return {
     workflowId: "workflow-1",
     eventSequence: 4,
@@ -819,7 +895,8 @@ function buildSnapshot(): RouteProjectionSnapshotRecord {
         selectionMetadata: null
       }
     },
-    updatedAt: "2026-04-13T19:00:03.000Z"
+    updatedAt: "2026-04-13T19:00:03.000Z",
+    ...overrides
   };
 }
 
