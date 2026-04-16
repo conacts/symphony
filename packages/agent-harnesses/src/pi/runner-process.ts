@@ -105,7 +105,10 @@ export class PiRunnerProcess {
     input.logger.debug("Starting Pi runner process", {
       command: spawnSpec.command,
       args: spawnSpec.args,
-      cwd: hostLaunchPath
+      cwd: hostLaunchPath,
+      runtimeWorkspacePath: spawnSpec.runtimeWorkspacePath,
+      runtimeWorkspaceRoot:
+        spawnSpec.runtimeWorkspaceRoot ?? spawnSpec.runtimeWorkspacePath
     });
 
     const child = spawn(spawnSpec.command, spawnSpec.args, {

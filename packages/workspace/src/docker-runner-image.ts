@@ -1,4 +1,9 @@
 import {
+  defaultPiRunnerExecutableName,
+  defaultPiRunnerPackageRoot,
+  resolvePiRunnerPackagedAssetPaths
+} from "@symphony/runtime-contract";
+import {
   defaultDockerWorkspaceCommandRunner,
   dockerCommandError,
   dockerLabelFlags,
@@ -31,13 +36,10 @@ export const symphonyDockerWorkspaceRequiredTools = [
   "python3",
   "psql",
   "rg",
-  "symphony-pi-runner"
+  defaultPiRunnerExecutableName
 ] as const;
-const defaultSymphonyPiRunnerRoot = "/opt/symphony/pi-runner";
-const symphonyDockerWorkspaceRequiredFiles = [
-  `${defaultSymphonyPiRunnerRoot}/node_modules/tsx/dist/loader.mjs`,
-  `${defaultSymphonyPiRunnerRoot}/src/pi/runner-entrypoint.ts`
-] as const;
+const symphonyDockerWorkspaceRequiredPackagedAssets =
+  resolvePiRunnerPackagedAssetPaths(defaultPiRunnerPackageRoot);
 // Docker image inspection and in-container tool checks can exceed 15s when the
 // host is already running multiple build/test workers. Keep the default budget
 // high enough to avoid load-sensitive false negatives during real bootstrap.
@@ -237,7 +239,7 @@ async function assertDockerImageToolContract(input: {
     "-lc",
     renderRunnerContractCheckScript({
       tools: symphonyDockerWorkspaceRequiredTools,
-      files: symphonyDockerWorkspaceRequiredFiles
+      files: symphonyDockerWorkspaceRequiredPackagedAssets
     })
   ];
   const result = await input.commandRunner({
@@ -249,22 +251,33 @@ async function assertDockerImageToolContract(input: {
     return;
   }
 
-  const missingEntries = result.stdout
-    .split("\n")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-
+  const missingEntries = parseMissingRunnerContractEntries(result.stdout);
   if (missingEntries.length > 0) {
+    const missingTools = missingEntries
+      .filter((entry) => entry.kind === "tool")
+      .map((entry) => entry.value);
+    const missingPackagedAssets = missingEntries
+      .filter((entry) => entry.kind === "file")
+      .map((entry) => entry.value);
+
     throw new SymphonyWorkspaceError(
       "workspace_docker_image_invalid",
       [
-        `Docker workspace image ${input.image} is missing required runner contract entries: ${missingEntries.join(", ")}.`,
+        `Docker workspace image ${input.image} is missing required Pi runner packaging.`,
+        missingTools.length > 0
+          ? `Missing tools: ${missingTools.join(", ")}.`
+          : null,
+        missingPackagedAssets.length > 0
+          ? `Missing packaged assets: ${missingPackagedAssets.join(", ")}.`
+          : null,
         `Required tools: ${symphonyDockerWorkspaceRequiredTools.join(", ")}.`,
-        `Required files: ${symphonyDockerWorkspaceRequiredFiles.join(", ")}.`,
+        `Required packaged assets: ${symphonyDockerWorkspaceRequiredPackagedAssets.join(", ")}.`,
         input.image === defaultSymphonyDockerWorkspaceImage
           ? `Rebuild the supported local runner image with \`${symphonyDockerWorkspaceBuildCommand}\`.`
           : `Build a compatible image or unset SYMPHONY_DOCKER_WORKSPACE_IMAGE to use ${defaultSymphonyDockerWorkspaceImage}.`
-      ].join("\n")
+      ]
+        .filter((line): line is string => typeof line === "string")
+        .join("\n")
     );
   }
 
@@ -563,6 +576,38 @@ function renderRunnerContractCheckScript(input: {
     ),
     "exit \"$missing\""
   ].join("; ");
+}
+
+type MissingRunnerContractEntry = {
+  kind: "tool" | "file";
+  value: string;
+};
+
+function parseMissingRunnerContractEntries(
+  output: string
+): MissingRunnerContractEntry[] {
+  return output
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .reduce<MissingRunnerContractEntry[]>((entries, entry) => {
+      if (entry.startsWith("tool:")) {
+        entries.push({
+          kind: "tool",
+          value: entry.slice("tool:".length)
+        });
+        return entries;
+      }
+
+      if (entry.startsWith("file:")) {
+        entries.push({
+          kind: "file",
+          value: entry.slice("file:".length)
+        });
+      }
+
+      return entries;
+    }, []);
 }
 
 function escapeShellWord(value: string): string {

@@ -166,7 +166,7 @@ describe("docker runner image", () => {
         commandRunner: runner
       })
     ).rejects.toThrowError(
-      /missing required runner contract entries: tool:pi, tool:pnpm, tool:psql, tool:symphony-pi-runner/i
+      /missing required Pi runner packaging\.\nMissing tools: pi, pnpm, psql, symphony-pi-runner\./i
     );
   });
 
@@ -244,7 +244,7 @@ describe("docker runner image", () => {
         commandRunner: runner
       })
     ).rejects.toThrowError(
-      /missing required runner contract entries: file:\/opt\/symphony\/pi-runner\/node_modules\/tsx\/dist\/loader\.mjs, file:\/opt\/symphony\/pi-runner\/src\/pi\/runner-entrypoint\.ts/i
+      /missing required Pi runner packaging\.\nMissing packaged assets: \/opt\/symphony\/pi-runner\/node_modules\/tsx\/dist\/loader\.mjs, \/opt\/symphony\/pi-runner\/src\/pi\/runner-entrypoint\.ts\./i
     );
   });
 

@@ -1,6 +1,7 @@
 export * from "./runtime-manifest.js";
 export * from "./module-result.js";
 export * from "./module-result-parser.js";
+export * from "./pi-runner-packaging.js";
 export * from "./prompt-contract.js";
 export * from "./prompt-run-mode.js";
 export * from "./prompt-sections.js";

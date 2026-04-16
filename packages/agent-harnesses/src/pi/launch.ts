@@ -1,5 +1,6 @@
 import type { AgentRuntimeLaunchTarget } from "@symphony/orchestrator";
 import path from "node:path";
+import { defaultPiRunnerExecutablePath } from "@symphony/runtime-contract";
 import type { SymphonyTrackerIssue } from "@symphony/tracker";
 import { HarnessSessionError, type HarnessLaunchSettings } from "../shared/session-types.js";
 import {
@@ -10,13 +11,11 @@ import {
 } from "./model-selection.js";
 
 export {
+  defaultPiRunnerExecutablePath,
   listSupportedPiModels,
   piModelLabelPrefix,
   resolvePiIssueModel
 };
-
-export const defaultPiRunnerExecutablePath =
-  "/usr/local/bin/symphony-pi-runner";
 
 export function resolvePiLaunchSettings(
   baseCommand: string,
