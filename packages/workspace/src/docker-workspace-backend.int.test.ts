@@ -501,6 +501,128 @@ describe("docker workspace backend", () => {
     ]);
   });
 
+  it("refreshes a clean existing workspace repo from the configured source repo before lifecycle runs", async () => {
+    const root = await createWorkspaceRoot();
+    const sourceRepoPath = path.join(root, "source-repo");
+    await mkdir(sourceRepoPath, {
+      recursive: true
+    });
+
+    const calls: string[][] = [];
+    const lifecycleEvents: Array<{
+      eventType: string;
+      message: string;
+    }> = [];
+    let inspectCallCount = 0;
+    const backend = createDockerWorkspaceBackend({
+      image: "ghcr.io/openai/symphony-workspace:latest",
+      shell: "bash",
+      sourceRepoPath,
+      commandRunner: async (input) => {
+        calls.push([...input.args]);
+
+        switch (input.args[0]) {
+          case "inspect":
+            inspectCallCount += 1;
+            if (inspectCallCount === 1) {
+              return {
+                exitCode: 1,
+                stdout: "[]\n",
+                stderr: `Error response from daemon: No such container: ${input.args[3]}`
+              };
+            }
+
+            return {
+              exitCode: 0,
+              stdout: buildDockerInspectPayload({
+                id: "container-202",
+                image: "ghcr.io/openai/symphony-workspace:latest",
+                name: input.args[3] ?? "unknown",
+                issueIdentifier: "COL-202",
+                workspaceKey: "COL-202",
+                hostPath: path.join(root, "symphony-COL-202"),
+                workspacePath: "/workspace",
+                running: true
+              }),
+              stderr: ""
+            };
+          case "run":
+            return {
+              exitCode: 0,
+              stdout: "container-202\n",
+              stderr: ""
+            };
+          case "exec":
+            return input.args.at(-1)?.includes("git fetch --no-tags \"$source_repo\" \"$source_head\"")
+              ? {
+                  exitCode: 0,
+                  stdout: "refreshed\n",
+                  stderr: ""
+                }
+              : {
+                  exitCode: 0,
+                  stdout: "",
+                  stderr: ""
+                };
+          default:
+            throw new Error(`Unexpected docker command: ${input.args.join(" ")}`);
+        }
+      }
+    });
+
+    await backend.prepareWorkspace({
+      context: {
+        trackerIssueId: "issue-202",
+        issueIdentifier: "COL-202",
+        branchName: "feature/refresh"
+      },
+      config: buildWorkspaceTestConfig({
+        workspace: {
+          root
+        }
+      }).workspace,
+      hooks: {
+        afterCreate: null,
+        beforeRun: null,
+        afterRun: null,
+        beforeRemove: null,
+        timeoutMs: 1_000
+      },
+      lifecycleRecorder(event) {
+        lifecycleEvents.push({
+          eventType: event.eventType,
+          message: event.message
+        });
+      }
+    });
+
+    const hydrationCommand = calls.find(
+      (call) =>
+        call[0] === "exec" &&
+        call.at(-1)?.includes("git fetch --no-tags \"$source_repo\" \"$source_head\"")
+    )?.at(-1);
+
+    expect(hydrationCommand).toContain(
+      "repo_status=$(git status --porcelain --untracked-files=normal || true)"
+    );
+    expect(hydrationCommand).toContain(
+      "git fetch --no-tags \"$source_repo\" \"$source_head\" >/dev/null 2>&1"
+    );
+    expect(hydrationCommand).toContain(
+      "git checkout -B \"$branch_name\" FETCH_HEAD >/dev/null 2>&1"
+    );
+    expect(lifecycleEvents).toEqual([
+      {
+        eventType: "workspace_repo_hydration_started",
+        message: "Workspace repo hydration started."
+      },
+      {
+        eventType: "workspace_repo_hydration_completed",
+        message: "Workspace repo hydration refreshed the existing repo from source."
+      }
+    ]);
+  });
+
   it("mounts git admin metadata when the source repo is a git worktree", async () => {
     const root = await createWorkspaceRoot();
     const sourceRepoPath = path.join(root, "source-repo");

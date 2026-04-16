@@ -729,7 +729,20 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
     `branch_name=${shellQuote(branchName)}`,
     `source_repo=${shellQuote(defaultContainerSourceRepoPath)}`,
     "if [ -d .git ]; then",
-    "  echo reused",
+    "  repo_status=$(git status --porcelain --untracked-files=normal || true)",
+    "  if [ -n \"$repo_status\" ]; then",
+    "    echo reused",
+    "    exit 0",
+    "  fi",
+    "  source_head=$(git -C \"$source_repo\" rev-parse HEAD 2>/dev/null || true)",
+    "  current_head=$(git rev-parse HEAD 2>/dev/null || true)",
+    "  if [ -z \"$source_head\" ] || [ \"$source_head\" = \"$current_head\" ]; then",
+    "    echo reused",
+    "    exit 0",
+    "  fi",
+    "  git fetch --no-tags \"$source_repo\" \"$source_head\" >/dev/null 2>&1",
+    "  git checkout -B \"$branch_name\" FETCH_HEAD >/dev/null 2>&1",
+    "  echo refreshed",
     "  exit 0",
     "fi",
     "existing_entry=$(find . -mindepth 1 -maxdepth 1 ! -name '.symphony-runtime' -print -quit || true)",
@@ -781,13 +794,19 @@ async function hydrateWorkspaceFromMountedSourceRepo(input: {
     );
   }
 
-  const outcome =
-    result.stdout.trim().split(/\s+/).includes("hydrated") ? "hydrated" : "reused";
+  const stdoutTokens = result.stdout.trim().split(/\s+/);
+  const outcome = stdoutTokens.includes("hydrated")
+    ? "hydrated"
+    : stdoutTokens.includes("refreshed")
+      ? "refreshed"
+      : "reused";
   await emitDockerManifestLifecyclePhaseEvent(
     input.lifecycleRecorder,
     "workspace_repo_hydration_completed",
     outcome === "hydrated"
       ? "Workspace repo hydration completed."
+      : outcome === "refreshed"
+        ? "Workspace repo hydration refreshed the existing repo from source."
       : "Workspace repo hydration skipped because the repo already existed.",
     {
       hydration: {
