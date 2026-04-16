@@ -257,13 +257,26 @@ describe("Symphony capability dispatch authority", () => {
       const hydration =
         await harness.routeWorkflowStore.loadWorkflowHydrationState(workflowId);
       const trackerOperations = harness.tracker.listOperations();
-      const clarificationComment = trackerOperations.find(
-        (operation) => operation.kind === "comment"
+      const initialHistory =
+        await harness.routeWorkflowStore.listHistory(workflowId);
+      const clarificationComment = firstTrackerCommentBody(trackerOperations);
+      const pausedTransitionCount = countTrackerStateUpdates(
+        trackerOperations,
+        "Paused"
+      );
+      const clarificationSignalCount = countSignalType(
+        initialHistory,
+        "workflow.clarification_requested"
       );
       const repeated = await harness.service.observeNonRunningTrackerStateByIdentifier({
         issueIdentifier: harness.issue.identifier,
         recordedAt: "2026-04-13T08:20:05.000Z"
       });
+      const hydrationAfterRepeat =
+        await harness.routeWorkflowStore.loadWorkflowHydrationState(workflowId);
+      const trackerOperationsAfterRepeat = harness.tracker.listOperations();
+      const historyAfterRepeat =
+        await harness.routeWorkflowStore.listHistory(workflowId);
 
       expect(observed).toEqual({
         issueIdentifier: harness.issue.identifier,
@@ -280,23 +293,26 @@ describe("Symphony capability dispatch authority", () => {
           trackerState: "Paused"
         })
       );
-      expect(clarificationComment).toEqual(
-        expect.objectContaining({
-          kind: "comment",
-          issueId: harness.issue.id,
-          body: expect.stringContaining("paused before execution")
-        })
+      expect(clarificationComment).toContain(
+        "Symphony intake.review paused before execution."
       );
-      expect(clarificationComment?.body).toContain(
+      expect(clarificationComment).toContain(
         "ticket needs more detail before it can derive a valid execution contract"
       );
-      expect(clarificationComment?.body).toContain(
+      expect(clarificationComment).toContain(
         "What concrete outcome should count as done for this ticket?"
       );
-      expect(clarificationComment?.body).toContain(
+      expect(clarificationComment).toContain(
         "The issue is currently in `Paused`."
       );
-      expect(clarificationComment?.body).toContain("move it to `Todo` to requeue");
+      expect(clarificationComment).toContain("move it to `Todo` to requeue");
+      expect(countTrackerComments(trackerOperations)).toBe(1);
+      expect(pausedTransitionCount).toBe(1);
+      expect(listTrackerStateUpdates(trackerOperations)).toEqual([
+        "Bootstrapping",
+        "Paused"
+      ]);
+      expect(clarificationSignalCount).toBe(1);
       expect(repeated).toEqual({
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Paused",
@@ -304,6 +320,14 @@ describe("Symphony capability dispatch authority", () => {
         observed: false,
         disposition: "skipped"
       });
+      expect(hydrationAfterRepeat?.snapshot?.projection.currentNode).toBe(
+        "awaiting_input"
+      );
+      expect(trackerOperationsAfterRepeat).toEqual(trackerOperations);
+      expect(historyAfterRepeat).toHaveLength(initialHistory.length);
+      expect(
+        countSignalType(historyAfterRepeat, "workflow.clarification_requested")
+      ).toBe(clarificationSignalCount);
 
       await harness.restartService("2026-04-13T08:20:10.000Z");
       const afterRestart =
@@ -311,6 +335,11 @@ describe("Symphony capability dispatch authority", () => {
           issueIdentifier: harness.issue.identifier,
           recordedAt: "2026-04-13T08:20:11.000Z"
         });
+      const hydrationAfterRestart =
+        await harness.routeWorkflowStore.loadWorkflowHydrationState(workflowId);
+      const trackerOperationsAfterRestart = harness.tracker.listOperations();
+      const historyAfterRestart =
+        await harness.routeWorkflowStore.listHistory(workflowId);
       expect(afterRestart).toEqual({
         issueIdentifier: harness.issue.identifier,
         observedTrackerState: "Paused",
@@ -318,6 +347,14 @@ describe("Symphony capability dispatch authority", () => {
         observed: false,
         disposition: "skipped"
       });
+      expect(hydrationAfterRestart?.snapshot?.projection.currentNode).toBe(
+        "awaiting_input"
+      );
+      expect(trackerOperationsAfterRestart).toEqual(trackerOperations);
+      expect(historyAfterRestart).toHaveLength(initialHistory.length);
+      expect(
+        countSignalType(historyAfterRestart, "workflow.clarification_requested")
+      ).toBe(clarificationSignalCount);
     } finally {
       harness.close();
     }
@@ -472,4 +509,50 @@ function buildCapabilityTicketDescription(input: {
   }
 
   return sections.join("\n");
+}
+
+function firstTrackerCommentBody(
+  operations: ReturnType<ReturnType<typeof createMemorySymphonyTracker>["listOperations"]>
+): string {
+  const comment = operations.find((operation) => operation.kind === "comment");
+  if (!comment) {
+    throw new TypeError("Expected a tracker comment operation.");
+  }
+
+  return comment.body;
+}
+
+function countTrackerComments(
+  operations: ReturnType<ReturnType<typeof createMemorySymphonyTracker>["listOperations"]>
+): number {
+  return operations.filter((operation) => operation.kind === "comment").length;
+}
+
+function listTrackerStateUpdates(
+  operations: ReturnType<ReturnType<typeof createMemorySymphonyTracker>["listOperations"]>
+): string[] {
+  return operations.flatMap((operation) =>
+    operation.kind === "update_state" ? [operation.stateName] : []
+  );
+}
+
+function countTrackerStateUpdates(
+  operations: ReturnType<ReturnType<typeof createMemorySymphonyTracker>["listOperations"]>,
+  stateName: string
+): number {
+  return operations.filter(
+    (operation) =>
+      operation.kind === "update_state" && operation.stateName === stateName
+  ).length;
+}
+
+function countSignalType(
+  history: Awaited<
+    ReturnType<
+      Awaited<ReturnType<typeof createHarness>>["routeWorkflowStore"]["listHistory"]
+    >
+  >,
+  signalType: string
+): number {
+  return history.filter((entry) => entry.signalType === signalType).length;
 }
